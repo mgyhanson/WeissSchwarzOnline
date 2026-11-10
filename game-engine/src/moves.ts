@@ -3,8 +3,9 @@
  *
  * Every card movement in the game goes through this module, so that zone
  * bookkeeping, object identity (CR-3.1.4), marker handling (CR-3.7.3) and
- * event recording happen in exactly one place. STEP 4b hooks the interrupt
- * rule actions (refresh, level up) in here as well.
+ * event recording happen in exactly one place. The engine loop (flow/run.ts)
+ * checks for interrupt rule actions (refresh, level up) after every step that
+ * calls into this module.
  *
  * These functions mutate ctx.state. Callers that need the previous state
  * must clone it first (see cloneState).
@@ -92,6 +93,7 @@ function relocate(
 
   inst.face = face;
   inst.location = { ...to };
+  inst.enteredBatch = batch;
 
   const event: CardMovedEvent = {
     type: 'CARD_MOVED',
@@ -142,28 +144,51 @@ function moveMarkersOfLeavingCard(ctx: Ctx, from: { player: PlayerId; slot: Slot
   discardMarkers(ctx, sourceMarkers, batch);
 }
 
+export interface BatchMove {
+  instanceId: number;
+  to: ZoneRef;
+  opts?: MoveOptions;
+}
+
 /**
- * Moves several cards simultaneously (one batch). Cards are placed one after
- * another in the order given: with position TOP each lands on top of the
- * previous one, with BOTTOM each lands below the previous one.
+ * Moves several cards simultaneously (one batch), each to its own
+ * destination. Cards are placed one after another in the order given: with
+ * position TOP each lands on top of the previous one, with BOTTOM below it.
  */
-export function moveCards(ctx: Ctx, instanceIds: readonly number[], to: ZoneRef, opts: MoveOptions = {}): void {
-  if (new Set(instanceIds).size !== instanceIds.length) {
-    throw new Error('moveCards: the same card was listed twice');
+export function moveBatch(ctx: Ctx, moves: readonly BatchMove[]): void {
+  if (new Set(moves.map((m) => m.instanceId)).size !== moves.length) {
+    throw new Error('moveBatch: the same card was listed twice');
   }
-  if (instanceIds.length === 0) return;
+  if (moves.length === 0) return;
 
   const batch = ctx.state.nextBatchId++;
-  for (const id of instanceIds) {
-    const from = { ...getInstance(ctx.state, id).location };
-    relocate(ctx, id, to, opts, batch, opts.reason ?? 'UNSPECIFIED');
+  for (const move of moves) {
+    const opts = move.opts ?? {};
+    const inst = getInstance(ctx.state, move.instanceId);
+    const from = { ...inst.location };
+    // An earlier move of this batch may already have carried the card along
+    // (a marker following or being discarded with its character).
+    if (sameZone(from, move.to)) continue;
+    relocate(ctx, move.instanceId, move.to, opts, batch, opts.reason ?? 'UNSPECIFIED');
     if (from.zone === 'stage') {
-      moveMarkersOfLeavingCard(ctx, { player: from.player, slot: from.slot }, to, batch);
+      moveMarkersOfLeavingCard(ctx, { player: from.player, slot: from.slot }, move.to, batch);
     }
   }
 }
 
+/** Moves several cards simultaneously to the same zone. See moveBatch for the ordering. */
+export function moveCards(ctx: Ctx, instanceIds: readonly number[], to: ZoneRef, opts: MoveOptions = {}): void {
+  moveBatch(
+    ctx,
+    instanceIds.map((instanceId) => ({ instanceId, to, opts })),
+  );
+}
+
 export function moveCard(ctx: Ctx, instanceId: number, to: ZoneRef, opts: MoveOptions = {}): void {
+  const inst = getInstance(ctx.state, instanceId);
+  if (sameZone(inst.location, to)) {
+    throw new Error(`Card ${instanceId} is already in ${describeZone(to)}`);
+  }
   moveCards(ctx, [instanceId], to, opts);
 }
 

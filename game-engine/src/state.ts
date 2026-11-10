@@ -12,7 +12,7 @@ export interface GameConfig {
   /**
    * The two deck lists as card ids. The first id ends up at the bottom of the
    * deck and the last at the top; decks are shuffled during game setup
-   * (CR-5.2.1.2), which is part of STEP 4b.
+   * (CR-5.2.1.2).
    */
   decks: [string[], string[]];
 }
@@ -53,7 +53,8 @@ function freezeDefs(defs: Record<string, CardDef>): Readonly<Record<string, Card
 
 /**
  * Builds the state before game setup: every card is in its owner's deck, in
- * the order listed, nothing has been shuffled or drawn.
+ * the order listed, nothing has been shuffled or drawn, and no procedure is
+ * running. Use createGame (game.ts) to start an actual game.
  *
  * Deck legality (CR-5.1) is checked by the deck validator, not here, so that
  * tests can use small decks.
@@ -76,6 +77,7 @@ export function createInitialState(config: GameConfig, seed: string): GameState 
         cardId,
         objectId: nextObjectId++,
         location: { player, zone: 'deck' },
+        enteredBatch: 0,
         orientation: null,
         face: 'DOWN',
       });
@@ -93,6 +95,14 @@ export function createInitialState(config: GameConfig, seed: string): GameState 
     nextObjectId,
     nextEventSeq: 1,
     nextBatchId: 1,
+    nextDecisionId: 1,
+    firstPlayer: null,
+    turn: null,
+    stack: [],
+    pending: null,
+    answer: null,
+    result: null,
+    lastCheckActed: false,
   };
 }
 

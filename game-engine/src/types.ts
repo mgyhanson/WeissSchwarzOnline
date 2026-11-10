@@ -8,6 +8,9 @@
  * hashed, sent to another process and replayed.
  */
 
+import type { Choice, Decision } from './decisions';
+import type { Frame } from './flow/frames';
+
 export const RULES_VERSION = 'JP-1.114';
 
 export type PlayerId = 0 | 1;
@@ -111,6 +114,11 @@ export interface CardInstance {
    */
   objectId: number;
   location: ZoneRef;
+  /**
+   * Batch number of the move that put the card in its current zone (0 before
+   * any move). Cards with the same number arrived simultaneously (CR-9.6.2.1).
+   */
+  enteredBatch: number;
   /** Non-null exactly while the card is in a stage slot. */
   orientation: Orientation | null;
   face: Face;
@@ -136,6 +144,40 @@ export interface PlayerZones {
   marker: Record<SlotId, number[]>;
 }
 
+/** CR-6.1: the phases of a turn. */
+export type Phase = 'STAND' | 'DRAW' | 'CLOCK' | 'MAIN' | 'CLIMAX' | 'ATTACK' | 'END';
+
+export interface TurnState {
+  /** 1 for the first turn of the game, increasing by one every turn. */
+  number: number;
+  /** The turn player. */
+  player: PlayerId;
+  phase: Phase;
+}
+
+/** Why a player lost. */
+export type LossReason =
+  /** CR-1.2.2.1: four or more cards in the level zone. */
+  | 'LEVEL_4'
+  /** CR-1.2.2.2: no cards in deck and none in the waiting room. */
+  | 'NO_CARDS'
+  /** CR-1.2.4: conceded. */
+  | 'RESIGNED';
+
+export type GameResult =
+  | { outcome: 'WIN'; winner: PlayerId; loser: PlayerId; reason: LossReason }
+  /** CR-1.2.3: both players lost at the same time. `reasons` is indexed by player. */
+  | { outcome: 'DRAW'; reasons: [LossReason, LossReason] };
+
+/** CR-3.3.3.1: hand size limit when no effect changes it. */
+export const HAND_LIMIT = 7;
+
+/** CR-3.8.3 / CR-9.3.1: number of clock cards that causes a level up. */
+export const CLOCK_LIMIT = 7;
+
+/** CR-1.2.2.1: number of level cards at which a player loses. */
+export const LOSING_LEVEL = 4;
+
 /** State of the xoshiro128** generator: four unsigned 32-bit integers. */
 export type RngState = [number, number, number, number];
 
@@ -152,4 +194,20 @@ export interface GameState {
   nextObjectId: number;
   nextEventSeq: number;
   nextBatchId: number;
+  nextDecisionId: number;
+
+  /** CR-5.2.1.3: decided at random during setup; null before that. */
+  firstPlayer: PlayerId | null;
+  /** Null until setup has finished. */
+  turn: TurnState | null;
+  /** Procedures in progress; the last element is executed next. See flow/frames.ts. */
+  stack: Frame[];
+  /** The decision the engine is waiting for, if any. */
+  pending: Decision | null;
+  /** A validated choice on its way to the frame that asked for it. */
+  answer: Choice | null;
+  /** Set when the game is over. */
+  result: GameResult | null;
+  /** Whether the most recent check timing resolved anything (used by CR-6.8.1.5). */
+  lastCheckActed: boolean;
 }

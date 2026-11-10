@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest';
 import {
   PILE_ZONES,
   SLOTS,
-  type CardInstance,
   type Ctx,
   type Face,
   type Orientation,
@@ -30,7 +29,7 @@ import {
   shuffleDeck,
   swapSlots,
 } from '../src/index';
-import { newTestState } from './helpers';
+import { newTestState, shouldBeHidden } from './helpers';
 
 const ORIENTATIONS: Orientation[] = ['STAND', 'REST', 'REVERSE'];
 
@@ -77,29 +76,6 @@ function step(ctx: Ctx, rng: RngState): void {
     orientation: ORIENTATIONS[nextInt(rng, 3)]!,
     ...(face ? { face } : {}),
   });
-}
-
-/**
- * Independent statement of the visibility rules (CR-3), written separately
- * from src/visibility.ts so that a mistake there is not copied here.
- */
-function shouldBeHidden(viewer: PlayerId, inst: CardInstance): boolean {
-  const mine = inst.location.player === viewer;
-  const faceDown = inst.face === 'DOWN';
-  const table: Record<string, boolean> = {
-    deck: true,
-    stock: true,
-    hand: !mine,
-    waitingRoom: false,
-    clock: false,
-    climax: false,
-    resolution: false,
-    stage: false,
-    level: faceDown && !mine,
-    memory: faceDown && !mine,
-    marker: faceDown,
-  };
-  return table[inst.location.zone]!;
 }
 
 function run(seed: string, steps: number): { ctx: Ctx; problems: string[] } {

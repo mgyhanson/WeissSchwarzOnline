@@ -63,14 +63,17 @@ WeissSchwarzOnline/
 ### 3.2 對外介面
 
 ```ts
-createGame(config, seed): GameState
-getPendingDecision(state): Decision | null     // 現在輪到誰決定甚麼
-getLegalChoices(state): Choice[]               // 所有合法答案
-applyChoice(state, playerId, choice): { state, events }
-getPlayerView(state, playerId): PlayerView     // 已過濾隱藏資訊
+createGame(config, seed): { state, events }        // 建立對局並執行遊戲準備，直到第一個決定
+getPendingDecision(state): Decision | null         // 現在輪到誰決定甚麼，以及合法答案
+submitChoice(state, { player, decisionId, choice }) // 接受則回傳新狀態及事件；否則回傳拒絕原因
+resign(state, player): { state, events }           // 投降（CR-1.2.4）
+getPlayerView(state, player): PlayerView           // 已過濾隱藏資訊
 ```
 
-`applyChoice` 收到不在 `getLegalChoices` 內的答案時會拒絕並保持原狀態。伺服器、AI、測試、重播全部只用這五個函數。
+- `Decision` 本身列明合法答案：單選類（Main Phase 行動、Level Up、Clock）直接列出選項；多選類（換牌、棄牌至手牌上限）列出可選的卡及張數要求。多選類不逐一列舉所有組合，因為組合數量可以很大。
+- `submitChoice` 會驗證答案：不是該玩家的決定、`decisionId` 已過期（重複或遲到的提交）、或答案不合法，都會被拒絕而且不改變狀態。
+- 所有函數都不修改傳入的狀態，一律回傳新狀態。
+- 伺服器、AI、測試、重播全部只用這五個函數。
 
 ### 3.3 狀態模型
 

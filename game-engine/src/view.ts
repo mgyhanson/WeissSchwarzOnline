@@ -11,8 +11,20 @@
  *     (CR-3.1.4), so a card cannot be followed through a hidden zone.
  */
 
+import type { Decision, DecisionKind } from './decisions';
 import type { CardMovedEvent, GameEvent, MoveReason } from './events';
-import type { CardInstance, Face, GameState, Orientation, PlayerId, PlayerZones, SlotId, ZoneRef } from './types';
+import type {
+  CardInstance,
+  Face,
+  GameResult,
+  GameState,
+  Orientation,
+  PlayerId,
+  PlayerZones,
+  SlotId,
+  TurnState,
+  ZoneRef,
+} from './types';
 import { PILE_ZONES, SLOTS } from './types';
 import { canSee } from './visibility';
 
@@ -48,11 +60,24 @@ export interface SideView {
   marker: Record<SlotId, ZoneView>;
 }
 
+/**
+ * The pending decision as a player sees it. The player who has to decide
+ * gets the full decision; the other player only learns who is deciding what,
+ * because the legal answers can depend on hidden cards.
+ */
+export type DecisionView =
+  | { mine: true; decision: Decision }
+  | { mine: false; id: number; player: PlayerId; kind: DecisionKind };
+
 export interface PlayerView {
   viewer: PlayerId;
   rulesVersion: string;
   /** Indexed by player id. */
   sides: [SideView, SideView];
+  firstPlayer: PlayerId | null;
+  turn: TurnState | null;
+  decision: DecisionView | null;
+  result: GameResult | null;
 }
 
 function viewCard(viewer: PlayerId, inst: CardInstance): CardView {
@@ -85,11 +110,22 @@ function viewSide(state: GameState, viewer: PlayerId, zones: PlayerZones): SideV
   return side;
 }
 
+export function getDecisionView(state: GameState, viewer: PlayerId): DecisionView | null {
+  const decision = state.pending;
+  if (!decision) return null;
+  if (decision.player === viewer) return { mine: true, decision: structuredClone(decision) };
+  return { mine: false, id: decision.id, player: decision.player, kind: decision.kind };
+}
+
 export function getPlayerView(state: GameState, viewer: PlayerId): PlayerView {
   return {
     viewer,
     rulesVersion: state.rulesVersion,
     sides: [viewSide(state, viewer, state.zones[0]), viewSide(state, viewer, state.zones[1])],
+    firstPlayer: state.firstPlayer,
+    turn: state.turn ? { ...state.turn } : null,
+    decision: getDecisionView(state, viewer),
+    result: state.result ? structuredClone(state.result) : null,
   };
 }
 
@@ -111,7 +147,9 @@ export interface CardMovedView {
   face?: Face;
 }
 
-export type GameEventView = CardMovedView | Exclude<GameEvent, CardMovedEvent>;
+type WithoutInstanceId<E> = E extends unknown ? Omit<E, 'instanceId'> : never;
+
+export type GameEventView = CardMovedView | WithoutInstanceId<Exclude<GameEvent, CardMovedEvent>>;
 
 function redactMove(event: CardMovedEvent, viewer: PlayerId): CardMovedView {
   const before = event.visibleBefore[viewer];
@@ -141,15 +179,12 @@ function redactMove(event: CardMovedEvent, viewer: PlayerId): CardMovedView {
  * another (zone counts are public, CR-3.1.2).
  */
 export function redactEvent(event: GameEvent, viewer: PlayerId): GameEventView {
-  switch (event.type) {
-    case 'CARD_MOVED':
-      return redactMove(event, viewer);
-    case 'ORIENTATION_CHANGED': {
-      // Stage cards are always public; only the permanent id is removed.
-      const { instanceId: _instanceId, ...rest } = event;
-      return rest as GameEventView;
-    }
-    case 'DECK_SHUFFLED':
-      return event;
+  if (event.type === 'CARD_MOVED') return redactMove(event, viewer);
+  // Every other event describes something public (a played card is revealed,
+  // CR-8.6.2.1; stage cards are public). Only the permanent id is removed.
+  if ('instanceId' in event) {
+    const { instanceId: _instanceId, ...rest } = event;
+    return rest;
   }
+  return event;
 }

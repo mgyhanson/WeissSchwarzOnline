@@ -1,9 +1,9 @@
 /**
  * Public surface of the rules engine.
  *
- * STEP 4a provides the state model, zones, card movement, player views and
- * invariants. The game flow API (createGame / getPendingDecision /
- * getLegalChoices / applyChoice) is added in STEP 4b.
+ * Running a game: createGame, getPendingDecision, submitChoice, resign and
+ * getPlayerView (see game.ts and view.ts). The other exports are building
+ * blocks used by tests and, later, by the ability engine.
  */
 
 export * from './types';
@@ -15,3 +15,10 @@ export * from './visibility';
 export * from './moves';
 export * from './view';
 export * from './invariants';
+export * from './decisions';
+export * from './stats';
+export * from './play';
+export * from './game';
+export type { Frame, FrameKind, TurnStep } from './flow/frames';
+export { OPENING_HAND_SIZE } from './flow/setup';
+export { isLevelUpDue, isRefreshDue, losingCondition } from './flow/rule-actions';
