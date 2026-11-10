@@ -1,0 +1,30 @@
+# 依賴及建置輸出（實際目錄以 .nosync 結尾，不會被 iCloud 同步）
+node_modules
+node_modules.nosync/
+dist/
+dist.nosync/
+coverage/
+coverage.nosync/
+.cache.nosync/
+
+# 執行期資料（SQLite 不可同步、不入版本庫）
+data.nosync/
+*.db
+*.db-wal
+*.db-shm
+
+# 使用者自行放置的圖片
+card-assets/local.nosync/
+
+# 密碼及環境設定
+.env
+.env.*
+!.env.example
+
+# 系統檔案
+.DS_Store
+*.icloud
+
+# 測試輸出
+playwright-report/
+test-results/
