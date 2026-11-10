@@ -28,3 +28,6 @@ card-assets/local.nosync/
 # 測試輸出
 playwright-report/
 test-results/
+
+# 官方規則 PDF 只作私人離線對照，不放入版本庫
+rules/sources/*.pdf

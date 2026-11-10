@@ -1,0 +1,26 @@
+{
+  "name": "weiss-schwarz-online",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Unofficial community simulator for the Weiss Schwarz trading card game",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "game-engine"
+  ],
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p game-engine --noEmit",
+    "check": "npm run typecheck && npm run test",
+    "backup": "bash scripts/backup.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

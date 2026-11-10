@@ -8,9 +8,26 @@
 | 步驟 | 狀態 |
 |---|---|
 | STEP 1 環境檢查 | 完成 |
-| STEP 2 規則研究 | 完成（有 8 項待決定事項） |
-| STEP 3 技術架構 | 草案完成，待確認 |
-| STEP 4 起 | **未開始**。目前沒有任何遊戲程式碼 |
+| STEP 2 規則研究 | 完成，待決定事項已確認 |
+| STEP 3 技術架構 | 完成，已確認 |
+| STEP 4a 引擎骨架、區域、卡牌移動、玩家視圖 | 完成，72 個測試通過 |
+| STEP 4b 遊戲準備、回合、Check Timing、規則處理 | **未開始** |
+| STEP 4c 起 | 未開始 |
+
+目前**還不能進行對局**：引擎只有區域及卡牌移動這一層，沒有回合流程、攻擊、傷害或卡牌能力。
+
+## 開發指令
+
+```bash
+npm run setup      # 安裝依賴（必須用這個，不要直接 npm install）
+npm test           # 執行全部測試
+npm run typecheck  # 型別檢查
+npm run backup -- <目的地資料夾>
+```
+
+依賴安裝在 `node_modules.nosync/`，iCloud 不會同步。直接執行 `npm install` 會把它換回會被同步的真實資料夾，所以請用 `npm run setup`。
+
+Git 資料存放在 `~/GitRepos/WeissSchwarzOnline.git`（iCloud 之外），專案內的 `.git` 只是一個指向它的檔案。
 
 ## 文件
 
