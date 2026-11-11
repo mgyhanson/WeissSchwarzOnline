@@ -7,12 +7,11 @@
  * a construct that does not exist here cannot be encoded and must be marked
  * "unsupported" in the card database rather than approximated.
  *
- * This is the first part of the format (STEP 4d-1). Replacement effects,
- * abilities that work from the clock or memory, markers and several keywords
- * are not expressible yet.
+ * What cannot be expressed yet is listed in rules/rule-registry.md,
+ * section 14.
  */
 
-import type { CardKind, Orientation, Phase, TriggerIcon } from '../types';
+import type { CardKind, Orientation, Phase, SlotId, TriggerIcon } from '../types';
 
 /** Conditions on a card's information. All given parts must hold. */
 export interface CardFilter {
@@ -86,17 +85,35 @@ export type ChooseFrom =
   /** あなたがマスターであるフロントアタックされたキャラ (backup, CR-10.5.2) */
   | 'FRONT_ATTACKED';
 
-export type Destination = 'HAND' | 'WAITING_ROOM' | 'STOCK' | 'CLOCK' | 'MEMORY' | 'DECK_TOP' | 'DECK_BOTTOM';
+export type Destination =
+  | 'HAND'
+  | 'WAITING_ROOM'
+  | 'STOCK'
+  | 'CLOCK'
+  | 'MEMORY'
+  | 'DECK_TOP'
+  | 'DECK_BOTTOM'
+  /** このカードがいた枠 / それが直前に置かれていた枠: the slot the ability's card is or was in. */
+  | 'SOURCE_SLOT';
+
+/** …1枚につき: multiplies an amount by the number of (other) characters of yours that match. */
+export interface PerCharacter {
+  filter?: CardFilter;
+  other?: boolean;
+}
+
+/** The steps of the attack phase a trigger can name (CR-7). */
+export type AttackStepName = 'ATTACK_DECLARATION' | 'TRIGGER' | 'COUNTER' | 'DAMAGE' | 'BATTLE' | 'ENCORE';
 
 export type Effect =
   /** あなたはN枚引く / 引いてよい */
   | { do: 'DRAW'; count: number; optional?: boolean }
   /** …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1). */
   | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean }
-  /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ */
-  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean }
-  /** そのターン中、…のパワー/ソウル/レベルを＋N */
-  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number }
+  /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
+  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean }
+  /** そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき) */
+  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter }
   /** …を【スタンド】/【レスト】/【リバース】する */
   | { do: 'ORIENT'; target: Target; to: Orientation }
   /** 相手にNダメージを与える */
@@ -126,10 +143,26 @@ export type Trigger =
   /** (あなたの/相手の)…フェイズの始めに */
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
   /** あなたのクライマックスがクライマックス置場に置かれた時 */
-  | { on: 'CLIMAX_PLACED' };
+  | { on: 'CLIMAX_PLACED' }
+  /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
+  | { on: 'STAGE_TO_WAITING_ROOM' }
+  /** (あなたの/相手の)…ステップの始めに */
+  | { on: 'STEP_START'; step: AttackStepName; turn: 'YOURS' | 'OPPONENT' | 'ANY' };
 
 /** Keywords that are labels without rules meaning of their own (CR-10), kept so other effects can refer to them. */
-export type Keyword = 'ASSIST' | 'BACKUP' | 'BRAINSTORM' | 'EXPERIENCE' | 'MEMORY' | 'ACCELERATE' | 'CX_COMBO';
+export type Keyword =
+  | 'ASSIST'
+  | 'BACKUP'
+  | 'BRAINSTORM'
+  | 'EXPERIENCE'
+  | 'MEMORY'
+  | 'ACCELERATE'
+  | 'CX_COMBO'
+  | 'BOND'
+  | 'ENCORE'
+  | 'CHANGE'
+  | 'ALARM'
+  | 'GREAT_PERFORMANCE';
 
 /** 【永】 (CR-8.1.1.3): effects that hold for as long as the ability is active. */
 export interface ContinuousAbility {
@@ -140,14 +173,32 @@ export interface ContinuousAbility {
    * back-row slot.
    */
   assist?: boolean;
+  /**
+   * アラーム (CR-10.1): the ability is active while this card is the top
+   * card of its master's clock, and not otherwise.
+   */
+  alarm?: boolean;
+  /**
+   * 大活躍 (CR-10.6.2): while this character is in its master's front-centre
+   * slot and not reversed, a character of the opponent that attacks makes a
+   * front attack on this character instead.
+   */
+  greatPerformance?: boolean;
   condition?: Condition;
-  apply: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' }>; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number }[];
+  apply: {
+    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' }>;
+    stat: 'POWER' | 'SOUL' | 'LEVEL';
+    amount: number;
+    per?: PerCharacter;
+  }[];
 }
 
 /** 【自】 (CR-8.1.1.2) */
 export interface AutoAbility {
   type: 'AUTO';
   keywords?: Keyword[];
+  /** アラーム (CR-10.1): triggers only while this card is the top card of its master's clock. */
+  alarm?: boolean;
   trigger: Trigger;
   /** …なら: checked when the ability resolves. */
   condition?: Condition;
@@ -195,6 +246,39 @@ export function backup(power: number, level: number, cost: Cost[]): ActivatedAbi
   };
 }
 
+/**
+ * 絆／「カード名」 [cost] (CR-10.4.2): when this card is placed on the stage
+ * from hand, you may pay the cost; if you do, choose a card named so in your
+ * waiting room and return it to your hand.
+ */
+export function bond(name: string, cost: Cost[]): AutoAbility {
+  return {
+    type: 'AUTO',
+    keywords: ['BOND'],
+    trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' },
+    cost,
+    effect: [
+      { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { name }, min: 1, max: 1 },
+      { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' },
+    ],
+  };
+}
+
+/**
+ * アンコール [cost] (CR-10.2.2) with a cost other than the (3) every
+ * character has: when this character is put from the stage into the waiting
+ * room, you may pay the cost; if you do, put it in the slot it was in, rested.
+ */
+export function encore(cost: Cost[]): AutoAbility {
+  return {
+    type: 'AUTO',
+    keywords: ['ENCORE'],
+    trigger: { on: 'STAGE_TO_WAITING_ROOM' },
+    cost,
+    effect: [{ do: 'MOVE', target: { who: 'SELF' }, to: 'SOURCE_SLOT', rested: true }],
+  };
+}
+
 /** What an effect needs to know about the ability it belongs to. Stored inside frames, so plain data. */
 export interface EffectContext {
   /** CR-4.3.3: the player the effect belongs to. */
@@ -206,4 +290,6 @@ export interface EffectContext {
   chosen: number[];
   /** CR-8.11.2: object id of the battle opponent when the ability triggered. */
   battleOpponent: number | null;
+  /** The slot the card is in, or was in when it left the stage (CR-8.7.4.1.2). */
+  sourceSlot: { player: 0 | 1; slot: SlotId } | null;
 }

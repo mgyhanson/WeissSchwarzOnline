@@ -8,7 +8,7 @@ import { getDef, getInstance } from '../state';
 import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { isBackSlot, slotsInFrontOf } from '../zones';
-import type { CardFilter, ChooseFrom, Condition, ContinuousAbility, EffectContext, Target } from './types';
+import type { CardFilter, ChooseFrom, Condition, ContinuousAbility, EffectContext, PerCharacter, Target } from './types';
 
 type Stat = 'POWER' | 'SOUL' | 'LEVEL';
 
@@ -18,6 +18,8 @@ export interface ActiveSource {
   /** CR-4.3.5 / 4.3.6: the master of the card. */
   master: PlayerId;
   def: CardDef;
+  /** True for the top card of a clock: only its アラーム abilities are in force (CR-10.1). */
+  clockTop: boolean;
 }
 
 /**
@@ -31,12 +33,20 @@ export function activeSources(state: GameState): ActiveSource[] {
     for (const slot of SLOTS) {
       for (const instanceId of zones.stage[slot]) {
         const def = getDef(state, instanceId);
-        if (def.kind === 'CHARACTER') sources.push({ instanceId, master, def });
+        if (def.kind === 'CHARACTER') sources.push({ instanceId, master, def, clockTop: false });
       }
     }
     for (const instanceId of zones.climax) {
       const def = getDef(state, instanceId);
-      if (def.kind === 'CLIMAX') sources.push({ instanceId, master, def });
+      if (def.kind === 'CLIMAX') sources.push({ instanceId, master, def, clockTop: false });
+    }
+    // CR-10.1 / CR-2.12.2.3: アラーム abilities of the card on top of the clock.
+    const top = zones.clock[zones.clock.length - 1];
+    if (top !== undefined) {
+      const def = getDef(state, top);
+      if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.alarm)) {
+        sources.push({ instanceId: top, master, def, clockTop: true });
+      }
     }
   }
   return sources;
@@ -161,6 +171,8 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
   for (const source of activeSources(state)) {
     for (const ability of source.def.abilities ?? []) {
       if (ability.type !== 'CONT') continue;
+      // An アラーム ability works from the top of the clock and only from there.
+      if (Boolean(ability.alarm) !== source.clockTop) continue;
       if (!ability.apply.some((part) => part.stat === stat)) continue;
       if (ability.assist) {
         // CR-10.3.2: only while this card is in a back-row slot.
@@ -170,12 +182,33 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
       if (!evalCondition(state, source.master, source.instanceId, ability.condition)) continue;
       for (const part of ability.apply) {
         if (part.stat === stat && continuousTargets(state, source, part.target, levelOf).includes(instanceId)) {
-          total += part.amount;
+          total += part.amount * perCount(state, source.master, source.instanceId, part.per);
         }
       }
     }
   }
   return total;
+}
+
+/** …1枚につき: how many (other) characters of the player match; 1 when the amount is not scaled. */
+export function perCount(state: GameState, master: PlayerId, source: number, per: PerCharacter | undefined): number {
+  if (!per) return 1;
+  return stageCharacters(state, master).filter((id) => !(per.other && id === source) && matchesFilter(state, id, per.filter, printedLevel)).length;
+}
+
+/**
+ * CR-10.6.2: the opponent's character that every attack against that player
+ * must be a front attack on: one with 大活躍 in the front-centre slot that is
+ * not reversed. Null when there is none.
+ */
+export function greatPerformer(state: GameState, defendingPlayer: PlayerId): CardInstance | null {
+  for (const id of state.zones[defendingPlayer].stage.FC) {
+    const def = getDef(state, id);
+    const inst = getInstance(state, id);
+    if (def.kind !== 'CHARACTER' || inst.orientation === 'REVERSE') continue;
+    if ((def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.greatPerformance)) return inst;
+  }
+  return null;
 }
 
 function turnModifierTotal(state: GameState, instanceId: number, stat: Stat): number {

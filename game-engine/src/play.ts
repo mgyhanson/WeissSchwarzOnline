@@ -169,7 +169,15 @@ export function performMainAction(ctx: Ctx, player: PlayerId, action: MainAction
 }
 
 function abilityContext(master: PlayerId, source: CardInstance): EffectContext {
-  return { master, source: source.instanceId, sourceObjectId: source.objectId, chosen: [], battleOpponent: null };
+  const location = source.location;
+  return {
+    master,
+    source: source.instanceId,
+    sourceObjectId: source.objectId,
+    chosen: [],
+    battleOpponent: null,
+    sourceSlot: location.zone === 'stage' ? { player: location.player, slot: location.slot } : null,
+  };
 }
 
 /** Whether an activated ability can be played now: its condition, its per-turn limit and its cost. */

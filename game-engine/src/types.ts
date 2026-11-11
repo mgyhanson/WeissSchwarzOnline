@@ -217,7 +217,17 @@ export type WaitingAuto =
    * An automatic ability printed on a card: ability number `ability` of the
    * card that was object `objectId` when it triggered.
    */
-  | { id: number; kind: 'CARD'; master: PlayerId; instanceId: number; objectId: number; ability: number; battleOpponent: number | null };
+  | {
+      id: number;
+      kind: 'CARD';
+      master: PlayerId;
+      instanceId: number;
+      objectId: number;
+      ability: number;
+      battleOpponent: number | null;
+      /** The slot the card left, for abilities triggered by leaving the stage. */
+      slot: { player: PlayerId; slot: SlotId } | null;
+    };
 
 /** CR-4.14.2.7: a shot trigger waiting for the next damage dealt by the attacking character. */
 export interface ShotWatcher {

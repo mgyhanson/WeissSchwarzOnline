@@ -5,11 +5,12 @@
  * sub-phases (declaration, trigger, counter, damage, battle), then the
  * encore step.
  *
- * Not expressible in ability data yet: the trigger conditions "at the
- * beginning of ... step" and "at the end of the attack". Their check
- * timings are already in place.
+ * Not expressible in ability data yet: the trigger condition "at the end of
+ * the attack" (CR-7.5.1.4, CR-7.6.1.5). Its check timing is in place.
  */
 
+import { greatPerformer } from '../abilities/query';
+import type { AttackStepName } from '../abilities/types';
 import type { AttackOption } from '../decisions';
 import type { Ctx } from '../moves';
 import { moveCard, setOrientation } from '../moves';
@@ -40,9 +41,15 @@ export function listAttackOptions(state: GameState): AttackOption[] {
 
   const player = turn.player;
   const options: AttackOption[] = [];
+  // CR-10.6.2 大活躍: every attack is instead a front attack on that character.
+  const forced = greatPerformer(state, opponentOf(player));
   for (const slot of FRONT_SLOTS) {
     const attacker = characterInSlot(state, player, slot);
     if (!attacker || attacker.orientation !== 'STAND') continue;
+    if (forced) {
+      options.push({ attacker: attacker.objectId, type: 'FRONT' });
+      continue;
+    }
     const facing = facingSlot(slot);
     const defender = facing ? characterInSlot(state, opponentOf(player), facing) : null;
     if (defender) {
@@ -59,8 +66,10 @@ function declareAttack(ctx: Ctx, player: PlayerId, option: AttackOption): void {
   const attacker = findObject(state, option.attacker);
   if (attacker.location.zone !== 'stage') throw new Error('Engine bug: the attacker is not on the stage');
   const slot = attacker.location.slot;
-  const facing = facingSlot(slot);
-  const defender = facing ? characterInSlot(state, opponentOf(player), facing) : null;
+  const forced = greatPerformer(state, opponentOf(player));
+  // CR-10.6.2: with 大活躍 the defender is that character, wherever the attacker stands.
+  const facing = forced ? 'FC' : facingSlot(slot);
+  const defender = forced ?? (facing ? characterInSlot(state, opponentOf(player), facing) : null);
 
   // CR-7.2.1.4: the soul changes below last for the turn, and stay as they
   // are even if the facing character changes afterwards (CR-7.2.1.4.3).
@@ -136,6 +145,10 @@ function encoreAnswer(ctx: Ctx, frame: AttackFrame): void {
   removeReversed(ctx, chosen);
 }
 
+function beginStep(ctx: Ctx, player: PlayerId, step: AttackStepName): void {
+  emit(ctx, { type: 'STEP_STARTED', player, step });
+}
+
 export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
   const state = ctx.state;
   const turn = state.turn;
@@ -154,6 +167,7 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
 
     case 'DECLARE_START':
       // CR-7.2.1.2
+      beginStep(ctx, player, 'ATTACK_DECLARATION');
       frame.step = 'DECLARE_ASK';
       pushCheckTiming(ctx);
       return;
@@ -189,6 +203,7 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     // ----- Trigger step (CR-7.3) -------------------------------------------
     case 'TRIGGER_START':
       // CR-7.3.1.1
+      beginStep(ctx, player, 'TRIGGER');
       frame.step = 'TRIGGER_REVEAL';
       pushCheckTiming(ctx);
       return;
@@ -260,8 +275,9 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
 
     // ----- Counter step (CR-7.4), front attacks only -----------------------
     case 'COUNTER_START':
-      // CR-7.4.1.1 triggers (STEP 4d); CR-7.4.1.2: play timing for the
-      // opponent, preceded by its check timing.
+      // CR-7.4.1.1; CR-7.4.1.2: play timing for the opponent, preceded by
+      // its check timing.
+      beginStep(ctx, player, 'COUNTER');
       frame.step = 'COUNTER_ASK';
       pushCheckTiming(ctx);
       return;
@@ -285,6 +301,7 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     // ----- Damage step (CR-7.5) --------------------------------------------
     case 'DAMAGE_START':
       // CR-7.5.1.1
+      beginStep(ctx, player, 'DAMAGE');
       frame.step = 'DAMAGE_DEAL';
       pushCheckTiming(ctx);
       return;
@@ -308,6 +325,7 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     // ----- Battle step (CR-7.6), front attacks only ------------------------
     case 'BATTLE_START':
       // CR-7.6.1.1
+      beginStep(ctx, player, 'BATTLE');
       frame.step = 'BATTLE_COMPARE';
       pushCheckTiming(ctx);
       return;
@@ -344,6 +362,7 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     // ----- Encore step (CR-7.7) --------------------------------------------
     case 'ENCORE_START':
       // CR-7.7.1.1
+      beginStep(ctx, player, 'ENCORE');
       frame.step = 'ENCORE_TURN_PLAYER';
       pushCheckTiming(ctx);
       return;

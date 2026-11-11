@@ -15,7 +15,7 @@ import { getInstance } from '../state';
 import { addModifier } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { opponentOf } from '../types';
-import { chooseCandidates, evalCondition, matchesFilter, resolveTarget, sourceIfUnchanged } from './query';
+import { chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -135,9 +135,11 @@ export function pushEffects(ctx: Ctx, effects: readonly Effect[], context: Effec
 }
 
 /** CR-3.1.6: a card goes to its owner's zone unless the effect says otherwise. */
-function destinationZone(state: GameState, instanceId: number, to: Destination): { zone: ZoneRef; bottom: boolean } {
+function destinationZone(state: GameState, context: EffectContext, instanceId: number, to: Destination): { zone: ZoneRef; bottom: boolean } | null {
   const player = getInstance(state, instanceId).owner;
   switch (to) {
+    case 'SOURCE_SLOT':
+      return context.sourceSlot ? { zone: { player: context.sourceSlot.player, zone: 'stage', slot: context.sourceSlot.slot }, bottom: false } : null;
     case 'HAND':
       return { zone: { player, zone: 'hand' }, bottom: false };
     case 'WAITING_ROOM':
@@ -226,9 +228,18 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       next();
       // 相手に見せ: shown to everyone before it moves, so the event carries its identity.
       if (effect.reveal) for (const id of targets) revealCard(ctx, id);
-      const moves: BatchMove[] = targets.map((instanceId) => {
-        const { zone, bottom } = destinationZone(state, instanceId, effect.to);
-        return { instanceId, to: zone, opts: { reason: 'EFFECT', ...(bottom ? { position: 'BOTTOM' as const } : {}) } };
+      const moves: BatchMove[] = targets.flatMap((instanceId) => {
+        const destination = destinationZone(state, context, instanceId, effect.to);
+        if (!destination) return [];
+        return [{
+          instanceId,
+          to: destination.zone,
+          opts: {
+            reason: 'EFFECT' as const,
+            ...(destination.bottom ? { position: 'BOTTOM' as const } : {}),
+            ...(effect.rested ? { orientation: 'REST' as const } : {}),
+          },
+        }];
       });
       moveBatch(ctx, moves);
       return;
@@ -236,8 +247,9 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'MODIFY': {
       // CR-8.9.2: applies to the cards that are there now, not to ones arriving later.
+      const amount = effect.amount * perCount(state, master, context.source, effect.per);
       for (const id of resolveTarget(state, context, effect.target)) {
-        addModifier(state, getInstance(state, id).objectId, effect.stat, effect.amount);
+        addModifier(state, getInstance(state, id).objectId, effect.stat, amount);
       }
       next();
       return;

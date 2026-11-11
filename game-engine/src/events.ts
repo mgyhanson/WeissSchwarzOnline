@@ -4,6 +4,7 @@
  * unredacted events; players only ever receive the result of redactEvent().
  */
 
+import type { AttackStepName } from './abilities/types';
 import type {
   AttackType,
   CardKind,
@@ -152,6 +153,15 @@ export interface LevelUpEvent {
   level: number;
 }
 
+/** A step of the attack phase began (CR-7.2 to 7.7). */
+export interface StepStartedEvent {
+  type: 'STEP_STARTED';
+  seq: number;
+  /** The turn player. */
+  player: PlayerId;
+  step: AttackStepName;
+}
+
 /** CR-7.2.1.5: an attack was declared. Cards are given by object id; all are public stage cards. */
 export interface AttackDeclaredEvent {
   type: 'ATTACK_DECLARED';
@@ -218,6 +228,7 @@ export type GameEvent =
   | CardPlayedEvent
   | RefreshEvent
   | LevelUpEvent
+  | StepStartedEvent
   | AttackDeclaredEvent
   | TriggerCheckEvent
   | CardRevealedEvent

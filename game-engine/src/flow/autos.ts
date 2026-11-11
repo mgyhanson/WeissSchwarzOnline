@@ -14,7 +14,7 @@ import type { Ctx } from '../moves';
 import { moveCard } from '../moves';
 import { payStock } from '../play';
 import { getInstance } from '../state';
-import type { CardInstance, GameState, PlayerId, WaitingAuto } from '../types';
+import type { CardInstance, GameState, PlayerId, SlotId, WaitingAuto } from '../types';
 import { ENCORE_COST, opponentOf } from '../types';
 import { stageSlot } from '../zones';
 import { attackerInstance, defenderInstance } from './attack-state';
@@ -23,7 +23,14 @@ import { pushDamage } from './damage';
 import type { Frame } from './frames';
 
 /** Puts automatic ability number `ability` of a card into the waiting state (CR-8.7.2). */
-function wait(state: GameState, master: PlayerId, card: CardInstance, ability: number, battleOpponent: number | null): void {
+function wait(
+  state: GameState,
+  master: PlayerId,
+  card: CardInstance,
+  ability: number,
+  battleOpponent: number | null,
+  slot: { player: PlayerId; slot: SlotId } | null = null,
+): void {
   state.waiting.push({
     id: state.nextWaitingId++,
     kind: 'CARD',
@@ -32,7 +39,13 @@ function wait(state: GameState, master: PlayerId, card: CardInstance, ability: n
     objectId: card.objectId,
     ability,
     battleOpponent,
+    slot,
   });
+}
+
+/** Whether an automatic ability of an active source is in force: アラーム ones only from the clock, others only elsewhere (CR-10.1). */
+function inForce(source: { clockTop: boolean }, ability: AutoAbility): boolean {
+  return Boolean(ability.alarm) === source.clockTop;
 }
 
 /** The automatic abilities of a card whose trigger satisfies `match`, as [number, ability] pairs. */
@@ -67,13 +80,19 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           wait(state, event.to.player, card, index, null);
         }
       }
+      // このカードが舞台から控え室に置かれた時 (CR-8.7.4.1.2: judged by what the card was on the stage)
+      if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom' && card.objectId === event.toObjectId) {
+        for (const [index] of autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM')) {
+          wait(state, event.from.player, card, index, null, { player: event.from.player, slot: event.from.slot });
+        }
+      }
       // あなたのクライマックスがクライマックス置場に置かれた時
       if (event.to.zone === 'climax' && event.from.zone !== 'climax') {
         for (const source of activeSources(state)) {
           if (source.master !== event.to.player) continue;
           const sourceCard = state.instances[source.instanceId] as CardInstance;
-          for (const [index] of autosOf(state, sourceCard, (t) => t.on === 'CLIMAX_PLACED')) {
-            wait(state, source.master, sourceCard, index, null);
+          for (const [index, ability] of autosOf(state, sourceCard, (t) => t.on === 'CLIMAX_PLACED')) {
+            if (inForce(source, ability)) wait(state, source.master, sourceCard, index, null);
           }
         }
       }
@@ -115,7 +134,25 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           sourceCard,
           (t) => t.on === 'PHASE_START' && t.phase === event.phase && (t.turn === 'ANY' || t.turn === whose),
         );
-        for (const [index] of matching) wait(state, source.master, sourceCard, index, null);
+        for (const [index, ability] of matching) {
+          if (inForce(source, ability)) wait(state, source.master, sourceCard, index, null);
+        }
+      }
+      return;
+    }
+    case 'STEP_STARTED': {
+      // (あなたの/相手の)…ステップの始めに
+      for (const source of activeSources(state)) {
+        const whose = source.master === event.player ? 'YOURS' : 'OPPONENT';
+        const sourceCard = state.instances[source.instanceId] as CardInstance;
+        const matching = autosOf(
+          state,
+          sourceCard,
+          (t) => t.on === 'STEP_START' && t.step === event.step && (t.turn === 'ANY' || t.turn === whose),
+        );
+        for (const [index, ability] of matching) {
+          if (inForce(source, ability)) wait(state, source.master, sourceCard, index, null);
+        }
       }
       return;
     }
@@ -162,7 +199,7 @@ export function describeWaiting(state: GameState, ability: WaitingAuto): Ability
   if (ability.kind === 'CARD') {
     const inst = getInstance(state, ability.instanceId);
     // The card is named only while it is still the public object that triggered.
-    const visible = inst.objectId === ability.objectId && inst.location.zone === 'stage';
+    const visible = inst.objectId === ability.objectId && isPublicZone(inst.location.zone);
     return { id: ability.id, type: 'CARD', ability: ability.ability, ...(visible ? { card: ability.objectId } : {}) };
   }
   return { id: ability.id, type: 'SHOT' };
@@ -239,12 +276,14 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
     popFrame(ctx, frame);
     return;
   }
+  const sourceLocation = getInstance(state, waiting.instanceId).location;
   const context: EffectContext = {
     master,
     source: waiting.instanceId,
     sourceObjectId: waiting.objectId,
     chosen: [],
     battleOpponent: waiting.battleOpponent,
+    sourceSlot: waiting.slot ?? (sourceLocation.zone === 'stage' ? { player: sourceLocation.player, slot: sourceLocation.slot } : null),
   };
   const costs = ability.cost ?? [];
 
@@ -288,5 +327,10 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
 /** The card of a waiting ability for display, while it is still the public object that triggered. */
 function cardRef(state: GameState, waiting: Extract<WaitingAuto, { kind: 'CARD' }>): { card?: number } {
   const inst = getInstance(state, waiting.instanceId);
-  return inst.objectId === waiting.objectId && inst.location.zone === 'stage' ? { card: waiting.objectId } : {};
+  return inst.objectId === waiting.objectId && isPublicZone(inst.location.zone) ? { card: waiting.objectId } : {};
+}
+
+/** Zones where the card of a waiting ability can be named without revealing anything (CR-3). */
+function isPublicZone(zone: string): boolean {
+  return zone === 'stage' || zone === 'waitingRoom' || zone === 'clock' || zone === 'climax';
 }
