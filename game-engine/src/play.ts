@@ -1,16 +1,17 @@
 /**
- * Playing cards from hand (CR-8.6.2).
- *
- * Card abilities and event effects are not implemented yet (STEP 4d): an
- * event resolves with no effect, and playing a character triggers nothing.
+ * Playing cards from hand and playing activated abilities (CR-8.6.2).
  */
 
+import { canPayCost, countUse, limitReached, playAbility, pushEffects } from './abilities/effects';
+import { evalCondition, stageCharacters } from './abilities/query';
+import type { ActivatedAbility, EffectContext } from './abilities/types';
 import type { MainAction } from './decisions';
-import { emit, findObject } from './flow/core';
+import { emit, findObject, pushFrame } from './flow/core';
 import type { Ctx } from './moves';
 import { moveCard, moveCards, swapSlots } from './moves';
 import { getDef, getInstance } from './state';
 import { availableColors, playerLevel } from './stats';
+import type { CardInstance } from './types';
 import type { CardDef, GameState, PlayerId, SlotId } from './types';
 import { SLOTS } from './types';
 import { stageSlot } from './zones';
@@ -63,6 +64,16 @@ export function listMainActions(state: GameState, player: PlayerId): MainAction[
     } else if (def.kind === 'EVENT') {
       actions.push({ type: 'PLAY_EVENT', card });
     }
+  }
+
+  // CR-6.5.1.2.3: activated abilities of the player's characters on the stage.
+  for (const id of stageCharacters(state, player)) {
+    const inst = getInstance(state, id);
+    (getDef(state, id).abilities ?? []).forEach((ability, index) => {
+      if (ability.type === 'ACT' && ability.timing === 'MAIN' && canActivate(state, player, inst, index, ability)) {
+        actions.push({ type: 'ACTIVATE', card: inst.objectId, ability: index });
+      }
+    });
   }
 
   // CR-6.5.1.2.4. Choosing two empty slots is allowed by the rules but does
@@ -127,7 +138,8 @@ function playFromHand(ctx: Ctx, player: PlayerId, instanceId: number, slot?: Slo
     case 'EVENT':
       // CR-8.6.2.5.2: resolution zone, effect, then the owner's waiting room.
       moveCard(ctx, instanceId, { player, zone: 'resolution' }, { reason: 'PLAY' });
-      moveCard(ctx, instanceId, { player: getInstance(state, instanceId).owner, zone: 'waitingRoom' }, { reason: 'RESOLVED' });
+      pushFrame(ctx, { kind: 'FINISH_EVENT', objectId: getInstance(state, instanceId).objectId });
+      pushEffects(ctx, def.effect ?? [], abilityContext(player, getInstance(state, instanceId)));
       return;
     case 'CLIMAX':
       // CR-8.6.2.5.3
@@ -145,6 +157,9 @@ export function performMainAction(ctx: Ctx, player: PlayerId, action: MainAction
     case 'PLAY_EVENT':
       playFromHand(ctx, player, findObject(ctx.state, action.card).instanceId);
       return;
+    case 'ACTIVATE':
+      activate(ctx, player, action.card, action.ability);
+      return;
     case 'SWAP':
       swapSlots(ctx, player, action.a, action.b);
       return;
@@ -153,10 +168,57 @@ export function performMainAction(ctx: Ctx, player: PlayerId, action: MainAction
   }
 }
 
+function abilityContext(master: PlayerId, source: CardInstance): EffectContext {
+  return { master, source: source.instanceId, sourceObjectId: source.objectId, chosen: [], battleOpponent: null };
+}
+
+/** Whether an activated ability can be played now: its condition, its per-turn limit and its cost. */
+function canActivate(state: GameState, player: PlayerId, source: CardInstance, index: number, ability: ActivatedAbility): boolean {
+  if (limitReached(state, source.objectId, index, ability.limit)) return false;
+  if (!evalCondition(state, player, source.instanceId, ability.condition)) return false;
+  return canPayCost(state, abilityContext(player, source), ability.cost);
+}
+
+/** CR-8.6.2 for an activated ability: cost, "played", effects. */
+function activate(ctx: Ctx, player: PlayerId, objectId: number, index: number): void {
+  const state = ctx.state;
+  const source = findObject(state, objectId);
+  const ability = getDef(state, source.instanceId).abilities?.[index];
+  if (!ability || ability.type !== 'ACT' || !canActivate(state, player, source, index, ability)) {
+    throw new Error('Engine bug: tried to play an activated ability that cannot be played');
+  }
+  countUse(state, source.objectId, index);
+  playAbility(ctx, abilityContext(player, source), index, ability.cost, ability.effect);
+}
+
 /**
- * CR-7.4.1.2.1: object ids of the hand cards the defending player may play in
- * the counter step. Only events with a counter icon for now; "backup"
- * abilities of characters (CR-10.5) need the ability engine of STEP 4d.
+ * CR-10.5: the backup abilities the defending player can play from hand in
+ * the counter step: the card has a counter icon (CR-7.4.1.2.1), the player's
+ * level is at least the level the ability names, and the cost can be paid.
+ */
+export function listBackups(state: GameState, player: PlayerId): { card: number; ability: number }[] {
+  const options: { card: number; ability: number }[] = [];
+  for (const id of state.zones[player].hand) {
+    const def = getDef(state, id);
+    if (!def.counter) continue;
+    const inst = getInstance(state, id);
+    (def.abilities ?? []).forEach((ability, index) => {
+      if (ability.type !== 'ACT' || ability.timing !== 'COUNTER') return;
+      if (playerLevel(state, player) < (ability.level ?? 0)) return;
+      if (canActivate(state, player, inst, index, ability)) options.push({ card: inst.objectId, ability: index });
+    });
+  }
+  return options;
+}
+
+/** CR-7.4.1.2: plays a backup ability of a card in hand. */
+export function playBackup(ctx: Ctx, player: PlayerId, objectId: number, index: number): void {
+  activate(ctx, player, objectId, index);
+}
+
+/**
+ * CR-7.4.1.2.1: object ids of the counter events in hand that the defending
+ * player may play in the counter step.
  */
 export function listPlayableCounters(state: GameState, player: PlayerId): number[] {
   return state.zones[player].hand

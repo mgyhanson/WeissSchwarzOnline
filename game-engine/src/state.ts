@@ -42,6 +42,7 @@ function emptyZones(): PlayerZones {
 function freezeDefs(defs: Record<string, CardDef>): Readonly<Record<string, CardDef>> {
   const copy: Record<string, CardDef> = {};
   for (const [id, def] of Object.entries(defs)) {
+    // Ability data is shared by every copy of the state and never modified.
     copy[id] = Object.freeze({
       ...def,
       traits: Object.freeze([...def.traits]) as unknown as string[],
@@ -109,6 +110,8 @@ export function createInitialState(config: GameConfig, seed: string): GameState 
     waiting: [],
     nextWaitingId: 1,
     shotWatchers: [],
+    costDepth: 0,
+    abilityUses: {},
   };
 }
 

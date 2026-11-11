@@ -2,6 +2,7 @@
  * The engine loop: executes frames until the game needs a decision or ends.
  */
 
+import { stepEffects, stepFinishEvent, stepPayCost } from '../abilities/effects';
 import type { Ctx } from '../moves';
 import { stepAttackPhase } from './attack';
 import { registerTriggers, stepAuto } from './autos';
@@ -46,6 +47,12 @@ function stepFrame(ctx: Ctx, frame: Frame): void {
       return stepDamage(ctx, frame);
     case 'AUTO':
       return stepAuto(ctx, frame);
+    case 'PAY_COST':
+      return stepPayCost(ctx, frame);
+    case 'EFFECTS':
+      return stepEffects(ctx, frame);
+    case 'FINISH_EVENT':
+      return stepFinishEvent(ctx, frame);
   }
 }
 
@@ -57,7 +64,8 @@ export function run(ctx: Ctx): void {
     // CR-9.1.2.1: interrupt rule actions come before anything else. While an
     // answer is being delivered nothing has moved since the question was
     // asked, so there is nothing new to check.
-    if (state.answer === null && pushInterruptIfDue(ctx)) continue;
+    // CR-8.4.2.1: nor are they performed while a cost is being paid.
+    if (state.answer === null && state.costDepth === 0 && pushInterruptIfDue(ctx)) continue;
 
     const frame = state.stack[state.stack.length - 1];
     if (!frame) throw new Error('Engine bug: nothing left to do but the game has not ended');

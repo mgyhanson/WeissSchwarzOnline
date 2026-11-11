@@ -12,6 +12,7 @@
  * for refresh / level up before anything else happens.
  */
 
+import type { Cost, Effect, EffectContext } from '../abilities/types';
 import type { PlayerId, TriggerIcon, WaitingAuto } from '../types';
 
 /** Steps of a turn, in the order of CR-6 (see flow/turn.ts). */
@@ -99,6 +100,15 @@ export type Frame =
   | { kind: 'DAMAGE'; receiver: PlayerId; amount: number; sourceObjectId: number | null; cards: number[]; flipped: boolean }
   /** CR-8.7.3: a waiting automatic ability being played and resolved. */
   | { kind: 'AUTO'; ability: WaitingAuto; asked: boolean }
+  /** CR-8.4.2: paying the actions of a cost in order. */
+  | { kind: 'PAY_COST'; costs: Cost[]; index: number; asked: boolean; context: EffectContext }
+  /**
+   * Resolving a list of effects in order. `step` and `scratch` hold the
+   * progress within the current effect.
+   */
+  | { kind: 'EFFECTS'; effects: Effect[]; index: number; step: number; scratch: number[]; context: EffectContext }
+  /** CR-8.6.2.5.2: an event that has resolved goes from the resolution zone to the waiting room. */
+  | { kind: 'FINISH_EVENT'; objectId: number }
   /** CR-4.7.1 / CR-3.2.3: draw cards one at a time. */
   | { kind: 'DRAW'; player: PlayerId; remaining: number }
   /** CR-9.2: refresh. */

@@ -138,7 +138,7 @@ getPlayerView(state, player): PlayerView           // 已過濾隱藏資訊
 }
 ```
 
-以上是按官方卡表實際存在的 SAO/S20-001 第二個能力的結構示意，欄位名稱到 STEP 4 才定案。
+以上只是早期的結構示意。**實際採用的格式**定義在 `game-engine/src/abilities/types.ts`（每個構件都註明對應的日文卡牌用語），可表達及尚未可表達的內容列在 `rules/rule-registry.md` 第 14 節。
 
 ### 4.2 組成部分
 

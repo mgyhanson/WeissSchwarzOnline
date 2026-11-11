@@ -9,15 +9,18 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  type Ability,
   type CardDef,
   type Choice,
   type Decision,
+  type Effect,
   type GameEvent,
   type GameState,
   type PlayerId,
   type RngState,
   type TriggerIcon,
   checkInvariants,
+  backup,
   createGame,
   getPlayerView,
   nextInt,
@@ -61,9 +64,14 @@ const randomPolicy: Policy = (decision, rng) => {
     case 'ATTACK':
       if (nextInt(rng, 6) === 0) return { kind: 'ATTACK', attack: null };
       return { kind: 'ATTACK', attack: decision.attacks[nextInt(rng, decision.attacks.length)]! };
-    case 'COUNTER':
-      if (decision.cards.length === 0 || nextInt(rng, 2) === 0) return { kind: 'COUNTER', card: null };
-      return { kind: 'COUNTER', card: decision.cards[nextInt(rng, decision.cards.length)]! };
+    case 'COUNTER': {
+      const options: Choice[] = [
+        ...decision.cards.map((card): Choice => ({ kind: 'COUNTER', card })),
+        ...decision.backups.map((b): Choice => ({ kind: 'COUNTER', card: b.card, ability: b.ability })),
+      ];
+      if (options.length === 0 || nextInt(rng, 3) === 0) return { kind: 'COUNTER', card: null };
+      return options[nextInt(rng, options.length)]!;
+    }
     case 'CHOOSE_ABILITY':
       return { kind: 'CHOOSE_ABILITY', id: decision.abilities[nextInt(rng, decision.abilities.length)]!.id };
     case 'CONFIRM':
@@ -264,6 +272,63 @@ describe('complete games', () => {
     expect(dealt).toBeGreaterThan(200);
     expect(reversed).toBeGreaterThan(50);
     expect(encores).toBeGreaterThan(5);
+  });
+
+  it('games played with cards that have abilities reach a result with every invariant holding', () => {
+    const draw: Effect[] = [{ do: 'DRAW', count: 1 }];
+    const characterAbilities: Ability[][] = [
+      // 応援
+      [{ type: 'CONT', assist: true, apply: [{ target: { who: 'IN_FRONT' }, stat: 'POWER', amount: 500 }] }],
+      // when played from hand, may pay (1) to return a character from the waiting room
+      [{ type: 'AUTO', trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' }, cost: [{ pay: 'STOCK', count: 1 }], effect: [{ do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' }] }],
+      // 集中
+      [{ type: 'ACT', timing: 'MAIN', cost: [{ pay: 'REST_SELF' }], effect: [{ do: 'BRAINSTORM', count: 3, per: { kind: 'CLIMAX' }, each: draw }] }],
+      // 助太刀
+      [backup(1500, 0, [{ pay: 'SELF_TO_WAITING_ROOM' }])],
+      // when it attacks, +1000 power for the turn; when its battle opponent is reversed, may draw
+      [
+        { type: 'AUTO', trigger: { on: 'ATTACKS' }, effect: [{ do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 1000 }] },
+        { type: 'AUTO', trigger: { on: 'BATTLE_OPPONENT_REVERSED' }, optional: true, effect: draw },
+      ],
+      // once per turn: discard a card to put the top deck card into stock
+      [{ type: 'ACT', timing: 'MAIN', limit: 1, cost: [{ pay: 'DISCARD', count: 1 }], effect: [{ do: 'DECK_TOP', count: 1, to: 'STOCK' }] }],
+      // 加速-style: top deck card to clock, then deal 1 damage
+      [{ type: 'ACT', timing: 'MAIN', limit: 1, cost: [{ pay: 'DECK_TOP_TO_CLOCK' }, { pay: 'REST_SELF' }], effect: [{ do: 'DAMAGE', amount: 1 }] }],
+      [],
+    ];
+    const eventEffects: Effect[][] = [
+      [{ do: 'DRAW', count: 2 }, { do: 'CHOOSE', from: 'YOUR_HAND', min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }],
+      [{ do: 'CHOOSE', from: 'YOUR_DECK', filter: { kind: 'CHARACTER' }, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND', reveal: true }, { do: 'SHUFFLE' }],
+      [{ do: 'MODIFY', target: { who: 'ALL_YOURS' }, stat: 'POWER', amount: 1000 }],
+      [{ do: 'CHOOSE', from: 'OPPONENT_STAGE', min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }],
+      [{ do: 'DAMAGE', amount: 1 }],
+      [{ do: 'IF', condition: { if: 'LEVEL', min: 1 }, then: [{ do: 'DRAW', count: 2 }], else: draw }],
+    ];
+    const climaxAbility: Ability[] = [{ type: 'CONT', apply: [{ target: { who: 'ALL_YOURS' }, stat: 'POWER', amount: 1000 }, { target: { who: 'ALL_YOURS' }, stat: 'SOUL', amount: 1 }] }];
+    const defs = (_player: PlayerId, i: number): Partial<CardDef> | undefined => {
+      if (i >= 42) return { abilities: climaxAbility, triggers: i % 2 === 0 ? ['SOUL', 'SOUL'] : ['SOUL'] };
+      if (i >= 36) return { kind: 'EVENT', power: null, soul: null, level: 0, cost: 0, counter: i % 3 === 0, effect: eventEffects[i - 36]! };
+      const abilities = characterAbilities[i % characterAbilities.length]!;
+      return { power: 500 * (1 + (i % 4)), abilities, counter: i % characterAbilities.length === 3, triggers: i % 3 === 0 ? ['SOUL'] : [] };
+    };
+
+    const played = new Set<string>();
+    let abilityPlays = 0;
+    for (let i = 0; i < 30; i++) {
+      const game = playGame(`abilities-${i}`, randomPolicy, 30_000, defs);
+      expect(game.problems).toEqual([]);
+      expect(game.state.result).not.toBeNull();
+      // Nothing is left half-done at the end.
+      expect(game.state.costDepth).toBe(0);
+      for (const e of game.events) {
+        if (e.type !== 'ABILITY_PLAYED') continue;
+        abilityPlays++;
+        played.add(`${Number(e.cardId.slice(3)) % characterAbilities.length}:${e.ability}`);
+      }
+    }
+    // Every automatic and activated ability in the pool was played at least once.
+    expect([...played].sort()).toEqual(['1:0', '2:0', '3:0', '4:0', '4:1', '5:0', '6:0']);
+    expect(abilityPlays).toBeGreaterThan(100);
   });
 
   it('a game where nobody ever clocks or plays is decided by refreshes (CR-9.2.2)', () => {

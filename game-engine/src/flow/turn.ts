@@ -181,8 +181,10 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
 
     // ----- End phase (CR-6.8) ---------------------------------------------
     case 'END_START':
-      beginPhase(ctx, 'END');
-      // CR-6.8.1.1: "at the end of turn" triggers (STEP 4d), then a check timing.
+      // CR-6.8.1.1: when the end phase is performed again (CR-6.8.1.5), only
+      // abilities that have not triggered in it yet may trigger, so the
+      // phase start is announced once per turn.
+      if (turn.phase !== 'END') beginPhase(ctx, 'END');
       frame.step = 'END_HAND_LIMIT';
       pushCheckTiming(ctx);
       return;
@@ -225,6 +227,7 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
       // of turn" or "during this turn" ends.
       state.modifiers = [];
       state.shotWatchers = [];
+      state.abilityUses = {};
       // CR-6.8.1.5: the turn ends only if the hand is within the limit and
       // nothing was resolved in that last check timing. Otherwise the end
       // phase is performed again from the start.

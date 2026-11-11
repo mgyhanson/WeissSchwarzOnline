@@ -19,6 +19,8 @@ export type MainAction =
   | { type: 'PLAY_CHARACTER'; card: number; slot: SlotId }
   /** CR-6.5.1.2.2: play an event card from hand. */
   | { type: 'PLAY_EVENT'; card: number }
+  /** CR-6.5.1.2.3: play activated ability number `ability` of a character on the stage. */
+  | { type: 'ACTIVATE'; card: number; ability: number }
   /** CR-6.5.1.2.4: exchange the cards of two slots. */
   | { type: 'SWAP'; a: SlotId; b: SlotId }
   /** CR-6.5.1.3: do nothing; the game proceeds to the climax phase. */
@@ -37,6 +39,14 @@ export interface AttackOption {
 export type PromptId =
   | 'ENCORE'
   | 'ENCORE_STEP'
+  /** Pay the cost of an automatic ability? (CR-8.1.1.2.2) */
+  | 'PAY_COST'
+  /** Use an optional ability or effect? */
+  | 'USE_ABILITY'
+  /** A card ability asks to choose cards (CR-8.6.3). */
+  | 'EFFECT_CHOOSE'
+  /** Choose the hand cards to discard as a cost. */
+  | 'COST_DISCARD'
   | 'TRIGGER_ORDER'
   | 'TRIGGER_RETURN'
   | 'TRIGGER_POOL'
@@ -57,7 +67,9 @@ export type PromptId =
 /** A waiting automatic ability offered in a CHOOSE_ABILITY decision. */
 export interface AbilityOption {
   id: number;
-  type: 'ENCORE' | 'SHOT';
+  type: 'ENCORE' | 'SHOT' | 'CARD';
+  /** For a card ability: its number among the card's abilities. */
+  ability?: number;
   /** The card the ability belongs to, when it is still the same visible object. */
   card?: number;
 }
@@ -79,8 +91,11 @@ export type Decision =
   | (DecisionBase & { kind: 'CLIMAX'; cards: number[] })
   /** CR-7.2.1.3: attack with one of the listed options, or end the attacks. */
   | (DecisionBase & { kind: 'ATTACK'; attacks: AttackOption[] })
-  /** CR-7.4.1.2: the defending player may play one of the listed cards. */
-  | (DecisionBase & { kind: 'COUNTER'; cards: number[] })
+  /**
+   * CR-7.4.1.2: the defending player may play one of the listed counter
+   * events, or one of the listed backup abilities of cards in hand (CR-10.5).
+   */
+  | (DecisionBase & { kind: 'COUNTER'; cards: number[]; backups: { card: number; ability: number }[] })
   /** CR-9.3.2: choose one of the bottom seven clock cards to become a level. */
   | (DecisionBase & { kind: 'LEVEL_UP'; cards: number[] })
   /** CR-6.8.1.2: discard exactly `count` cards down to the hand limit. */
@@ -89,10 +104,14 @@ export type Decision =
   | (DecisionBase & { kind: 'RULE_ACTION_ORDER'; options: RuleActionKind[] })
   /** CR-8.7.3.1: several of the player's automatic abilities are waiting; choose which to play first. */
   | (DecisionBase & { kind: 'CHOOSE_ABILITY'; abilities: AbilityOption[] })
-  /** A "you may" question. */
-  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number })
-  /** Choose between `min` and `max` of the listed cards. */
-  | (DecisionBase & { kind: 'SELECT_CARDS'; prompt: PromptId; cards: number[]; min: number; max: number })
+  /** A "you may" question. `ability` is the ability number when it concerns a card ability. */
+  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; ability?: number })
+  /**
+   * Choose between `min` and `max` of the listed cards. `look` gives the
+   * card ids of offered cards the player would not otherwise see, when the
+   * effect lets them look (e.g. searching their deck, CR-4.8.1).
+   */
+  | (DecisionBase & { kind: 'SELECT_CARDS'; prompt: PromptId; cards: number[]; min: number; max: number; look?: Record<number, string> })
   /** Choose one of the player's own slots. */
   | (DecisionBase & { kind: 'SELECT_SLOT'; prompt: PromptId; slots: SlotId[] })
   /** Choose one of the listed options. */
@@ -110,7 +129,8 @@ export type Choice =
   | { kind: 'CLIMAX'; card: number | null }
   /** `attack: null` ends the attacks (CR-7.2.1.3.2). */
   | { kind: 'ATTACK'; attack: AttackOption | null }
-  | { kind: 'COUNTER'; card: number | null }
+  /** With `ability` the choice is a backup ability of that hand card; without, a counter event. */
+  | { kind: 'COUNTER'; card: number | null; ability?: number }
   | { kind: 'LEVEL_UP'; card: number }
   | { kind: 'HAND_LIMIT'; discard: number[] }
   | { kind: 'RULE_ACTION_ORDER'; first: RuleActionKind }
@@ -142,6 +162,8 @@ export function sameMainAction(a: MainAction, b: MainAction): boolean {
       return b.type === 'PLAY_CHARACTER' && a.card === b.card && a.slot === b.slot;
     case 'PLAY_EVENT':
       return b.type === 'PLAY_EVENT' && a.card === b.card;
+    case 'ACTIVATE':
+      return b.type === 'ACTIVATE' && a.card === b.card && a.ability === b.ability;
     case 'SWAP':
       return b.type === 'SWAP' && a.a === b.a && a.b === b.b;
     case 'PASS':
@@ -164,8 +186,14 @@ export function validateChoice(decision: Decision, choice: unknown): string | nu
       return isDistinctSubset(choice.discard, decision.cards) ? null : 'discard must list distinct cards from your hand';
     case 'CLOCK':
     case 'CLIMAX':
-    case 'COUNTER':
       return isOfferedCardOrNull(choice.card, decision.cards) ? null : 'card must be null or one of the offered cards';
+    case 'COUNTER':
+      if (choice.ability === undefined) {
+        return isOfferedCardOrNull(choice.card, decision.cards) ? null : 'card must be null or one of the offered cards';
+      }
+      return decision.backups.some((option) => option.card === choice.card && option.ability === choice.ability)
+        ? null
+        : 'That backup ability cannot be played now';
     case 'MAIN': {
       const action = choice.action;
       if (!isRecord(action) || typeof action.type !== 'string') return 'action is missing';

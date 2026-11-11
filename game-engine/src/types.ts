@@ -8,6 +8,7 @@
  * hashed, sent to another process and replayed.
  */
 
+import type { Ability, Effect } from './abilities/types';
 import type { Choice, Decision } from './decisions';
 import type { Frame } from './flow/frames';
 
@@ -64,6 +65,10 @@ export interface CardDef {
   triggers: TriggerIcon[];
   /** CR-2.8.2: the card has a counter icon. */
   counter: boolean;
+  /** CR-2.12: the abilities of a character or climax, in the order printed. */
+  abilities?: Ability[];
+  /** CR-8.6.2.5.2: what an event card does when it resolves. */
+  effect?: Effect[];
 }
 
 /** CR-3.6.4: three front-row slots and two back-row slots, named from the owner's point of view. */
@@ -191,7 +196,7 @@ export interface AttackState {
  */
 export interface Modifier {
   objectId: number;
-  stat: 'POWER' | 'SOUL';
+  stat: 'POWER' | 'SOUL' | 'LEVEL';
   delta: number;
 }
 
@@ -207,7 +212,12 @@ export type WaitingAuto =
   /** CR-10.2.2: encore of a character that went from the stage to the waiting room. */
   | { id: number; kind: 'ENCORE'; master: PlayerId; instanceId: number; objectId: number; slot: SlotId }
   /** CR-4.14.2.7: the ability created by a shot trigger, after the watched damage was cancelled. */
-  | { id: number; kind: 'SHOT'; master: PlayerId };
+  | { id: number; kind: 'SHOT'; master: PlayerId }
+  /**
+   * An automatic ability printed on a card: ability number `ability` of the
+   * card that was object `objectId` when it triggered.
+   */
+  | { id: number; kind: 'CARD'; master: PlayerId; instanceId: number; objectId: number; ability: number; battleOpponent: number | null };
 
 /** CR-4.14.2.7: a shot trigger waiting for the next damage dealt by the attacking character. */
 export interface ShotWatcher {
@@ -279,4 +289,11 @@ export interface GameState {
   waiting: WaitingAuto[];
   nextWaitingId: number;
   shotWatchers: ShotWatcher[];
+  /**
+   * Greater than 0 while the cost of an ability is being paid; refresh and
+   * level up wait until it is back to 0 (CR-8.4.2.1, CR-9.2.3, CR-9.3.3).
+   */
+  costDepth: number;
+  /** CR-10.19: how often each limited ability was played this turn, keyed by "objectId:abilityNumber". */
+  abilityUses: Record<string, number>;
 }

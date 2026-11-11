@@ -360,8 +360,9 @@ describe('end phase (CR-6.8)', () => {
     state.stack = [{ kind: 'TURN', step: 'END_FINISH' }];
     state.lastCheckActed = true;
     const { state: after, events } = advance(state);
-    // One more end phase for the same player, then the turn passes.
-    expect(phases(events)).toEqual(['END', 'STAND', 'DRAW', 'CLOCK']);
+    // One more pass through the end phase (not announced again, CR-6.8.1.1), then the turn passes.
+    expect(phases(events)).toEqual(['STAND', 'DRAW', 'CLOCK']);
+    expect(after.lastCheckActed).toBe(false);
     expect(after.turn).toMatchObject({ number: 6, player: 1, phase: 'CLOCK' });
   });
 });

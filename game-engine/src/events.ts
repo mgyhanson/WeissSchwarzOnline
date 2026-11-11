@@ -61,7 +61,9 @@ export type MoveReason =
   /** CR-7.7.1.2 / 7.7.1.3: a reversed character removed in the encore step. */
   | 'ENCORE_STEP'
   /** CR-10.2.2: a character returned to its slot by encore. */
-  | 'ENCORE';
+  | 'ENCORE'
+  /** A card moved by the effect of a card ability or event. */
+  | 'EFFECT';
 
 export interface CardMovedEvent {
   type: 'CARD_MOVED';
@@ -190,6 +192,16 @@ export interface DamageDealtEvent {
   sourceObjectId: number | null;
 }
 
+/** CR-8.6.2.4: an ability of a card was played. The card is public (stage) or revealed by playing it. */
+export interface AbilityPlayedEvent {
+  type: 'ABILITY_PLAYED';
+  seq: number;
+  player: PlayerId;
+  instanceId: number;
+  cardId: string;
+  ability: number;
+}
+
 export interface GameEndedEvent {
   type: 'GAME_ENDED';
   seq: number;
@@ -210,6 +222,7 @@ export type GameEvent =
   | TriggerCheckEvent
   | CardRevealedEvent
   | DamageDealtEvent
+  | AbilityPlayedEvent
   | GameEndedEvent;
 
 /** An event before the engine has numbered it. */

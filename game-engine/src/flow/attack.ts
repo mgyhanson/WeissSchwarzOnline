@@ -5,16 +5,15 @@
  * sub-phases (declaration, trigger, counter, damage, battle), then the
  * encore step.
  *
- * Not implemented yet: the trigger conditions "at the beginning of ... step"
- * and "at the end of the attack", abilities that trigger on attacking or on
- * becoming reversed, and "backup" (CR-10.5). They need card abilities
- * (STEP 4d). Their check timings are already in place.
+ * Not expressible in ability data yet: the trigger conditions "at the
+ * beginning of ... step" and "at the end of the attack". Their check
+ * timings are already in place.
  */
 
 import type { AttackOption } from '../decisions';
 import type { Ctx } from '../moves';
 import { moveCard, setOrientation } from '../moves';
-import { listPlayableCounters, playCounter } from '../play';
+import { listBackups, listPlayableCounters, playBackup, playCounter } from '../play';
 import { getDef, getInstance } from '../state';
 import { addModifier, getCardLevel, getPower, getSoul } from '../stats';
 import type { CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
@@ -270,15 +269,16 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     case 'COUNTER_ASK':
       // Always asked: whether the defending player holds a usable counter is hidden.
       frame.step = 'COUNTER_ANSWER';
-      ask(ctx, { kind: 'COUNTER', player: opponent, cards: listPlayableCounters(state, opponent) });
+      ask(ctx, { kind: 'COUNTER', player: opponent, cards: listPlayableCounters(state, opponent), backups: listBackups(state, opponent) });
       return;
 
     case 'COUNTER_ANSWER': {
-      const { card } = takeAnswer(ctx, 'COUNTER');
+      const { card, ability } = takeAnswer(ctx, 'COUNTER');
       // CR-7.4.1.2.2: no second play timing. CR-7.4.1.3: check timing, then the damage step.
       frame.step = 'DAMAGE_START';
       pushCheckTiming(ctx);
-      if (card !== null) playCounter(ctx, opponent, card);
+      if (card !== null && ability !== undefined) playBackup(ctx, opponent, card, ability);
+      else if (card !== null) playCounter(ctx, opponent, card);
       return;
     }
 

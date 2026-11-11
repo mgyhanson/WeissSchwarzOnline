@@ -3,11 +3,12 @@
  *
  * Nothing here is stored: every value is computed from the zones each time
  * it is needed, so a displayed number can never disagree with the game.
- * Until the continuous-effect layers of CR-8.9 arrive with STEP 4d, a
- * card's current values are its printed values plus the "this turn" changes
- * made by the rules themselves (attack type, soul trigger).
+ * A card's current power, soul and level are its printed value, plus what
+ * continuous abilities in force add (CR-8.9), plus the changes that last
+ * until the end of the turn.
  */
 
+import { currentStat } from './abilities/query';
 import { getDef, getInstance } from './state';
 import type { GameState, PlayerId } from './types';
 
@@ -16,32 +17,23 @@ export function playerLevel(state: GameState, player: PlayerId): number {
   return state.zones[player].level.length;
 }
 
-function modifierTotal(state: GameState, instanceId: number, stat: 'POWER' | 'SOUL'): number {
-  const objectId = getInstance(state, instanceId).objectId;
-  let total = 0;
-  for (const modifier of state.modifiers) {
-    if (modifier.objectId === objectId && modifier.stat === stat) total += modifier.delta;
-  }
-  return total;
-}
-
-/** CR-2.9 / CR-2.19.1: power of a card; a card without the information counts as 0. */
+/** CR-2.9: current power of a card. */
 export function getPower(state: GameState, instanceId: number): number {
-  return (getDef(state, instanceId).power ?? 0) + modifierTotal(state, instanceId, 'POWER');
+  return currentStat(state, instanceId, 'POWER');
 }
 
-/** CR-2.10: soul of a card, with the changes that last this turn. */
+/** CR-2.10: current soul of a card. */
 export function getSoul(state: GameState, instanceId: number): number {
-  return (getDef(state, instanceId).soul ?? 0) + modifierTotal(state, instanceId, 'SOUL');
+  return currentStat(state, instanceId, 'SOUL');
 }
 
-/** CR-2.6 / CR-2.19.1: level of a card; a card without the information counts as 0. */
+/** CR-2.6: current level of a card. */
 export function getCardLevel(state: GameState, instanceId: number): number {
-  return getDef(state, instanceId).level ?? 0;
+  return currentStat(state, instanceId, 'LEVEL');
 }
 
-/** Adds a power or soul change that lasts until the end of the turn. */
-export function addModifier(state: GameState, objectId: number, stat: 'POWER' | 'SOUL', delta: number): void {
+/** Adds a change to a number of a card that lasts until the end of the turn. */
+export function addModifier(state: GameState, objectId: number, stat: 'POWER' | 'SOUL' | 'LEVEL', delta: number): void {
   if (delta !== 0) state.modifiers.push({ objectId, stat, delta });
 }
 
