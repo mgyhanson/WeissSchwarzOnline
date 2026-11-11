@@ -4,12 +4,9 @@
  * One TURN frame lives on the stack for the whole game and walks through
  * the steps below; when a turn ends it starts again for the next player.
  *
- * Not implemented yet, each marked where it belongs:
- *  - "at the beginning of ..." and "at the end of turn" trigger conditions
- *    (they need automatic abilities, STEP 4d);
- *  - the attack phase proper: attack declaration to battle step and the
- *    encore step (CR-7, STEP 4c). Until then the attack phase is entered and
- *    left without any attack.
+ * Not implemented yet, marked where they belong: the "at the beginning of
+ * ..." and "at the end of turn" trigger conditions, which need the card
+ * abilities of STEP 4d.
  */
 
 import type { Ctx } from '../moves';
@@ -177,10 +174,9 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
     // ----- Attack phase (CR-6.7, CR-7) ------------------------------------
     case 'ATTACK_START':
       beginPhase(ctx, 'ATTACK');
-      // STEP 4c: attack declaration, trigger, counter, damage and battle
-      // steps, then the encore step. For now the phase has no attacks.
+      // The whole phase, encore step included, is run by flow/attack.ts.
       frame.step = 'END_START';
-      pushCheckTiming(ctx);
+      pushFrame(ctx, { kind: 'ATTACK_PHASE', step: 'START', icons: [], triggerObjectId: null });
       return;
 
     // ----- End phase (CR-6.8) ---------------------------------------------
@@ -225,6 +221,10 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
       return;
 
     case 'END_FINISH':
+      // CR-6.8.1.4: after that check timing, everything that lasts "until end
+      // of turn" or "during this turn" ends.
+      state.modifiers = [];
+      state.shotWatchers = [];
       // CR-6.8.1.5: the turn ends only if the hand is within the limit and
       // nothing was resolved in that last check timing. Otherwise the end
       // phase is performed again from the start.
@@ -232,7 +232,7 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
         frame.step = 'END_START';
         return;
       }
-      state.turn = { number: turn.number + 1, player: opponentOf(player), phase: 'STAND' };
+      state.turn = { number: turn.number + 1, player: opponentOf(player), phase: 'STAND', attackCount: 0 };
       frame.step = 'STAND_START';
       return;
   }

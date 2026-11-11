@@ -3,10 +3,14 @@
  */
 
 import type { Ctx } from '../moves';
+import { stepAttackPhase } from './attack';
+import { registerTriggers, stepAuto } from './autos';
 import { stepCheckTiming, stepDraw } from './basic';
+import { stepDamage } from './damage';
 import type { Frame } from './frames';
 import { pushInterruptIfDue, stepLevelUp, stepRefresh, stepRuleActionOrder } from './rule-actions';
 import { stepMulligan, stepSetup } from './setup';
+import { stepTriggerIcon } from './triggers';
 import { stepTurn } from './turn';
 
 /**
@@ -34,6 +38,14 @@ function stepFrame(ctx: Ctx, frame: Frame): void {
       return stepLevelUp(ctx, frame);
     case 'RULE_ACTION_ORDER':
       return stepRuleActionOrder(ctx, frame);
+    case 'ATTACK_PHASE':
+      return stepAttackPhase(ctx, frame);
+    case 'TRIGGER_ICON':
+      return stepTriggerIcon(ctx, frame);
+    case 'DAMAGE':
+      return stepDamage(ctx, frame);
+    case 'AUTO':
+      return stepAuto(ctx, frame);
   }
 }
 
@@ -50,6 +62,8 @@ export function run(ctx: Ctx): void {
     const frame = state.stack[state.stack.length - 1];
     if (!frame) throw new Error('Engine bug: nothing left to do but the game has not ended');
     stepFrame(ctx, frame);
+    // CR-8.7.2: whatever just happened may have met trigger conditions.
+    if (!state.result) registerTriggers(ctx);
   }
   throw new Error('Engine bug: no decision reached after an excessive number of steps');
 }

@@ -57,7 +57,7 @@ export function stepSetup(ctx: Ctx, frame: Extract<Frame, { kind: 'SETUP' }>): v
     default: {
       // CR-5.2.1.5: the game starts with the first player as turn player.
       const first = state.firstPlayer as PlayerId;
-      state.turn = { number: 1, player: first, phase: 'STAND' };
+      state.turn = { number: 1, player: first, phase: 'STAND', attackCount: 0 };
       popFrame(ctx, frame);
       pushFrame(ctx, { kind: 'TURN', step: 'STAND_START' });
     }

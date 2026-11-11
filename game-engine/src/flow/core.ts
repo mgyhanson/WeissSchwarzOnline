@@ -28,7 +28,7 @@ export function popFrame(ctx: Ctx, frame: Frame): void {
 
 /** CR-8.5.1: starts a check timing. */
 export function pushCheckTiming(ctx: Ctx): void {
-  pushFrame(ctx, { kind: 'CHECK_TIMING', acted: false });
+  pushFrame(ctx, { kind: 'CHECK_TIMING', acted: false, asked: false });
 }
 
 /** Stops the engine until the player answers. The asking step must not move any card. */

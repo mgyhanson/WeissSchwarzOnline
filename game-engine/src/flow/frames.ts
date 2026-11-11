@@ -12,7 +12,7 @@
  * for refresh / level up before anything else happens.
  */
 
-import type { PlayerId } from '../types';
+import type { PlayerId, TriggerIcon, WaitingAuto } from '../types';
 
 /** Steps of a turn, in the order of CR-6 (see flow/turn.ts). */
 export type TurnStep =
@@ -40,6 +40,36 @@ export type TurnStep =
   | 'END_CHECK'
   | 'END_FINISH';
 
+/** Steps of the attack phase, in the order of CR-7 (see flow/attack.ts). */
+export type AttackStep =
+  | 'START'
+  | 'DECLARE_START'
+  | 'DECLARE_ASK'
+  | 'DECLARE_ANSWER'
+  | 'TRIGGER_START'
+  | 'TRIGGER_REVEAL'
+  | 'TRIGGER_ICONS'
+  | 'TRIGGER_ORDER_ANSWER'
+  | 'TRIGGER_STOCK'
+  | 'TRIGGER_END'
+  | 'COUNTER_START'
+  | 'COUNTER_ASK'
+  | 'COUNTER_ANSWER'
+  | 'DAMAGE_START'
+  | 'DAMAGE_DEAL'
+  | 'DAMAGE_END'
+  | 'BATTLE_START'
+  | 'BATTLE_COMPARE'
+  | 'ATTACK_END'
+  | 'ATTACK_CLEANUP'
+  | 'ENCORE_START'
+  | 'ENCORE_TURN_PLAYER'
+  | 'ENCORE_TURN_PLAYER_ANSWER'
+  | 'ENCORE_OPPONENT'
+  | 'ENCORE_OPPONENT_ANSWER'
+  | 'ENCORE_FINISH'
+  | 'ENCORE_DONE';
+
 export type Frame =
   /** CR-5.2: procedure before the game. */
   | { kind: 'SETUP'; step: number }
@@ -48,7 +78,27 @@ export type Frame =
   /** CR-6: the current turn. Reused for every turn of the game. */
   | { kind: 'TURN'; step: TurnStep }
   /** CR-8.5.1: a check timing. `acted` records whether anything was resolved. */
-  | { kind: 'CHECK_TIMING'; acted: boolean }
+  | { kind: 'CHECK_TIMING'; acted: boolean; asked: boolean }
+  /**
+   * CR-7: the attack phase. `icons` are the trigger icons still to execute
+   * and `triggerObjectId` the trigger check card while it is in the
+   * resolution zone.
+   */
+  | { kind: 'ATTACK_PHASE'; step: AttackStep; icons: TriggerIcon[]; triggerObjectId: number | null }
+  /**
+   * CR-4.14.2: the action of one trigger icon. `card` is the object id of
+   * the trigger check card; `picked` and `revealed` hold intermediate
+   * choices (object ids).
+   */
+  | { kind: 'TRIGGER_ICON'; icon: TriggerIcon; player: PlayerId; card: number; step: number; picked: number | null; revealed: number[] }
+  /**
+   * CR-4.12.1: a damage process. `cards` are the instance ids moved to the
+   * resolution zone so far; `flipped` says whether the last one still has to
+   * be examined.
+   */
+  | { kind: 'DAMAGE'; receiver: PlayerId; amount: number; sourceObjectId: number | null; cards: number[]; flipped: boolean }
+  /** CR-8.7.3: a waiting automatic ability being played and resolved. */
+  | { kind: 'AUTO'; ability: WaitingAuto; asked: boolean }
   /** CR-4.7.1 / CR-3.2.3: draw cards one at a time. */
   | { kind: 'DRAW'; player: PlayerId; remaining: number }
   /** CR-9.2: refresh. */

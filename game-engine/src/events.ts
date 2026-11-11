@@ -4,7 +4,18 @@
  * unredacted events; players only ever receive the result of redactEvent().
  */
 
-import type { CardKind, Face, GameResult, Orientation, Phase, PlayerId, SlotId, ZoneRef } from './types';
+import type {
+  AttackType,
+  CardKind,
+  Face,
+  GameResult,
+  Orientation,
+  Phase,
+  PlayerId,
+  SlotId,
+  TriggerIcon,
+  ZoneRef,
+} from './types';
 
 /** Why a card moved. More reasons are added as the flow is implemented. */
 export type MoveReason =
@@ -38,7 +49,19 @@ export type MoveReason =
   /** CR-6.8.1.2: discarded down to the hand limit. */
   | 'HAND_LIMIT'
   /** CR-6.8.1.3: climax leaving the climax zone at the end of the turn. */
-  | 'END_PHASE';
+  | 'END_PHASE'
+  /** CR-7.3.1.2: the trigger check card, to the resolution zone and then to stock. */
+  | 'TRIGGER_CHECK'
+  /** CR-4.14.2: a card moved by the action of a trigger icon. */
+  | 'TRIGGER'
+  /** CR-4.12.1: damage cards, to the resolution zone and then to the clock. */
+  | 'DAMAGE'
+  /** CR-4.12.1.2: damage cards sent to the waiting room by a cancel. */
+  | 'DAMAGE_CANCEL'
+  /** CR-7.7.1.2 / 7.7.1.3: a reversed character removed in the encore step. */
+  | 'ENCORE_STEP'
+  /** CR-10.2.2: a character returned to its slot by encore. */
+  | 'ENCORE';
 
 export interface CardMovedEvent {
   type: 'CARD_MOVED';
@@ -127,6 +150,46 @@ export interface LevelUpEvent {
   level: number;
 }
 
+/** CR-7.2.1.5: an attack was declared. Cards are given by object id; all are public stage cards. */
+export interface AttackDeclaredEvent {
+  type: 'ATTACK_DECLARED';
+  seq: number;
+  player: PlayerId;
+  attackType: AttackType;
+  attackerObjectId: number;
+  attackerSlot: SlotId;
+  defenderObjectId: number | null;
+}
+
+/** CR-7.3.1.2: the card revealed by a trigger check and the icons that will be executed. */
+export interface TriggerCheckEvent {
+  type: 'TRIGGER_CHECK';
+  seq: number;
+  player: PlayerId;
+  cardId: string;
+  icons: TriggerIcon[];
+}
+
+/** CR-4.9.1: a card was revealed to all players where it is. */
+export interface CardRevealedEvent {
+  type: 'CARD_REVEALED';
+  seq: number;
+  instanceId: number;
+  cardId: string;
+  zone: ZoneRef;
+}
+
+/** CR-4.12.1: a damage process finished. */
+export interface DamageDealtEvent {
+  type: 'DAMAGE_DEALT';
+  seq: number;
+  receiver: PlayerId;
+  amount: number;
+  cancelled: boolean;
+  /** Object id of the attacking character for attack damage (CR-4.13.2.1); null for other damage. */
+  sourceObjectId: number | null;
+}
+
 export interface GameEndedEvent {
   type: 'GAME_ENDED';
   seq: number;
@@ -143,6 +206,10 @@ export type GameEvent =
   | CardPlayedEvent
   | RefreshEvent
   | LevelUpEvent
+  | AttackDeclaredEvent
+  | TriggerCheckEvent
+  | CardRevealedEvent
+  | DamageDealtEvent
   | GameEndedEvent;
 
 /** An event before the engine has numbered it. */

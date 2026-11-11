@@ -349,19 +349,19 @@ describe('end phase (CR-6.8)', () => {
     const { state, events } = scenario({ step: 'END_START', turnPlayer: 0, turnNumber: 5 });
     expect(phases(events)).toEqual(['END', 'STAND', 'DRAW', 'CLOCK']);
     expect(events.find((e) => e.type === 'TURN_STARTED')).toMatchObject({ turn: 6, player: 1 });
-    expect(state.turn).toEqual({ number: 6, player: 1, phase: 'CLOCK' });
+    expect(state.turn).toMatchObject({ number: 6, player: 1, phase: 'CLOCK' });
     expect(pending(state, 'CLOCK').player).toBe(1);
   });
 
   it('CR-6.8.1.5: when the last check timing resolved something, the end phase is performed again', () => {
     const state = newTestState();
     state.firstPlayer = 0;
-    state.turn = { number: 5, player: 0, phase: 'END' };
+    state.turn = { number: 5, player: 0, phase: 'END', attackCount: 0 };
     state.stack = [{ kind: 'TURN', step: 'END_FINISH' }];
     state.lastCheckActed = true;
     const { state: after, events } = advance(state);
     // One more end phase for the same player, then the turn passes.
     expect(phases(events)).toEqual(['END', 'STAND', 'DRAW', 'CLOCK']);
-    expect(after.turn).toEqual({ number: 6, player: 1, phase: 'CLOCK' });
+    expect(after.turn).toMatchObject({ number: 6, player: 1, phase: 'CLOCK' });
   });
 });

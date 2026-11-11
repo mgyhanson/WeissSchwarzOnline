@@ -82,7 +82,7 @@ describe('game setup (CR-5.2)', () => {
     state = answer(state, { kind: 'MULLIGAN', discard: [] }).state;
     const { state: started, events } = answer(state, { kind: 'MULLIGAN', discard: [] });
 
-    expect(started.turn).toEqual({ number: 1, player: first, phase: 'CLOCK' });
+    expect(started.turn).toMatchObject({ number: 1, player: first, phase: 'CLOCK' });
     expect(events.filter((e) => e.type === 'PHASE_STARTED').map((e) => e.type === 'PHASE_STARTED' && e.phase)).toEqual([
       'STAND',
       'DRAW',

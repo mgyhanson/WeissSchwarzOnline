@@ -124,7 +124,7 @@ export function scenario(options: ScenarioOptions, arrange: (ctx: Ctx) => void =
   const state = newTestState(options.seed, options.defs);
   arrange(createCtx(state));
   state.firstPlayer = 0;
-  state.turn = { number: options.turnNumber ?? 3, player: options.turnPlayer ?? 0, phase: 'STAND' };
+  state.turn = { number: options.turnNumber ?? 3, player: options.turnPlayer ?? 0, phase: 'STAND', attackCount: 0 };
   state.stack = [{ kind: 'TURN', step: options.step }];
   return advance(state);
 }
@@ -152,6 +152,8 @@ export function answer(state: GameState, choice: Choice): StepResult {
  * from src/visibility.ts so that a mistake there is not copied here.
  */
 export function shouldBeHidden(viewer: PlayerId, inst: CardInstance): boolean {
+  // CR-4.9.1: a card revealed by an effect is shown to everyone wherever it is.
+  if (inst.revealed) return false;
   const mine = inst.location.player === viewer;
   const faceDown = inst.face === 'DOWN';
   const table: Record<string, boolean> = {

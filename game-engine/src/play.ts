@@ -87,7 +87,7 @@ export function listPlayableClimaxes(state: GameState, player: PlayerId): number
 }
 
 /** CR-8.4.3 / CR-3.10.2: moves the top n stock cards to the waiting room, from the top down. */
-function payStock(ctx: Ctx, player: PlayerId, count: number): void {
+export function payStock(ctx: Ctx, player: PlayerId, count: number): void {
   if (count <= 0) return;
   const stock = ctx.state.zones[player].stock;
   if (stock.length < count) throw new Error('Engine bug: paying more stock than available');
@@ -151,6 +151,25 @@ export function performMainAction(ctx: Ctx, player: PlayerId, action: MainAction
     case 'PASS':
       return;
   }
+}
+
+/**
+ * CR-7.4.1.2.1: object ids of the hand cards the defending player may play in
+ * the counter step. Only events with a counter icon for now; "backup"
+ * abilities of characters (CR-10.5) need the ability engine of STEP 4d.
+ */
+export function listPlayableCounters(state: GameState, player: PlayerId): number[] {
+  return state.zones[player].hand
+    .filter((id) => {
+      const def = getDef(state, id);
+      return def.kind === 'EVENT' && def.counter && canPlayFromHand(state, player, id);
+    })
+    .map((id) => getInstance(state, id).objectId);
+}
+
+/** CR-7.4.1.2: plays a counter event from hand, given its object id. */
+export function playCounter(ctx: Ctx, player: PlayerId, objectId: number): void {
+  playFromHand(ctx, player, findObject(ctx.state, objectId).instanceId);
 }
 
 /** CR-6.6.1.2: plays a climax card from hand, given its object id. */

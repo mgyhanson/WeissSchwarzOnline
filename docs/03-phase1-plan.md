@@ -47,7 +47,7 @@
 |---|---|---|
 | **STEP 4a** | 專案骨架（workspaces、TypeScript、Vitest、`.nosync` 設定、備份腳本）；狀態模型；全部區域；原子移動；玩家視圖 | 區域及隱藏資訊測試通過；不變量檢查可運行 |
 | **STEP 4b**（完成） | 遊戲準備；回合狀態機；Check Timing；規則處理（Refresh、Level Up、敗北判定等）；由手牌出角色、Event、Climax 的條件及 Stock Cost（原定在 4d，因為 4c 的攻擊需要場上有角色而提前） | 用沒有能力的測試卡，可由開局打到分出勝負 |
-| **STEP 4c** | 攻擊流程；Trigger Check 及全部圖示；傷害處理；Encore | 傷害、Cancel、傷害途中 Refresh、Level Up 的邊界測試全部通過 |
+| **STEP 4c**（完成） | 攻擊流程；Trigger Check 及全部 13 種圖示；傷害處理及 Cancel；Counter Step；戰鬥；Encore Step 及所有角色預設的 Encore | 傷害、Cancel、傷害途中 Refresh、Level Up 的邊界測試全部通過 |
 | **STEP 4d** | 能力的 Cost；能力直譯器；自動能力的待機及解決；各階段「開始時」的觸發；持續效果分層；置換效果；最終資訊；循環偵測 | 用人工編寫的測試能力驗證處理次序 |
 | **STEP 5** | 規則登記表轉成 `registry.json`；覆蓋檢查腳本；性質測試 | 第一階段範圍內的每條規則都有通過的測試；隨機對局數千局沒有違反不變量 |
 | **STEP 6** | 匯入 1a 兩副 Trial Deck → 逐張核實、編寫能力資料及測試 → 再做 1b | 所有支援卡 `verified` 並有測試 |

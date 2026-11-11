@@ -122,6 +122,12 @@ export interface CardInstance {
   /** Non-null exactly while the card is in a stage slot. */
   orientation: Orientation | null;
   face: Face;
+  /**
+   * The card is currently revealed to all players by an effect although its
+   * zone is hidden (CR-4.9.1). Ends when the card moves or its deck is
+   * shuffled (CR-8.6.6.1).
+   */
+  revealed: boolean;
 }
 
 /**
@@ -153,6 +159,60 @@ export interface TurnState {
   /** The turn player. */
   player: PlayerId;
   phase: Phase;
+  /** Attack sub-phases started this turn (CR-7.2.1.3.1.2). */
+  attackCount: number;
+}
+
+/** CR-7.2.1.4 */
+export type AttackType = 'DIRECT' | 'FRONT' | 'SIDE';
+
+/**
+ * The attack sub-phase in progress (CR-7.1.2). Cards are identified by
+ * object id and slot: a character that leaves its slot stops being the
+ * attacking / defending character (CR-7.2.1.5), and it then no longer
+ * matches this record.
+ */
+export interface AttackState {
+  /** The attacking player (the turn player). */
+  player: PlayerId;
+  type: AttackType;
+  attackerObjectId: number;
+  attackerSlot: SlotId;
+  /** CR-7.2.1.5.1: the defending character of a front attack; null otherwise. */
+  defenderObjectId: number | null;
+  defenderSlot: SlotId | null;
+}
+
+/**
+ * A change to a character's power or soul that lasts until the end of the
+ * turn. It is tied to the object id, so it stops applying when the card
+ * becomes a new object (CR-3.1.4). The full layering of continuous effects
+ * (CR-8.9) replaces this in STEP 4d.
+ */
+export interface Modifier {
+  objectId: number;
+  stat: 'POWER' | 'SOUL';
+  delta: number;
+}
+
+/** CR-10.2.3: stock cost of the encore ability every character has. */
+export const ENCORE_COST = 3;
+
+/**
+ * An automatic ability whose trigger condition was met and that waits to be
+ * played at a check timing (CR-8.7.2). Only the abilities defined by the
+ * rules themselves exist so far; card abilities arrive with STEP 4d.
+ */
+export type WaitingAuto =
+  /** CR-10.2.2: encore of a character that went from the stage to the waiting room. */
+  | { id: number; kind: 'ENCORE'; master: PlayerId; instanceId: number; objectId: number; slot: SlotId }
+  /** CR-4.14.2.7: the ability created by a shot trigger, after the watched damage was cancelled. */
+  | { id: number; kind: 'SHOT'; master: PlayerId };
+
+/** CR-4.14.2.7: a shot trigger waiting for the next damage dealt by the attacking character. */
+export interface ShotWatcher {
+  master: PlayerId;
+  attackerObjectId: number;
 }
 
 /** Why a player lost. */
@@ -210,4 +270,13 @@ export interface GameState {
   result: GameResult | null;
   /** Whether the most recent check timing resolved anything (used by CR-6.8.1.5). */
   lastCheckActed: boolean;
+
+  /** The attack in progress, if any. */
+  attack: AttackState | null;
+  /** Power and soul changes lasting until the end of the turn. */
+  modifiers: Modifier[];
+  /** Automatic abilities waiting to be played (CR-8.7.2). */
+  waiting: WaitingAuto[];
+  nextWaitingId: number;
+  shotWatchers: ShotWatcher[];
 }

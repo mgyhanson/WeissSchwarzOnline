@@ -80,6 +80,7 @@ export function createInitialState(config: GameConfig, seed: string): GameState 
         enteredBatch: 0,
         orientation: null,
         face: 'DOWN',
+        revealed: false,
       });
       zones[player].deck.push(instanceId);
     }
@@ -103,6 +104,11 @@ export function createInitialState(config: GameConfig, seed: string): GameState 
     answer: null,
     result: null,
     lastCheckActed: false,
+    attack: null,
+    modifiers: [],
+    waiting: [],
+    nextWaitingId: 1,
+    shotWatchers: [],
   };
 }
 

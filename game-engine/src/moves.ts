@@ -22,10 +22,12 @@ export interface Ctx {
   state: GameState;
   /** Events produced so far, in order. */
   events: GameEvent[];
+  /** How many of the events have been examined for trigger conditions (flow/autos.ts). */
+  triggerCursor: number;
 }
 
 export function createCtx(state: GameState): Ctx {
-  return { state, events: [] };
+  return { state, events: [], triggerCursor: 0 };
 }
 
 export interface MoveOptions {
@@ -94,6 +96,8 @@ function relocate(
   inst.face = face;
   inst.location = { ...to };
   inst.enteredBatch = batch;
+  // CR-8.6.6.1: a revealed card that moves is no longer "revealed in its old zone".
+  inst.revealed = false;
 
   const event: CardMovedEvent = {
     type: 'CARD_MOVED',
@@ -270,7 +274,27 @@ export function shuffleDeck(ctx: Ctx, player: PlayerId): void {
   const deck = state.zones[player].deck;
   shuffleInPlace(state.rng, deck);
   for (const id of deck) {
-    getInstance(state, id).objectId = state.nextObjectId++;
+    const inst = getInstance(state, id);
+    inst.objectId = state.nextObjectId++;
+    // CR-8.6.6.1: shuffling ends any reveal.
+    inst.revealed = false;
   }
   ctx.events.push({ type: 'DECK_SHUFFLED', seq: state.nextEventSeq++, player });
+}
+
+/**
+ * CR-4.9.1: reveals a card where it is, without moving it. The reveal ends
+ * when the card moves or its deck is shuffled.
+ */
+export function revealCard(ctx: Ctx, instanceId: number): void {
+  const inst = getInstance(ctx.state, instanceId);
+  if (inst.revealed) return;
+  inst.revealed = true;
+  ctx.events.push({
+    type: 'CARD_REVEALED',
+    seq: ctx.state.nextEventSeq++,
+    instanceId,
+    cardId: inst.cardId,
+    zone: { ...inst.location },
+  });
 }

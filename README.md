@@ -12,10 +12,13 @@
 | STEP 3 技術架構 | 完成，已確認 |
 | STEP 4a 引擎骨架、區域、卡牌移動、玩家視圖 | 完成 |
 | STEP 4b 遊戲準備、回合、出牌、Check Timing、規則處理 | 完成 |
-| STEP 4c 攻擊、Trigger、傷害、Encore | **未開始** |
-| STEP 4d 起 | 未開始 |
+| STEP 4c 攻擊、Trigger、傷害、Encore | 完成 |
+| STEP 4d 卡牌能力引擎 | **未開始** |
+| STEP 5 起 | 未開始 |
 
-目前共 132 個自動測試通過。引擎可以用沒有能力的測試卡由開局打到分出勝負，但**還不是可以玩的 WS**：Attack Phase 是空的（沒有攻擊、Trigger、傷害），卡牌能力未實作，也沒有任何介面及真實卡牌。現時對局只能經 Clock Phase 及 Refresh 分出勝負。
+目前共 181 個自動測試通過。引擎已可按官方規則打完整局：遊戲準備、七個階段、出牌、攻擊（Direct／Front／Side）、Trigger Check 及全部 13 種圖示、傷害及 Cancel、戰鬥、Encore、Refresh、Level Up、勝負判定。
+
+但**還不是可以玩的 WS**：卡牌上的能力（助太刀、応援、CX Combo 等一切印在卡上的效果）未實作，測試用的是沒有能力的假卡，沒有任何真實卡牌，也沒有介面。
 
 ## 開發指令
 

@@ -14,6 +14,7 @@
 import type { Decision, DecisionKind } from './decisions';
 import type { CardMovedEvent, GameEvent, MoveReason } from './events';
 import type {
+  AttackState,
   CardInstance,
   Face,
   GameResult,
@@ -76,6 +77,8 @@ export interface PlayerView {
   sides: [SideView, SideView];
   firstPlayer: PlayerId | null;
   turn: TurnState | null;
+  /** The attack in progress. Everything in it is public (stage cards). */
+  attack: AttackState | null;
   decision: DecisionView | null;
   result: GameResult | null;
 }
@@ -124,6 +127,7 @@ export function getPlayerView(state: GameState, viewer: PlayerId): PlayerView {
     sides: [viewSide(state, viewer, state.zones[0]), viewSide(state, viewer, state.zones[1])],
     firstPlayer: state.firstPlayer,
     turn: state.turn ? { ...state.turn } : null,
+    attack: state.attack ? { ...state.attack } : null,
     decision: getDecisionView(state, viewer),
     result: state.result ? structuredClone(state.result) : null,
   };

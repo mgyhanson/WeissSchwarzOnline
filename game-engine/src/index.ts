@@ -22,3 +22,6 @@ export * from './game';
 export type { Frame, FrameKind, TurnStep } from './flow/frames';
 export { OPENING_HAND_SIZE } from './flow/setup';
 export { isLevelUpDue, isRefreshDue, losingCondition } from './flow/rule-actions';
+export type { AttackStep } from './flow/frames';
+export { listAttackOptions } from './flow/attack';
+export { attackerInstance, defenderInstance } from './flow/attack-state';

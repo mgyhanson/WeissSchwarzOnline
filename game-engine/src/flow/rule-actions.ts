@@ -23,8 +23,8 @@ import type { Frame } from './frames';
 /**
  * CR-9.2.1 with CR-9.2.2.1: a refresh is performed when the deck is empty
  * and the waiting room is not. With both empty no refresh happens until the
- * waiting room has cards again.
- * (The immediate loss of CR-9.2.2.1 during damage is added with STEP 4c.)
+ * waiting room has cards again. (The other case of CR-9.2.2.1, losing during
+ * damage, is checked in pushInterruptIfDue.)
  */
 export function isRefreshDue(state: GameState, player: PlayerId): boolean {
   const zones = state.zones[player];
@@ -46,6 +46,20 @@ export function isLevelUpDue(state: GameState, player: PlayerId): boolean {
  */
 export function pushInterruptIfDue(ctx: Ctx): boolean {
   const state = ctx.state;
+
+  // CR-9.2.2.1: a player whose deck ran out while they are being dealt
+  // damage, with no card in the waiting room to refresh and no climax in the
+  // resolution zone, loses the game immediately.
+  for (const player of playersInTurnOrder(state)) {
+    const zones = state.zones[player];
+    if (zones.deck.length > 0 || zones.waitingRoom.length > 0) continue;
+    const takingDamage = state.stack.some((frame) => frame.kind === 'DAMAGE' && frame.receiver === player);
+    if (!takingDamage) continue;
+    if (zones.resolution.some((id) => getDef(state, id).kind === 'CLIMAX')) continue;
+    endGame(ctx, { outcome: 'WIN', winner: opponentOf(player), loser: player, reason: 'NO_CARDS' });
+    return true;
+  }
+
   const top = state.stack[state.stack.length - 1];
   if (top && (top.kind === 'REFRESH' || top.kind === 'LEVEL_UP' || top.kind === 'RULE_ACTION_ORDER')) {
     return false;

@@ -8,6 +8,8 @@
 import type { CardInstance, PlayerId } from './types';
 
 export function canSee(viewer: PlayerId, inst: CardInstance): boolean {
+  // CR-4.9.1: a card revealed by an effect is shown to everyone.
+  if (inst.revealed) return true;
   const { zone, player } = inst.location;
   switch (zone) {
     // CR-3.2.2 / CR-3.10.2: nobody may look, including the zone's own player.

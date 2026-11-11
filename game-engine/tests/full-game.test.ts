@@ -2,9 +2,9 @@
  * Whole games from setup to a result, played by choosing at random among
  * the legal answers, with every invariant checked after every decision.
  *
- * The cards have no abilities and there are no attacks yet (STEP 4c), so
- * these games end through the clock phase and refreshes only. They exercise
- * setup, every phase, playing cards, refresh, level up and the result.
+ * The cards have no abilities yet (STEP 4d). The games exercise setup, every
+ * phase, playing cards, attacks, trigger icons, damage and cancels, battles,
+ * encore, refresh, level up and the result.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -16,6 +16,7 @@ import {
   type GameState,
   type PlayerId,
   type RngState,
+  type TriggerIcon,
   checkInvariants,
   createGame,
   getPlayerView,
@@ -57,6 +58,25 @@ const randomPolicy: Policy = (decision, rng) => {
       return { kind: 'HAND_LIMIT', discard: pickSome(rng, decision.cards, decision.count) };
     case 'RULE_ACTION_ORDER':
       return { kind: 'RULE_ACTION_ORDER', first: decision.options[nextInt(rng, decision.options.length)]! };
+    case 'ATTACK':
+      if (nextInt(rng, 6) === 0) return { kind: 'ATTACK', attack: null };
+      return { kind: 'ATTACK', attack: decision.attacks[nextInt(rng, decision.attacks.length)]! };
+    case 'COUNTER':
+      if (decision.cards.length === 0 || nextInt(rng, 2) === 0) return { kind: 'COUNTER', card: null };
+      return { kind: 'COUNTER', card: decision.cards[nextInt(rng, decision.cards.length)]! };
+    case 'CHOOSE_ABILITY':
+      return { kind: 'CHOOSE_ABILITY', id: decision.abilities[nextInt(rng, decision.abilities.length)]!.id };
+    case 'CONFIRM':
+      return { kind: 'CONFIRM', accept: nextInt(rng, 2) === 0 };
+    case 'SELECT_CARDS': {
+      const max = Math.min(decision.max, decision.cards.length);
+      const count = decision.min + nextInt(rng, max - decision.min + 1);
+      return { kind: 'SELECT_CARDS', cards: pickSome(rng, decision.cards, count) };
+    }
+    case 'SELECT_SLOT':
+      return { kind: 'SELECT_SLOT', slot: decision.slots[nextInt(rng, decision.slots.length)]! };
+    case 'SELECT_OPTION':
+      return { kind: 'SELECT_OPTION', option: decision.options[nextInt(rng, decision.options.length)]! };
   }
 };
 
@@ -77,12 +97,14 @@ const passivePolicy: Policy = (decision, rng) => {
 };
 
 /** Decisions that are only ever asked right after a check timing has finished. */
-const SETTLED_KINDS = new Set<Decision['kind']>(['MULLIGAN', 'CLOCK', 'MAIN', 'CLIMAX', 'HAND_LIMIT']);
+const SETTLED_KINDS = new Set<Decision['kind']>(['MULLIGAN', 'CLOCK', 'MAIN', 'CLIMAX', 'ATTACK', 'COUNTER', 'HAND_LIMIT']);
 
 interface Played {
   state: GameState;
   events: GameEvent[];
   decisions: number;
+  /** Every kind of decision that came up. */
+  kinds: Set<Decision['kind']>;
   problems: string[];
 }
 
@@ -113,6 +135,7 @@ function playGame(seed: string, policy: Policy, maxDecisions: number, defs?: Par
   let state = created.state;
   const events = [...created.events];
   const problems: string[] = [];
+  const kinds = new Set<Decision['kind']>();
   let decisions = 0;
 
   while (!state.result && problems.length === 0) {
@@ -125,6 +148,7 @@ function playGame(seed: string, policy: Policy, maxDecisions: number, defs?: Par
       problems.push(`no result after ${maxDecisions} decisions`);
       break;
     }
+    kinds.add(decision.kind);
     const label = `decision ${decisions} (${decision.kind})`;
     for (const p of checkInvariants(state, { settled: SETTLED_KINDS.has(decision.kind) })) problems.push(`${label}: ${p}`);
     if (decisions % 20 === 0) problems.push(...leakProblems(state, label));
@@ -142,7 +166,7 @@ function playGame(seed: string, policy: Policy, maxDecisions: number, defs?: Par
   if (state.result) {
     for (const p of checkInvariants(state)) problems.push(`final state: ${p}`);
   }
-  return { state, events, decisions, problems };
+  return { state, events, decisions, kinds, problems };
 }
 
 describe('complete games', () => {
@@ -188,22 +212,58 @@ describe('complete games', () => {
     expect(refreshes).toBeGreaterThan(0);
   });
 
-  it('games with coloured, levelled and costed cards also reach a result', () => {
-    // Characters of four colours with levels 0 to 3; events; climaxes of two colours.
+  it('games with every trigger icon, counters, levels, colours and costs reach a result', () => {
     const colors = ['red', 'blue', 'green', 'yellow'];
+    const icons: TriggerIcon[] = ['SOUL', 'RETURN', 'POOL', 'COMEBACK', 'DRAW', 'SHOT', 'TREASURE', 'GATE', 'STANDBY', 'CHOICE', 'CHANCE', 'DISCOVERY', 'FOCUS'];
+    const climaxIcons: TriggerIcon[][] = [['SOUL', 'SOUL'], ['SOUL', 'GATE'], ['SHOT'], ['TREASURE'], ['CHANCE'], ['DISCOVERY'], ['STANDBY', 'SOUL'], ['CHOICE']];
     const defs = (_player: PlayerId, i: number): Partial<CardDef> | undefined => {
-      if (i >= 42) return { color: colors[i % 2]! };
-      if (i >= 36) return { kind: 'EVENT', power: null, soul: null, level: i % 3, cost: 0, color: colors[i % 4]! };
-      return { level: i % 4, cost: 0, color: colors[i % 4]!, power: 500 * (1 + (i % 4)) };
+      if (i >= 42) return { color: colors[i % 2]!, triggers: climaxIcons[i - 42]! };
+      if (i >= 36) return { kind: 'EVENT', power: null, soul: null, level: 0, cost: i % 2, color: colors[i % 4]!, counter: i % 2 === 0 };
+      return {
+        level: i % 3,
+        cost: i % 2,
+        color: colors[i % 4]!,
+        power: 500 * (1 + (i % 5)),
+        soul: 1 + (i % 2),
+        triggers: i % 2 === 0 ? [icons[i % icons.length]!] : [],
+      };
     };
-    let kinds = new Set<string>();
-    for (let i = 0; i < 15; i++) {
+
+    const cardKinds = new Set<string>();
+    const decisionKinds = new Set<string>();
+    const iconsSeen = new Set<string>();
+    const attackTypes = new Set<string>();
+    let cancelled = 0;
+    let dealt = 0;
+    let encores = 0;
+    let reversed = 0;
+
+    for (let i = 0; i < 25; i++) {
       const game = playGame(`mixed-${i}`, randomPolicy, 20_000, defs);
       expect(game.problems).toEqual([]);
       expect(game.state.result).not.toBeNull();
-      for (const e of game.events) if (e.type === 'CARD_PLAYED') kinds.add(e.cardKind);
+      for (const kind of game.kinds) decisionKinds.add(kind);
+      for (const e of game.events) {
+        if (e.type === 'CARD_PLAYED') cardKinds.add(e.cardKind);
+        if (e.type === 'TRIGGER_CHECK') for (const icon of e.icons) iconsSeen.add(icon);
+        if (e.type === 'ATTACK_DECLARED') attackTypes.add(e.attackType);
+        if (e.type === 'DAMAGE_DEALT') e.cancelled ? cancelled++ : dealt++;
+        if (e.type === 'CARD_MOVED' && e.reason === 'ENCORE') encores++;
+        if (e.type === 'ORIENTATION_CHANGED' && e.to === 'REVERSE') reversed++;
+      }
     }
-    expect([...kinds].sort()).toEqual(['CHARACTER', 'CLIMAX', 'EVENT']);
+
+    // The sample must actually have exercised the mechanics.
+    expect([...cardKinds].sort()).toEqual(['CHARACTER', 'CLIMAX', 'EVENT']);
+    expect([...iconsSeen].sort()).toEqual([...icons].sort());
+    expect([...attackTypes].sort()).toEqual(['DIRECT', 'FRONT', 'SIDE']);
+    for (const kind of ['MULLIGAN', 'CLOCK', 'MAIN', 'CLIMAX', 'ATTACK', 'COUNTER', 'LEVEL_UP', 'CONFIRM', 'SELECT_CARDS', 'SELECT_SLOT', 'SELECT_OPTION']) {
+      expect(decisionKinds.has(kind), `no ${kind} decision came up`).toBe(true);
+    }
+    expect(cancelled).toBeGreaterThan(20);
+    expect(dealt).toBeGreaterThan(200);
+    expect(reversed).toBeGreaterThan(50);
+    expect(encores).toBeGreaterThan(5);
   });
 
   it('a game where nobody ever clocks or plays is decided by refreshes (CR-9.2.2)', () => {
