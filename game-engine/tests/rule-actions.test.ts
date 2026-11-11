@@ -67,7 +67,7 @@ describe('refresh (CR-9.2)', () => {
     expect(zones.deck).toHaveLength(6);
   });
 
-  it('T-REF-002 / CR-9.2.2.1: with an empty waiting room there is no refresh', () => {
+  it('T-REF-002 / CR-9.2.2.1: with an empty waiting room there is no refresh; T-WIN-004 / CR-1.2.2.2: then having no cards at all loses', () => {
     const { state, events } = scenario({ step: 'DRAW_START' }, (ctx) => {
       const deck = ctx.state.zones[0].deck;
       moveCards(ctx, deck.slice(0, deck.length - 1), { player: 0, zone: 'memory' });
@@ -181,7 +181,7 @@ describe('several interrupt rule actions at once (CR-9.1.2.1.1)', () => {
 });
 
 describe('winning and losing (CR-1.2, CR-9.4)', () => {
-  it('T-WIN-002 / CR-1.2.2 and T-WIN-003 / CR-1.2.2.1: a fourth level card loses at the next check timing, not immediately', () => {
+  it('T-WIN-002 / CR-1.2.2, T-WIN-003 / CR-1.2.2.1 and T-WIN-010 / CR-9.4.1: a fourth level card loses at the next check timing, not immediately', () => {
     const start = scenario({ step: 'CLOCK_START' }, (ctx) => {
       for (let i = 0; i < 3; i++) put(ctx, card(0, 20 + i), { player: 0, zone: 'level' });
       for (let i = 0; i < 6; i++) put(ctx, card(0, 10 + i), { player: 0, zone: 'clock' });

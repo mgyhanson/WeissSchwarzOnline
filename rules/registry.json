@@ -1,0 +1,1947 @@
+{
+  "source": "rules/rule-registry.md",
+  "rulesVersion": "JP-1.114",
+  "rules": [
+    {
+      "id": "CR-1.2.1",
+      "section": "1. 勝負及大原則",
+      "description": "有玩家敗北時遊戲即時結束，沒有敗北的一方勝出",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-001"
+      ]
+    },
+    {
+      "id": "CR-1.2.2",
+      "section": "1. 勝負及大原則",
+      "description": "符合敗北條件的玩家，在下一次規則處理時才敗北",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-002"
+      ]
+    },
+    {
+      "id": "CR-1.2.2.1",
+      "section": "1. 勝負及大原則",
+      "description": "Level 置場有 4 張或以上 = 敗北條件",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-003"
+      ]
+    },
+    {
+      "id": "CR-1.2.2.2",
+      "section": "1. 勝負及大原則",
+      "description": "山札及控え室都沒有卡 = 敗北條件",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-004"
+      ]
+    },
+    {
+      "id": "CR-1.2.3",
+      "section": "1. 勝負及大原則",
+      "description": "雙方同時敗北 = 平手",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-005"
+      ]
+    },
+    {
+      "id": "CR-1.2.4",
+      "section": "1. 勝負及大原則",
+      "description": "任何時候可以投降，即時敗北，不受任何效果影響",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-006"
+      ]
+    },
+    {
+      "id": "CR-1.2.5",
+      "section": "1. 勝負及大原則",
+      "description": "卡牌效果指定的勝負在效果處理中即時生效",
+      "status": "未實作",
+      "tests": [
+        "T-WIN-007"
+      ]
+    },
+    {
+      "id": "CR-1.3.1",
+      "section": "1. 勝負及大原則",
+      "description": "卡牌文字與規則矛盾時，卡牌文字優先",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-001"
+      ]
+    },
+    {
+      "id": "CR-1.3.2",
+      "section": "1. 勝負及大原則",
+      "description": "不可能的行動不執行；只有部分可行時盡量執行",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-002"
+      ]
+    },
+    {
+      "id": "CR-1.3.2.1",
+      "section": "1. 勝負及大原則",
+      "description": "已處於某狀態的東西不會「再次變成」該狀態",
+      "status": "部分",
+      "tests": [
+        "T-GEN-003"
+      ]
+    },
+    {
+      "id": "CR-1.3.2.2",
+      "section": "1. 勝負及大原則",
+      "description": "0 次或負數次的行動完全不執行",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-004"
+      ]
+    },
+    {
+      "id": "CR-1.3.3",
+      "section": "1. 勝負及大原則",
+      "description": "禁止效果優先於指示效果",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-005"
+      ]
+    },
+    {
+      "id": "CR-1.3.4",
+      "section": "1. 勝負及大原則",
+      "description": "雙方同時要選擇時，回合玩家先選",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-006"
+      ]
+    },
+    {
+      "id": "CR-2.3.2",
+      "section": "2. 卡牌資訊",
+      "description": "卡牌種類只有角色、Event、Climax 三種",
+      "status": "未實作",
+      "tests": [
+        "T-CARD-001"
+      ]
+    },
+    {
+      "id": "CR-2.3.2.1.2",
+      "section": "2. 卡牌資訊",
+      "description": "文字中沒有指定區域的「キャラ」是指舞台上的角色",
+      "status": "已測試",
+      "tests": [
+        "T-CARD-002"
+      ]
+    },
+    {
+      "id": "CR-2.8.2",
+      "section": "2. 卡牌資訊",
+      "description": "有 Counter 圖示的卡可在對手的 Counter Step 使用",
+      "status": "已測試",
+      "tests": [
+        "T-CARD-003"
+      ]
+    },
+    {
+      "id": "CR-2.12.2",
+      "section": "2. 卡牌資訊",
+      "description": "角色文字原則上只在舞台有效；Climax 文字只在 Climax 置場有效",
+      "status": "已測試",
+      "tests": [
+        "T-CARD-004"
+      ]
+    },
+    {
+      "id": "CR-2.12.2.3",
+      "section": "2. 卡牌資訊",
+      "description": "以某區域為前提的能力在該區域也有效（例如 Alarm、Shift）",
+      "status": "部分",
+      "tests": [
+        "T-CARD-005"
+      ]
+    },
+    {
+      "id": "CR-2.19.1",
+      "section": "2. 卡牌資訊",
+      "description": "卡沒有某項資訊時，數值視為 0，其他視為不存在",
+      "status": "未實作",
+      "tests": [
+        "T-CARD-006"
+      ]
+    },
+    {
+      "id": "CR-3.1.2",
+      "section": "3. 區域",
+      "description": "所有區域的張數對雙方公開",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-001"
+      ]
+    },
+    {
+      "id": "CR-3.1.4",
+      "section": "3. 區域",
+      "description": "除了枠與枠之間的移動，卡牌每次轉換區域都視為新卡，原有效果不再適用",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-002"
+      ]
+    },
+    {
+      "id": "CR-3.1.5",
+      "section": "3. 區域",
+      "description": "多張卡同時進入同一區域時，由持有者決定次序",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-003"
+      ]
+    },
+    {
+      "id": "CR-3.2.2",
+      "section": "3. 區域",
+      "description": "山札非公開，不可查看或改變次序",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-010"
+      ]
+    },
+    {
+      "id": "CR-3.2.4",
+      "section": "3. 區域",
+      "description": "洗牌：隨機改變山札次序",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-015"
+      ]
+    },
+    {
+      "id": "CR-3.2.3",
+      "section": "3. 區域",
+      "description": "對山札頂（底）N 張進行處理時，逐張依次處理",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-011"
+      ]
+    },
+    {
+      "id": "CR-3.2.3.2",
+      "section": "3. 區域",
+      "description": "處理途中山札耗盡 → 中斷並 Refresh，然後繼續",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-012"
+      ]
+    },
+    {
+      "id": "CR-3.2.3.3",
+      "section": "3. 區域",
+      "description": "山札張數少於指定張數時的終止條件",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-013"
+      ]
+    },
+    {
+      "id": "CR-3.2.5",
+      "section": "3. 區域",
+      "description": "「めくる」= 公開並移到解決領域",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-014"
+      ]
+    },
+    {
+      "id": "CR-3.3.2",
+      "section": "3. 區域",
+      "description": "手牌只有自己可看",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-020"
+      ]
+    },
+    {
+      "id": "CR-3.3.3.1",
+      "section": "3. 區域",
+      "description": "手牌上限預設 7 張",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-021"
+      ]
+    },
+    {
+      "id": "CR-3.4.2",
+      "section": "3. 區域",
+      "description": "控え室公開，新卡放最上",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-030"
+      ]
+    },
+    {
+      "id": "CR-3.6.2",
+      "section": "3. 區域",
+      "description": "每個枠原則上只有 1 張卡",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-040"
+      ]
+    },
+    {
+      "id": "CR-3.6.3",
+      "section": "3. 區域",
+      "description": "由枠以外進入枠時為 Stand 狀態；枠之間移動不改變狀態",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-041"
+      ]
+    },
+    {
+      "id": "CR-3.6.4",
+      "section": "3. 區域",
+      "description": "前列 3 個枠（左、中央、右），後列 2 個枠（左、右）",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-042"
+      ]
+    },
+    {
+      "id": "CR-3.6.5",
+      "section": "3. 區域",
+      "description": "前後關係：後左↔前左、前中；後右↔前中、前右",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-043"
+      ]
+    },
+    {
+      "id": "CR-3.6.6",
+      "section": "3. 區域",
+      "description": "正面關係：自前左↔敵前右；中↔中；自前右↔敵前左",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-044"
+      ]
+    },
+    {
+      "id": "CR-3.7.2",
+      "section": "3. 區域",
+      "description": "Marker 置場非公開，後放的在上，由上面取走",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-050"
+      ]
+    },
+    {
+      "id": "CR-3.7.2.3",
+      "section": "3. 區域",
+      "description": "裏向的 Marker 視為沒有資訊的空白卡",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-051"
+      ]
+    },
+    {
+      "id": "CR-3.7.3.1",
+      "section": "3. 區域",
+      "description": "角色移到另一個枠時 Marker 跟隨；目的地原有 Marker 放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-052"
+      ]
+    },
+    {
+      "id": "CR-3.7.3.2",
+      "section": "3. 區域",
+      "description": "角色離開舞台時，其 Marker 放到各自持有者的控え室",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-053"
+      ]
+    },
+    {
+      "id": "CR-3.8.2",
+      "section": "3. 區域",
+      "description": "Clock 公開，不可改次序，新卡放最上",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-060"
+      ]
+    },
+    {
+      "id": "CR-3.9.2",
+      "section": "3. 區域",
+      "description": "Level 置場公開；裏向卡只有自己可看，並視為空白卡",
+      "status": "部分",
+      "tests": [
+        "T-ZONE-070"
+      ]
+    },
+    {
+      "id": "CR-3.9.3",
+      "section": "3. 區域",
+      "description": "Level 置場不可改次序",
+      "status": "未實作",
+      "tests": [
+        "T-ZONE-071"
+      ]
+    },
+    {
+      "id": "CR-3.10.2",
+      "section": "3. 區域",
+      "description": "Stock 非公開（自己也不可看），後進先出",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-080"
+      ]
+    },
+    {
+      "id": "CR-3.11.2",
+      "section": "3. 區域",
+      "description": "Climax 置場公開，原則上 1 張",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-090"
+      ]
+    },
+    {
+      "id": "CR-3.12.2",
+      "section": "3. 區域",
+      "description": "思い出公開；裏向卡只有自己可看，並視為空白卡",
+      "status": "部分",
+      "tests": [
+        "T-ZONE-100"
+      ]
+    },
+    {
+      "id": "CR-3.13.1",
+      "section": "3. 區域",
+      "description": "解決領域：Event、Trigger Check、傷害、集中的暫存區",
+      "status": "部分",
+      "tests": [
+        "T-ZONE-110"
+      ]
+    },
+    {
+      "id": "CR-3.13.1.3.1",
+      "section": "3. 區域",
+      "description": "傷害卡保持次序、同時放到 Clock 最上",
+      "status": "已測試",
+      "tests": [
+        "T-DMG-004"
+      ]
+    },
+    {
+      "id": "CR-4.4.2",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Check Timing：先解決全部規則處理，再處理自動能力",
+      "status": "已測試",
+      "tests": [
+        "T-CHK-001"
+      ]
+    },
+    {
+      "id": "CR-4.5.2",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "獲得 Play Timing 之前必定先有 Check Timing",
+      "status": "已測試",
+      "tests": [
+        "T-CHK-002"
+      ]
+    },
+    {
+      "id": "CR-4.5.3",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Play Timing：做一個行動（之後再次獲得），或選擇不做",
+      "status": "已測試",
+      "tests": [
+        "T-CHK-003"
+      ]
+    },
+    {
+      "id": "CR-4.6.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "角色有 Stand、Rest、Reverse 三種狀態",
+      "status": "已測試",
+      "tests": [
+        "T-CARD-010"
+      ]
+    },
+    {
+      "id": "CR-4.9.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "公開：向所有玩家開示指定卡的資訊，卡留在原本的區域",
+      "status": "已測試",
+      "tests": [
+        "T-ZONE-016"
+      ]
+    },
+    {
+      "id": "CR-4.10.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "「最多 N 次」的處理程序",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-010"
+      ]
+    },
+    {
+      "id": "CR-4.11.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "「任意次數」的處理程序",
+      "status": "未實作",
+      "tests": [
+        "T-GEN-011"
+      ]
+    },
+    {
+      "id": "CR-4.12.1.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "傷害：山札頂 1 張表向移到解決領域",
+      "status": "已測試",
+      "tests": [
+        "T-DMG-001"
+      ]
+    },
+    {
+      "id": "CR-4.12.1.2",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "翻出 Climax → 這次傷害的所有卡放控え室，傷害結束",
+      "status": "已測試",
+      "tests": [
+        "T-DMG-002"
+      ]
+    },
+    {
+      "id": "CR-4.12.1.3",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "累積 N 張 → 全部放到 Clock；否則繼續翻",
+      "status": "已測試",
+      "tests": [
+        "T-DMG-003"
+      ]
+    },
+    {
+      "id": "CR-4.12.2",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "不是「給予傷害」造成的放 Clock 不會 Cancel",
+      "status": "已測試",
+      "tests": [
+        "T-DMG-005"
+      ]
+    },
+    {
+      "id": "CR-4.12.3",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "傷害期間翻出的卡不算「被效果公開／移動的卡」",
+      "status": "未實作",
+      "tests": [
+        "T-DMG-006"
+      ]
+    },
+    {
+      "id": "CR-4.13.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "能力及效果的發生源定義",
+      "status": "未實作",
+      "tests": [
+        "T-ABL-001"
+      ]
+    },
+    {
+      "id": "CR-4.13.2",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "傷害的發生源定義",
+      "status": "部分",
+      "tests": [
+        "T-ABL-002"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.1",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：無圖示",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-001"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.2",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：ソウル（強制 Soul +1）",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-002"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.3",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：リターン",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-003"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.4",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：プール",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-004"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.5",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：カムバック",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-005"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.6",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：ドロー",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-006"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.7",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：ショット（含 4.14.2.7.1 至 .3 的細則）",
+      "status": "部分",
+      "tests": [
+        "T-TRG-007"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.8",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：トレジャー（回手強制，之後不進 Stock）",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-008"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.9",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：ゲート",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-009"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.10",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：スタンバイ（可放到已有角色的枠）",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-010"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.11",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：チョイス",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-011"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.12",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：チャンス",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-012"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.13",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：ディスカバリー（執行期間不 Refresh）",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-013"
+      ]
+    },
+    {
+      "id": "CR-4.14.2.14",
+      "section": "4. 基礎用語、傷害、Trigger",
+      "description": "Trigger：フォーカス",
+      "status": "已測試",
+      "tests": [
+        "T-TRG-014"
+      ]
+    },
+    {
+      "id": "CR-5.1.2.1",
+      "section": "5. 遊戲準備",
+      "description": "卡組剛好 50 張",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-001"
+      ]
+    },
+    {
+      "id": "CR-5.1.2.2",
+      "section": "5. 遊戲準備",
+      "description": "同名卡最多 4 張（同名即合計）",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-002"
+      ]
+    },
+    {
+      "id": "CR-5.1.2.3",
+      "section": "5. 遊戲準備",
+      "description": "Climax 合計最多 8 張",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-003"
+      ]
+    },
+    {
+      "id": "CR-5.1.2.4",
+      "section": "5. 遊戲準備",
+      "description": "卡牌自身的構築永續能力置換以上條件",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-004"
+      ]
+    },
+    {
+      "id": "CR-5.2.1.2",
+      "section": "5. 遊戲準備",
+      "description": "洗牌後放到山札",
+      "status": "已測試",
+      "tests": [
+        "T-SETUP-001"
+      ]
+    },
+    {
+      "id": "CR-5.2.1.3",
+      "section": "5. 遊戲準備",
+      "description": "隨機決定先攻，不容許選擇",
+      "status": "已測試",
+      "tests": [
+        "T-SETUP-002"
+      ]
+    },
+    {
+      "id": "CR-5.2.1.4",
+      "section": "5. 遊戲準備",
+      "description": "抽 5 張；由先攻起各一次，棄任意張數並抽相同張數",
+      "status": "已測試",
+      "tests": [
+        "T-SETUP-003"
+      ]
+    },
+    {
+      "id": "CR-5.2.1.5",
+      "section": "5. 遊戲準備",
+      "description": "先攻玩家開始回合",
+      "status": "已測試",
+      "tests": [
+        "T-SETUP-004"
+      ]
+    },
+    {
+      "id": "CR-6.2.1",
+      "section": "6. 回合進行",
+      "description": "Stand Phase 的三個步驟",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-001"
+      ]
+    },
+    {
+      "id": "CR-6.3.1",
+      "section": "6. 回合進行",
+      "description": "Draw Phase：抽 1 張（先攻第一回合也抽）",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-002"
+      ]
+    },
+    {
+      "id": "CR-6.4.1.2",
+      "section": "6. 回合進行",
+      "description": "Clock Phase：可選，1 張手牌放 Clock 並抽 2 張",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-003"
+      ]
+    },
+    {
+      "id": "CR-6.5.1.2.1",
+      "section": "6. 回合進行",
+      "description": "Main：由手牌出角色到指定枠",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-004"
+      ]
+    },
+    {
+      "id": "CR-6.5.1.2.2",
+      "section": "6. 回合進行",
+      "description": "Main：出 Event，經解決領域後放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-005"
+      ]
+    },
+    {
+      "id": "CR-6.5.1.2.3",
+      "section": "6. 回合進行",
+      "description": "Main：使用起動能力",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-006"
+      ]
+    },
+    {
+      "id": "CR-6.5.1.2.4",
+      "section": "6. 回合進行",
+      "description": "Main：交換兩個枠的卡",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-007"
+      ]
+    },
+    {
+      "id": "CR-6.6.1.2",
+      "section": "6. 回合進行",
+      "description": "Climax Phase：最多出 1 張 Climax",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-008"
+      ]
+    },
+    {
+      "id": "CR-6.8.1.1",
+      "section": "6. 回合進行",
+      "description": "End Phase：觸發「回合結束時」（同一 End Phase 內只觸發未觸發過的）",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-009"
+      ]
+    },
+    {
+      "id": "CR-6.8.1.2",
+      "section": "6. 回合進行",
+      "description": "手牌超過上限時棄到上限",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-010"
+      ]
+    },
+    {
+      "id": "CR-6.8.1.3",
+      "section": "6. 回合進行",
+      "description": "Climax 放到控え室",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-011"
+      ]
+    },
+    {
+      "id": "CR-6.8.1.4",
+      "section": "6. 回合進行",
+      "description": "「回合結束前」的效果消失",
+      "status": "已測試",
+      "tests": [
+        "T-TURN-012"
+      ]
+    },
+    {
+      "id": "CR-6.8.1.5",
+      "section": "6. 回合進行",
+      "description": "有任何處理發生過就重做整個 End Phase，否則換人",
+      "status": "部分",
+      "tests": [
+        "T-TURN-013"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.1",
+      "section": "7. 攻擊及戰鬥",
+      "description": "該回合第一次宣告步驟觸發「Attack Phase 開始時」",
+      "status": "部分",
+      "tests": [
+        "T-ATK-001"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.3.1.1",
+      "section": "7. 攻擊及戰鬥",
+      "description": "可攻擊的是前列 Stand 角色",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-002"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.3.1.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "先攻第一回合只能攻擊一次",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-003"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.3.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "選擇結束攻擊 → 進入 Encore Step",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-004"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.4.1",
+      "section": "7. 攻擊及戰鬥",
+      "description": "Direct Attack：正面沒有角色，Soul +1",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-005"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.4.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "Front／Side 由玩家選；Side 的 Soul 減去正面角色 Level",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-006"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.4.3",
+      "section": "7. 攻擊及戰鬥",
+      "description": "宣告後正面角色改變，攻擊方式及 Soul 增減不變",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-007"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.5",
+      "section": "7. 攻擊及戰鬥",
+      "description": "攻擊角色、防禦角色、戰鬥對手的定義",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-008"
+      ]
+    },
+    {
+      "id": "CR-7.2.1.5.3",
+      "section": "7. 攻擊及戰鬥",
+      "description": "攻擊角色變成 Rest",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-009"
+      ]
+    },
+    {
+      "id": "CR-7.3.1.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "Trigger Check：翻到解決領域 → 執行圖示 → 裏向進 Stock",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-010"
+      ]
+    },
+    {
+      "id": "CR-7.3.1.2.1",
+      "section": "7. 攻擊及戰鬥",
+      "description": "多個圖示按任意次序執行",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-011"
+      ]
+    },
+    {
+      "id": "CR-7.3.1.2.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "只執行放到解決領域當刻擁有的圖示",
+      "status": "部分",
+      "tests": [
+        "T-ATK-012"
+      ]
+    },
+    {
+      "id": "CR-7.4.1.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "Counter Step 只在 Front Attack 出現；只可用 Counter 卡或能力，限一次",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-013"
+      ]
+    },
+    {
+      "id": "CR-7.5.1.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "傷害 = 攻擊角色的 Soul",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-014"
+      ]
+    },
+    {
+      "id": "CR-7.5.1.2.1",
+      "section": "7. 攻擊及戰鬥",
+      "description": "Soul ≤ 0 時不給予傷害",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-015"
+      ]
+    },
+    {
+      "id": "CR-7.5.1.2.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "攻擊角色不在或換了主人時不給予傷害",
+      "status": "部分",
+      "tests": [
+        "T-ATK-016"
+      ]
+    },
+    {
+      "id": "CR-7.6.1.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "比較 Power，低者 Reverse，相同則雙方 Reverse",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-017"
+      ]
+    },
+    {
+      "id": "CR-7.6.1.3",
+      "section": "7. 攻擊及戰鬥",
+      "description": "任何一方不在時不比較",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-018"
+      ]
+    },
+    {
+      "id": "CR-7.5.1.4 / 7.6.1.5",
+      "section": "7. 攻擊及戰鬥",
+      "description": "觸發「攻擊結束時」，回到宣告步驟",
+      "status": "部分",
+      "tests": [
+        "T-ATK-019"
+      ]
+    },
+    {
+      "id": "CR-7.7.1.2",
+      "section": "7. 攻擊及戰鬥",
+      "description": "Encore Step：回合玩家逐張處理 Reverse 角色，每張後有 Check Timing",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-020"
+      ]
+    },
+    {
+      "id": "CR-7.7.1.3",
+      "section": "7. 攻擊及戰鬥",
+      "description": "之後輪到非回合玩家",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-021"
+      ]
+    },
+    {
+      "id": "CR-7.7.1.4",
+      "section": "7. 攻擊及戰鬥",
+      "description": "仍有 Reverse 角色就重複，否則進入 End Phase",
+      "status": "已測試",
+      "tests": [
+        "T-ATK-022"
+      ]
+    },
+    {
+      "id": "CR-8.1.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "能力分起動、自動、永續三種",
+      "status": "已測試",
+      "tests": [
+        "T-ABL-010"
+      ]
+    },
+    {
+      "id": "CR-8.1.1.2.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "自動能力可帶可選 Cost",
+      "status": "已測試",
+      "tests": [
+        "T-ABL-011"
+      ]
+    },
+    {
+      "id": "CR-8.2.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "效果分單發、持續、置換三種",
+      "status": "部分",
+      "tests": [
+        "T-ABL-012"
+      ]
+    },
+    {
+      "id": "CR-8.3.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "被無效的效果仍然存在但不發生，也不作選擇",
+      "status": "未實作",
+      "tests": [
+        "T-ABL-013"
+      ]
+    },
+    {
+      "id": "CR-8.4.2.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "多項 Cost 按文字先後支付；支付期間不 Refresh、不 Level Up",
+      "status": "已測試",
+      "tests": [
+        "T-COST-001"
+      ]
+    },
+    {
+      "id": "CR-8.4.2.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Cost 不能只付部分",
+      "status": "已測試",
+      "tests": [
+        "T-COST-002"
+      ]
+    },
+    {
+      "id": "CR-8.4.2.2.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "在 Cost 內容確定時檢查能否支付",
+      "status": "部分",
+      "tests": [
+        "T-COST-003"
+      ]
+    },
+    {
+      "id": "CR-8.4.3",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "圓圈數字 = 由 Stock 放 N 張到控え室",
+      "status": "已測試",
+      "tests": [
+        "T-COST-004"
+      ]
+    },
+    {
+      "id": "CR-8.5.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Check Timing 的四步程序",
+      "status": "已測試",
+      "tests": [
+        "T-CHK-010"
+      ]
+    },
+    {
+      "id": "CR-8.5.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Play Timing 的程序",
+      "status": "已測試",
+      "tests": [
+        "T-CHK-011"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.1.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "顏色條件：與 Level 置場或 Clock 的任何一張卡同色",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-001"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.1.1.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Level 0 的角色及 Event 不需要顏色條件",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-002"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.1.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Level 條件：卡的 Level ≤ Level 置場張數",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-003"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.1.2.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Climax 不檢查 Level 條件",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-004"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.4",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "支付 Cost 後才發生「已 Play」事件",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-005"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.5.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "角色放到已有角色的枠，原角色在下次規則處理時放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-006"
+      ]
+    },
+    {
+      "id": "CR-8.6.2.5.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "Event：放解決領域 → 執行 → 放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-007"
+      ]
+    },
+    {
+      "id": "CR-8.6.3.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "「選 N」必須盡量選滿；「選最多 N」可為 0",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-008"
+      ]
+    },
+    {
+      "id": "CR-8.6.3.1.4",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "由非公開區域按條件選卡時可以不選",
+      "status": "已測試",
+      "tests": [
+        "T-PLAY-009"
+      ]
+    },
+    {
+      "id": "CR-8.6.4",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "「做了就 B，沒做就 C」的判定",
+      "status": "未實作",
+      "tests": [
+        "T-PLAY-010"
+      ]
+    },
+    {
+      "id": "CR-8.6.5",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "沒有指明執行者時，由主人執行",
+      "status": "部分",
+      "tests": [
+        "T-PLAY-011"
+      ]
+    },
+    {
+      "id": "CR-8.6.6",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "被查看或公開的卡在效果解決完畢後恢復原狀",
+      "status": "部分",
+      "tests": [
+        "T-PLAY-012"
+      ]
+    },
+    {
+      "id": "CR-8.7.2.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "自動能力觸發多少次就待機多少次",
+      "status": "部分",
+      "tests": [
+        "T-AUTO-001"
+      ]
+    },
+    {
+      "id": "CR-8.7.3.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "待機的自動能力必須 Play；可選次序",
+      "status": "已測試",
+      "tests": [
+        "T-AUTO-002"
+      ]
+    },
+    {
+      "id": "CR-8.7.3.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "無法 Play 時取消一次待機",
+      "status": "未實作",
+      "tests": [
+        "T-AUTO-003"
+      ]
+    },
+    {
+      "id": "CR-8.7.4.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "區域移動觸發的能力參照哪個區域的資訊",
+      "status": "未實作",
+      "tests": [
+        "T-AUTO-004"
+      ]
+    },
+    {
+      "id": "CR-8.7.5",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "時限觸發（延遲觸發）原則上只觸發一次",
+      "status": "部分",
+      "tests": [
+        "T-AUTO-005"
+      ]
+    },
+    {
+      "id": "CR-8.7.6",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "狀態觸發：狀態出現時待機一次，解決後仍符合則再待機",
+      "status": "未實作",
+      "tests": [
+        "T-AUTO-006"
+      ]
+    },
+    {
+      "id": "CR-8.7.7",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "卡已換區域仍要 Play，無法執行的部分失敗",
+      "status": "部分",
+      "tests": [
+        "T-AUTO-007"
+      ]
+    },
+    {
+      "id": "CR-8.9.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "持續效果的套用次序（印刷值 → 非數值 → Power／Soul → 依存 → 時間）",
+      "status": "部分",
+      "tests": [
+        "T-CONT-001"
+      ]
+    },
+    {
+      "id": "CR-8.9.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "非永續的持續效果不套用到之後進場的卡",
+      "status": "已測試",
+      "tests": [
+        "T-CONT-002"
+      ]
+    },
+    {
+      "id": "CR-8.9.3",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "改變區域內卡牌資訊的效果，在卡進入時即時套用",
+      "status": "未實作",
+      "tests": [
+        "T-CONT-003"
+      ]
+    },
+    {
+      "id": "CR-8.10.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "置換效果：原事件完全不發生",
+      "status": "未實作",
+      "tests": [
+        "T-REPL-001"
+      ]
+    },
+    {
+      "id": "CR-8.10.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "多個置換效果由受影響玩家決定次序，每個最多套用一次",
+      "status": "未實作",
+      "tests": [
+        "T-REPL-002"
+      ]
+    },
+    {
+      "id": "CR-8.10.2.4",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "置換攻擊方式時，回合玩家的置換效果先套用",
+      "status": "部分",
+      "tests": [
+        "T-REPL-003"
+      ]
+    },
+    {
+      "id": "CR-8.10.3",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "選擇型置換效果無法執行時不能套用",
+      "status": "未實作",
+      "tests": [
+        "T-REPL-004"
+      ]
+    },
+    {
+      "id": "CR-8.11.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "最終資訊",
+      "status": "未實作",
+      "tests": [
+        "T-LKI-001"
+      ]
+    },
+    {
+      "id": "CR-8.11.2",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "戰鬥中角色移動後仍以最終資訊視為戰鬥對手",
+      "status": "已測試",
+      "tests": [
+        "T-LKI-002"
+      ]
+    },
+    {
+      "id": "CR-8.12.1",
+      "section": "8. Play、Cost、能力及效果",
+      "description": "CX Combo 圖示沒有規則意義",
+      "status": "已測試",
+      "tests": [
+        "T-ABL-020"
+      ]
+    },
+    {
+      "id": "CR-9.1.2.1",
+      "section": "9. 規則處理",
+      "description": "插入型：條件成立即時中斷目前行動",
+      "status": "已測試",
+      "tests": [
+        "T-RA-001"
+      ]
+    },
+    {
+      "id": "CR-9.1.2.1.1",
+      "section": "9. 規則處理",
+      "description": "多個插入型同時發生：回合玩家先，同一玩家自選次序",
+      "status": "已測試",
+      "tests": [
+        "T-RA-002"
+      ]
+    },
+    {
+      "id": "CR-9.1.2.2",
+      "section": "9. 規則處理",
+      "description": "檢查型：只在 Check Timing 檢查，同時執行",
+      "status": "已測試",
+      "tests": [
+        "T-RA-003"
+      ]
+    },
+    {
+      "id": "CR-9.2.2",
+      "section": "9. 規則處理",
+      "description": "Refresh：控え室洗入山札，然後立即放山札頂 1 張到 Clock",
+      "status": "已測試",
+      "tests": [
+        "T-REF-001"
+      ]
+    },
+    {
+      "id": "CR-9.2.2.1",
+      "section": "9. 規則處理",
+      "description": "控え室為 0：傷害中且解決領域沒有 Climax → 即時敗北；否則不 Refresh",
+      "status": "已測試",
+      "tests": [
+        "T-REF-002"
+      ]
+    },
+    {
+      "id": "CR-9.2.3",
+      "section": "9. 規則處理",
+      "description": "支付 Cost 期間不 Refresh",
+      "status": "已測試",
+      "tests": [
+        "T-REF-003"
+      ]
+    },
+    {
+      "id": "CR-9.3.2",
+      "section": "9. 規則處理",
+      "description": "Level Up：由最下 7 張選 1 張到 Level，其餘 6 張到控え室",
+      "status": "已測試",
+      "tests": [
+        "T-LVL-001"
+      ]
+    },
+    {
+      "id": "CR-9.3.3",
+      "section": "9. 規則處理",
+      "description": "支付 Cost 期間不 Level Up",
+      "status": "已測試",
+      "tests": [
+        "T-LVL-002"
+      ]
+    },
+    {
+      "id": "CR-9.4.1",
+      "section": "9. 規則處理",
+      "description": "敗北判定（檢查型）",
+      "status": "已測試",
+      "tests": [
+        "T-WIN-010"
+      ]
+    },
+    {
+      "id": "CR-9.5.1",
+      "section": "9. 規則處理",
+      "description": "Power ≤ 0 的角色放控え室（檢查型）",
+      "status": "已測試",
+      "tests": [
+        "T-RA-010"
+      ]
+    },
+    {
+      "id": "CR-9.6.1",
+      "section": "9. 規則處理",
+      "description": "枠內的非角色卡、Climax 置場的非 Climax 卡放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-RA-011"
+      ]
+    },
+    {
+      "id": "CR-9.6.2",
+      "section": "9. 規則處理",
+      "description": "同一枠有多張角色時只留最後放置的一張",
+      "status": "已測試",
+      "tests": [
+        "T-RA-012"
+      ]
+    },
+    {
+      "id": "CR-9.7.1",
+      "section": "9. 規則處理",
+      "description": "沒有角色的枠，其 Marker 放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-RA-013"
+      ]
+    },
+    {
+      "id": "CR-10.1",
+      "section": "10. 關鍵字",
+      "description": "アラーム（標籤）",
+      "status": "已測試",
+      "tests": [
+        "T-KW-001"
+      ]
+    },
+    {
+      "id": "CR-10.2.2",
+      "section": "10. 關鍵字",
+      "description": "アンコール的完整定義",
+      "status": "已測試",
+      "tests": [
+        "T-KW-002"
+      ]
+    },
+    {
+      "id": "CR-10.2.3",
+      "section": "10. 關鍵字",
+      "description": "所有角色預設有「アンコール [③]」",
+      "status": "已測試",
+      "tests": [
+        "T-KW-003"
+      ]
+    },
+    {
+      "id": "CR-10.3.2",
+      "section": "10. 關鍵字",
+      "description": "応援：在後列時效果有效",
+      "status": "已測試",
+      "tests": [
+        "T-KW-004"
+      ]
+    },
+    {
+      "id": "CR-10.4.2",
+      "section": "10. 關鍵字",
+      "description": "絆：由手牌或經 Play 放到舞台時觸發",
+      "status": "已測試",
+      "tests": [
+        "T-KW-005"
+      ]
+    },
+    {
+      "id": "CR-10.5.2",
+      "section": "10. 關鍵字",
+      "description": "助太刀：只限對手的 Counter Step，有 Level 條件",
+      "status": "已測試",
+      "tests": [
+        "T-KW-006"
+      ]
+    },
+    {
+      "id": "CR-10.6.2",
+      "section": "10. 關鍵字",
+      "description": "大活躍：置換對手的攻擊目標",
+      "status": "已測試",
+      "tests": [
+        "T-KW-007"
+      ]
+    },
+    {
+      "id": "CR-10.7.3",
+      "section": "10. 關鍵字",
+      "description": "集中：先全部移到解決領域，再同時放控え室",
+      "status": "已測試",
+      "tests": [
+        "T-KW-008"
+      ]
+    },
+    {
+      "id": "CR-10.8.3",
+      "section": "10. 關鍵字",
+      "description": "チェンジ：解決時條件不符則不交換",
+      "status": "部分",
+      "tests": [
+        "T-KW-009"
+      ]
+    },
+    {
+      "id": "CR-10.9",
+      "section": "10. 關鍵字",
+      "description": "記憶（標籤）",
+      "status": "已測試",
+      "tests": [
+        "T-KW-010"
+      ]
+    },
+    {
+      "id": "CR-10.10",
+      "section": "10. 關鍵字",
+      "description": "経験（標籤）",
+      "status": "已測試",
+      "tests": [
+        "T-KW-011"
+      ]
+    },
+    {
+      "id": "CR-10.11.2",
+      "section": "10. 關鍵字",
+      "description": "シフト：Main Phase 開始時在 Clock 觸發",
+      "status": "未實作",
+      "tests": [
+        "T-KW-012"
+      ]
+    },
+    {
+      "id": "CR-10.12",
+      "section": "10. 關鍵字",
+      "description": "加速（標籤）",
+      "status": "已測試",
+      "tests": [
+        "T-KW-013"
+      ]
+    },
+    {
+      "id": "CR-10.13.3",
+      "section": "10. 關鍵字",
+      "description": "共鳴：「使用了共鳴」的兩種判定",
+      "status": "未實作",
+      "tests": [
+        "T-KW-014"
+      ]
+    },
+    {
+      "id": "CR-10.14",
+      "section": "10. 關鍵字",
+      "description": "フォース（標籤）",
+      "status": "未實作",
+      "tests": [
+        "T-KW-015"
+      ]
+    },
+    {
+      "id": "CR-10.15",
+      "section": "10. 關鍵字",
+      "description": "合体",
+      "status": "未實作",
+      "tests": [
+        "T-KW-016"
+      ]
+    },
+    {
+      "id": "CR-10.16",
+      "section": "10. 關鍵字",
+      "description": "分離",
+      "status": "未實作",
+      "tests": [
+        "T-KW-017"
+      ]
+    },
+    {
+      "id": "CR-10.17",
+      "section": "10. 關鍵字",
+      "description": "リンク",
+      "status": "未實作",
+      "tests": [
+        "T-KW-018"
+      ]
+    },
+    {
+      "id": "CR-10.18",
+      "section": "10. 關鍵字",
+      "description": "継承（標籤）",
+      "status": "未實作",
+      "tests": [
+        "T-KW-019"
+      ]
+    },
+    {
+      "id": "CR-10.19.3",
+      "section": "10. 關鍵字",
+      "description": "回合次數限制：達到次數後不能 Play",
+      "status": "已測試",
+      "tests": [
+        "T-KW-020"
+      ]
+    },
+    {
+      "id": "CR-10.19.4",
+      "section": "10. 關鍵字",
+      "description": "有次數限制的自動能力可選擇不 Play",
+      "status": "部分",
+      "tests": [
+        "T-KW-021"
+      ]
+    },
+    {
+      "id": "CR-10.20",
+      "section": "10. 關鍵字",
+      "description": "回想",
+      "status": "未實作",
+      "tests": [
+        "T-KW-022"
+      ]
+    },
+    {
+      "id": "CR-10.21",
+      "section": "10. 關鍵字",
+      "description": "搭乗（標籤）",
+      "status": "未實作",
+      "tests": [
+        "T-KW-023"
+      ]
+    },
+    {
+      "id": "CR-11.1.1.1",
+      "section": "11. 其他",
+      "description": "雙方都無法停止的循環 = 平手",
+      "status": "未實作",
+      "tests": [
+        "T-LOOP-001"
+      ]
+    },
+    {
+      "id": "CR-11.1.1.2",
+      "section": "11. 其他",
+      "description": "只有一方可停止：宣告重複次數",
+      "status": "未實作",
+      "tests": [
+        "T-LOOP-002"
+      ]
+    },
+    {
+      "id": "CR-11.1.1.3",
+      "section": "11. 其他",
+      "description": "雙方都可停止：取較小次數",
+      "status": "未實作",
+      "tests": [
+        "T-LOOP-003"
+      ]
+    },
+    {
+      "id": "CR-11.2",
+      "section": "11. 其他",
+      "description": "額外回合",
+      "status": "未實作",
+      "tests": [
+        "T-MISC-001"
+      ]
+    },
+    {
+      "id": "CR-11.3",
+      "section": "11. 其他",
+      "description": "リプレイ指示（含ゲーム1 圖示）",
+      "status": "未實作",
+      "tests": [
+        "T-MISC-002"
+      ]
+    },
+    {
+      "id": "CR-11.4",
+      "section": "11. 其他",
+      "description": "直接跳到指定階段或步驟的效果",
+      "status": "未實作",
+      "tests": [
+        "T-MISC-003"
+      ]
+    },
+    {
+      "id": "DR-001",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "Neo-Standard：只用同一 Title 的卡，Title 由卡號前綴決定",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-010"
+      ]
+    },
+    {
+      "id": "DR-002",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "Title 的特例對應（例如 `Ssy/` 與 `SY/`）",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-011"
+      ]
+    },
+    {
+      "id": "DR-003",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "限制：使用不可",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-012"
+      ]
+    },
+    {
+      "id": "DR-004",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "限制：○枚まで",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-013"
+      ]
+    },
+    {
+      "id": "DR-005",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "限制：○種選抜",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-014"
+      ]
+    },
+    {
+      "id": "DR-006",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "限制：附帶特殊條件的解禁",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-015"
+      ]
+    },
+    {
+      "id": "DR-007",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "限制表帶生效日期，可按日期選用版本",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-016"
+      ]
+    },
+    {
+      "id": "DR-008",
+      "section": "12. 卡組構築（Deck Rules）",
+      "description": "Standard 及 Side 限定構築",
+      "status": "未實作",
+      "tests": [
+        "T-DECK-017"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-01",
+      "description": "每名玩家持有的卡在所有區域合計永遠是 50 張"
+    },
+    {
+      "id": "INV-02",
+      "description": "同一張實體卡不會同時出現在兩個區域"
+    },
+    {
+      "id": "INV-03",
+      "description": "每個枠最多 1 張角色（Check Timing 結束後）"
+    },
+    {
+      "id": "INV-04",
+      "description": "Check Timing 結束後 Clock 不會有 7 張或以上"
+    },
+    {
+      "id": "INV-05",
+      "description": "解決領域在沒有效果處理時是空的"
+    },
+    {
+      "id": "INV-06",
+      "description": "沒有任何玩家的視圖包含對方的手牌、任何一方的山札次序或 Stock 內容"
+    },
+    {
+      "id": "INV-07",
+      "description": "同一個種子加同一串行動，必定得到完全相同的狀態"
+    }
+  ],
+  "explained": [
+    "CR-1.3.2.1",
+    "CR-10.19.4",
+    "CR-10.8.3",
+    "CR-11.1",
+    "CR-11.2",
+    "CR-11.3",
+    "CR-11.4",
+    "CR-2.12.2.3",
+    "CR-3.12.2",
+    "CR-3.12.2.2.3",
+    "CR-3.13.1",
+    "CR-3.9.2",
+    "CR-4.13.2",
+    "CR-4.14.2.7",
+    "CR-6.8.1.5",
+    "CR-7.2.1.1",
+    "CR-7.3.1.2.2",
+    "CR-7.5.1.2.2",
+    "CR-7.5.1.4",
+    "CR-8.10",
+    "CR-8.10.2.4",
+    "CR-8.11.1",
+    "CR-8.2.1",
+    "CR-8.4.2.2.1",
+    "CR-8.6.5",
+    "CR-8.6.6",
+    "CR-8.7.2.1",
+    "CR-8.7.5",
+    "CR-8.7.6",
+    "CR-8.7.7",
+    "CR-8.9.1",
+    "CR-8.9.1.4"
+  ],
+  "summary": {
+    "未實作": 56,
+    "部分": 23,
+    "已測試": 129
+  }
+}

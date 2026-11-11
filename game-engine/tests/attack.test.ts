@@ -84,7 +84,7 @@ describe('attack declaration (CR-7.2)', () => {
     expect(state.pending?.kind).not.toBe('ATTACK');
   });
 
-  it('T-ATK-005 / CR-7.2.1.4.1, T-ATK-009 / CR-7.2.1.5.3, T-ATK-014 / CR-7.5.1.2: a direct attack rests the attacker and deals its soul + 1', () => {
+  it('T-ATK-005 / CR-7.2.1.4.1, T-ATK-009 / CR-7.2.1.5.3, T-ATK-014 / CR-7.5.1.2, T-DMG-001 / CR-4.12.1.1, T-DMG-003 / CR-4.12.1.3, T-DMG-004 / CR-3.13.1.3.1: a direct attack rests the attacker and deals its soul + 1, card by card', () => {
     const start = attackScenario((ctx) => {
       put(ctx, card(0, 0), stageSlot(0, 'FC'));
       noClimaxes(ctx, 1);
@@ -394,7 +394,7 @@ describe('trigger icons (CR-4.14.2)', () => {
     expect(answer(atDestination, { kind: 'SELECT_OPTION', option: 'STOCK' }).state.zones[0].stock).toEqual([card(0, 1), card(0, 49)]);
   });
 
-  it('T-TRG-012 / CR-4.14.2.12: chance discards itself, reveals up to two cards, one to stock and the other to hand', () => {
+  it('T-TRG-012 / CR-4.14.2.12 and T-ZONE-016 / CR-4.9.1: chance discards itself, reveals up to two cards, one to stock and the other to hand', () => {
     const first = triggerScenario(['CHANCE']).state;
     // CR-4.14.2.12.1: the trigger card went to the waiting room.
     expect(first.zones[0].waitingRoom).toEqual([card(0, 49)]);
@@ -475,7 +475,7 @@ describe('counter step (CR-7.4)', () => {
     noClimaxes(ctx, 1);
   };
 
-  it('T-ATK-013 / CR-7.4.1.2: on a front attack the defending player may play one card with a counter icon', () => {
+  it('T-ATK-013 / CR-7.4.1.2 and T-CARD-003 / CR-2.8.2: on a front attack the defending player may play one card with a counter icon', () => {
     const atCounter = declare(attackScenario(arrange, defs), card(0, 0), 'FRONT').state;
     const decision = pending(atCounter, 'COUNTER');
     expect(decision.player).toBe(1);
@@ -584,7 +584,7 @@ describe('damage (CR-4.12)', () => {
     expect(state.result).toEqual({ outcome: 'WIN', winner: 0, loser: 1, reason: 'NO_CARDS' });
   });
 
-  it('T-RA-001 / CR-9.1.2.1: a level up caused by damage interrupts the attack', () => {
+  it('T-RA-001 / CR-9.1.2.1: a level up caused by damage interrupts the attack; T-TURN-012 / CR-6.8.1.4: the turn’s changes end with the turn', () => {
     const start = attackScenario((ctx) => {
       put(ctx, card(0, 0), stageSlot(0, 'FC'));
       noClimaxes(ctx, 1);
@@ -632,7 +632,7 @@ describe('battle step (CR-7.6) and encore step (CR-7.7)', () => {
     expect(damageEvents(events)).toEqual(['DAMAGE 1']);
   });
 
-  it('T-ATK-017 / CR-7.6.1.2: with equal power both are reversed', () => {
+  it('T-ATK-017 / CR-7.6.1.2: with equal power both are reversed; T-ATK-021 / CR-7.7.1.3: the opponent’s reversed character leaves after the turn player’s', () => {
     const { state, events } = battle(1500, 1500);
     expect(trace(events).filter((line) => line.endsWith('>REVERSE'))).toEqual(['REST>REVERSE', 'STAND>REVERSE']);
     expect(state.zones[0].stage.FC).toEqual([]);
@@ -650,7 +650,7 @@ describe('battle step (CR-7.6) and encore step (CR-7.7)', () => {
     expect(getInstance(state, card(1, 0)).orientation).toBe('STAND');
   });
 
-  it('T-ATK-018 / CR-7.6.1.3: if the defender is gone there is no battle, but the damage is still dealt', () => {
+  it('T-ATK-018 / CR-7.6.1.3 and T-ATK-008 / CR-7.2.1.5: a defender that left its slot is no longer the defender, so there is no battle; the damage is still dealt', () => {
     const defs: DefOverride = (p, i) => {
       if (p === 0 && i === 49) return { kind: 'CHARACTER', level: 0, cost: 0, power: 1000, soul: 1, triggers: ['RETURN'] };
       if (p === 1 && i === 0) return { power: 9000 };

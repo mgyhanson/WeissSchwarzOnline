@@ -87,7 +87,7 @@ describe('clock phase (CR-6.4)', () => {
 });
 
 describe('main phase (CR-6.5)', () => {
-  it('T-TURN-004 / CR-6.5.1.2.1: a character is played from hand into a chosen slot, standing', () => {
+  it('T-TURN-004 / CR-6.5.1.2.1: a character is played from hand into a chosen slot, standing; T-CHK-003 / CR-4.5.3: then the player gets another play timing', () => {
     const start = scenario({ step: 'MAIN_START' }, (ctx) => {
       put(ctx, card(0, 0), { player: 0, zone: 'hand' });
       put(ctx, card(0, 1), { player: 0, zone: 'hand' });
@@ -169,7 +169,7 @@ describe('main phase (CR-6.5)', () => {
     expect(playable(state)).toEqual([oid(state, card(0, 1))]);
   });
 
-  it('T-COST-004 / CR-8.4.3 and T-COST-002 / CR-8.4.2.2: the cost is paid from the top of the stock, and must be payable in full', () => {
+  it('T-COST-004 / CR-8.4.3 and T-COST-002 / CR-8.4.2.2: the cost is paid from the top of the stock, and must be payable in full; T-PLAY-005 / CR-8.6.2.4: the card counts as played once it is paid', () => {
     const defs = (_p: number, i: number): Partial<CardDef> | undefined => (i === 0 ? { cost: 2 } : undefined);
 
     const poor = scenario({ step: 'MAIN_START', defs }, (ctx) => {
@@ -192,9 +192,12 @@ describe('main phase (CR-6.5)', () => {
     expect(events.find((e) => e.type === 'CARD_PLAYED')).toMatchObject({ stockPaid: 2 });
     // CR-8.6.2.3 before CR-8.6.2.5: the cost is paid before the character enters the stage.
     expect(moves(events).map((e) => e.reason)).toEqual(['COST', 'COST', 'PLAY']);
+    // CR-8.6.2.4: "played" happens after the payment and before the card resolves.
+    const order = events.flatMap((e) => (e.type === 'CARD_PLAYED' ? ['PLAYED'] : e.type === 'CARD_MOVED' ? [e.reason] : []));
+    expect(order).toEqual(['COST', 'COST', 'PLAYED', 'PLAY']);
   });
 
-  it('T-PLAY-006 / CR-8.6.2.5.1 and T-RA-012 / CR-9.6.2: a character played onto an occupied slot replaces the one there', () => {
+  it('T-PLAY-006 / CR-8.6.2.5.1 and T-RA-012 / CR-9.6.2: a character played onto an occupied slot replaces the one there; T-CHK-002 / CR-4.5.2: before the next play timing', () => {
     const start = scenario({ step: 'MAIN_START' }, (ctx) => {
       put(ctx, card(0, 0), { player: 0, zone: 'hand' });
       put(ctx, card(0, 5), stageSlot(0, 'FC'));
@@ -268,7 +271,7 @@ describe('main phase (CR-6.5)', () => {
     }
   });
 
-  it('CR-6.5.1.3: passing ends the main phase', () => {
+  it('T-CHK-011 / CR-8.5.2 and CR-6.5.1.3: choosing to do nothing at a play timing ends the main phase', () => {
     const start = scenario({ step: 'MAIN_START' }).state;
     const { state, events } = answer(start, { kind: 'MAIN', action: { type: 'PASS' } });
     expect(phases(events)).toEqual(['CLIMAX']);
@@ -316,7 +319,7 @@ describe('climax phase (CR-6.6)', () => {
 });
 
 describe('end phase (CR-6.8)', () => {
-  it('T-TURN-010 / CR-6.8.1.2: the turn player discards down to the hand limit of seven', () => {
+  it('T-TURN-010 / CR-6.8.1.2 and T-ZONE-021 / CR-3.3.3.1: the turn player discards down to the hand limit of seven', () => {
     const start = scenario({ step: 'END_START' }, (ctx) => {
       for (let i = 0; i < 9; i++) put(ctx, card(0, i), { player: 0, zone: 'hand' });
     }).state;

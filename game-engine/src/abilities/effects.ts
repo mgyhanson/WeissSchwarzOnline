@@ -205,8 +205,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         const max = Math.min(effect.max, candidates.length);
         const min = hidden ? 0 : Math.min(effect.min, candidates.length);
         frame.step = 1;
+        // CR-4.8.1: 山札を見て — the player looks at the whole deck, not only
+        // at the cards that may be chosen. Only that player is told.
         const look: Record<number, string> = {};
-        if (hidden) for (const id of candidates) look[getInstance(state, id).objectId] = getInstance(state, id).cardId;
+        if (hidden) {
+          for (const id of state.zones[master].deck) look[getInstance(state, id).objectId] = getInstance(state, id).cardId;
+        }
         ask(ctx, {
           kind: 'SELECT_CARDS',
           player: master,

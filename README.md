@@ -15,10 +15,11 @@
 | STEP 4c 攻擊、Trigger、傷害、Encore | 完成 |
 | STEP 4d-1 卡牌能力引擎（核心） | 完成 |
 | STEP 4d-2 常見關鍵字 | 完成 |
-| STEP 5 規則測試的自動覆蓋檢查 | **未開始** |
-| STEP 6 起（真實卡牌、介面、AI、連線） | 未開始 |
+| STEP 5 規則覆蓋檢查及大量隨機對局 | 完成 |
+| STEP 6 第一批真實卡牌 | **未開始** |
+| STEP 7 起（介面、AI、連線） | 未開始 |
 
-目前共 237 個自動測試通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
+目前共 247 個自動測試通過，另有 3000 局隨機完整對局的長時間測試（`npm run soak`）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
 
 但**還不是可以玩的 WS**：測試用的仍是假卡，沒有任何真實卡牌；沒有介面、AI 及連線；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
 
@@ -28,6 +29,9 @@
 npm run setup      # 安裝依賴（必須用這個，不要直接 npm install）
 npm test           # 執行全部測試
 npm run typecheck  # 型別檢查
+npm run check      # 型別檢查 + 全部測試 + 規則登記表覆蓋檢查
+npm run registry   # 由規則登記表重新產生 rules/registry.json，並列出覆蓋報告
+npm run soak       # 3000 局隨機完整對局（約 1.5 分鐘）
 npm run backup -- <目的地資料夾>
 ```
 

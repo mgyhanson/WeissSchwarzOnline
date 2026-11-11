@@ -52,7 +52,7 @@ function mainAction(state: GameState, action: Parameters<typeof answer>[1] exten
   return answer(state, { kind: 'MAIN', action });
 }
 
-describe('continuous abilities (CR-8.9)', () => {
+describe('T-ABL-010 / CR-8.1.1: continuous abilities (CR-8.9)', () => {
   it('T-KW-004 / CR-10.3.2: 応援 このカードの前のあなたのキャラすべてに、パワーを＋500 works only from the back row', () => {
     const defs = withAbilities({ 1: [{ type: 'CONT', keywords: ['ASSIST'], assist: true, apply: [{ target: { who: 'IN_FRONT' }, stat: 'POWER', amount: 500 }] }] });
     const start = scenario({ step: 'MAIN_START', defs }, (ctx) => {
@@ -177,7 +177,7 @@ describe('continuous abilities (CR-8.9)', () => {
   });
 });
 
-describe('automatic abilities of cards (CR-8.7)', () => {
+describe('T-ABL-010: automatic abilities of cards (CR-8.7)', () => {
   const drawOnPlay = (fromHand: boolean): Ability[] => [
     { type: 'AUTO', trigger: fromHand ? { on: 'PLACED_ON_STAGE', from: 'HAND' } : { on: 'PLACED_ON_STAGE' }, effect: [{ do: 'DRAW', count: 1 }] },
   ];
@@ -291,7 +291,7 @@ describe('automatic abilities of cards (CR-8.7)', () => {
       expect(state.zones[0].stage.FC).toEqual([card(0, 0)]);
     });
 
-    it('with another climax, or none, the condition fails and the attacker loses', () => {
+    it('T-ABL-020 / CR-8.12.1: with another climax, or none, the condition fails and the attacker loses; the CX combo label itself does nothing', () => {
       for (const climax of [46, null]) {
         const state = fight(climax);
         expect(state.zones[0].waitingRoom).toContain(card(0, 0));
@@ -381,8 +381,8 @@ describe('automatic abilities of cards (CR-8.7)', () => {
   });
 });
 
-describe('activated abilities (CR-8.1.1.1, CR-6.5.1.2.3)', () => {
-  it('【起】［(1) このカードを【レスト】する］ あなたは1枚引く', () => {
+describe('T-ABL-010: activated abilities (CR-8.1.1.1, CR-6.5.1.2.3)', () => {
+  it('T-COST-001 / CR-8.4.2.1: 【起】［(1) このカードを【レスト】する］ あなたは1枚引く pays its cost in the order written', () => {
     const defs = withAbilities({ 0: [{ type: 'ACT', timing: 'MAIN', cost: [{ pay: 'STOCK', count: 1 }, { pay: 'REST_SELF' }], effect: [{ do: 'DRAW', count: 1 }] }] });
     const start = scenario({ step: 'MAIN_START', defs }, (ctx) => {
       put(ctx, card(0, 0), stageSlot(0, 'FC'));
@@ -470,7 +470,7 @@ describe('activated abilities (CR-8.1.1.1, CR-6.5.1.2.3)', () => {
     expect(pending(onlyClimax, 'MAIN').actions.some((a) => a.type === 'ACTIVATE')).toBe(false);
   });
 
-  it('T-REF-003 / CR-9.2.3 and T-LVL-002 / CR-9.3.3: refresh and level up wait until the whole cost is paid', () => {
+  it('T-REF-003 / CR-9.2.3 and T-LVL-002 / CR-9.3.3: refresh and level up wait until the whole cost is paid (T-KW-013 / CR-10.12: a 加速 cost)', () => {
     // 加速-style cost: the top card of the deck to the clock, then one stock.
     const defs = withAbilities({ 0: [{ type: 'ACT', keywords: ['ACCELERATE'], timing: 'MAIN', cost: [{ pay: 'DECK_TOP_TO_CLOCK' }, { pay: 'STOCK', count: 1 }], effect: [{ do: 'DRAW', count: 1 }] }] });
     const start = scenario({ step: 'MAIN_START', defs }, (ctx) => {
@@ -579,7 +579,7 @@ describe('event effects (CR-8.6.2.5.2)', () => {
     assertInvariants(state, { settled: true });
   });
 
-  it('search: 自分の山札を見て《音楽》のキャラを1枚まで選んで相手に見せ、手札に加える。その山札をシャッフルする', () => {
+  it('T-PLAY-009 / CR-8.6.3.1.4: search: 自分の山札を見て《音楽》のキャラを1枚まで選んで相手に見せ、手札に加える。その山札をシャッフルする', () => {
     const search: Effect[] = [
       { do: 'CHOOSE', from: 'YOUR_DECK', filter: { kind: 'CHARACTER', traits: ['音楽'] }, min: 1, max: 1 },
       { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND', reveal: true },
@@ -590,8 +590,12 @@ describe('event effects (CR-8.6.2.5.2)', () => {
     expect([...choose.cards].sort()).toEqual([oid(atChoose, card(0, 10)), oid(atChoose, card(0, 11))].sort());
     // T-PLAY-009 / CR-8.6.3.1.4: from a hidden zone the player may always choose fewer.
     expect(choose).toMatchObject({ min: 0, max: 1 });
-    // The searching player is shown what the offered deck cards are; the opponent is not.
-    expect(choose.look).toEqual({ [oid(atChoose, card(0, 10))]: testCardId(0, 10), [oid(atChoose, card(0, 11))]: testCardId(0, 11) });
+    // CR-4.8.1: the searching player looks at the whole deck, not only the
+    // cards that may be taken; the opponent is shown nothing.
+    const deck = atChoose.zones[0].deck;
+    expect(Object.keys(choose.look!)).toHaveLength(deck.length);
+    expect(choose.look![oid(atChoose, card(0, 10))]).toBe(testCardId(0, 10));
+    expect(choose.look![oid(atChoose, card(0, 20))]).toBe(testCardId(0, 20));
     expect(JSON.stringify(getPlayerView(atChoose, 1))).not.toContain(testCardId(0, 10));
 
     const found = answer(atChoose, { kind: 'SELECT_CARDS', cards: [oid(atChoose, card(0, 10))] });
@@ -627,7 +631,7 @@ describe('event effects (CR-8.6.2.5.2)', () => {
     expect(cancelled.state.zones[1].waitingRoom).toEqual([card(1, 49)]);
   });
 
-  it('相手のキャラを1枚選び、【レスト】する: a required choice must be made', () => {
+  it('T-PLAY-008 / CR-8.6.3.1: 相手のキャラを1枚選び、【レスト】する: a required choice must be made', () => {
     const atChoose = playEvent(
       [
         { do: 'CHOOSE', from: 'OPPONENT_STAGE', min: 1, max: 1 },
@@ -748,5 +752,78 @@ describe('details found missing by deliberately breaking the engine', () => {
     // The defender was removed by the effect, not later by the encore step.
     const removal = events.find((e): e is CardMovedEvent => e.type === 'CARD_MOVED' && e.instanceId === card(1, 0) && e.to.zone === 'waitingRoom');
     expect(removal?.reason).toBe('EFFECT');
+  });
+});
+
+describe('rules that had no test of their own until the STEP 5 coverage check', () => {
+  it('T-CARD-002 / CR-2.3.2.1.2: "キャラ" with no zone named means characters on the stage', () => {
+    const defs = withAbilities({ 0: [{ type: 'CONT', condition: { if: 'CHARACTERS', min: 2, other: true }, apply: [{ target: { who: 'SELF' }, stat: 'POWER', amount: 1000 }] }] });
+    const elsewhere = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'FL'));
+      for (const i of [2, 3, 4]) put(ctx, card(0, i), { player: 0, zone: 'hand' });
+      for (const i of [5, 6, 7]) put(ctx, card(0, i), { player: 0, zone: 'waitingRoom' });
+    }).state;
+    // Characters in hand or the waiting room do not count: only one other on the stage.
+    expect(getPower(elsewhere, card(0, 0))).toBe(1000);
+    const onStage = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'FL'));
+      put(ctx, card(0, 2), stageSlot(0, 'FR'));
+    }).state;
+    expect(getPower(onStage, card(0, 0))).toBe(2000);
+  });
+
+  it('T-CARD-004 / CR-2.12.2: character text works on the stage only, climax text in the climax zone only', () => {
+    const boost: Ability[] = [{ type: 'CONT', apply: [{ target: { who: 'ALL_YOURS', other: true }, stat: 'POWER', amount: 500 }] }];
+    const drawAtMain: Ability[] = [{ type: 'AUTO', trigger: { on: 'PHASE_START', phase: 'MAIN', turn: 'YOURS' }, effect: [{ do: 'DRAW', count: 1 }] }];
+    const defs = withAbilities({ 1: boost, 2: drawAtMain, 45: [{ type: 'CONT', apply: [{ target: { who: 'ALL_YOURS' }, stat: 'POWER', amount: 1000 }] }] });
+    const { state, events } = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), { player: 0, zone: 'hand' });
+      put(ctx, card(0, 2), { player: 0, zone: 'waitingRoom' });
+      put(ctx, card(0, 45), { player: 0, zone: 'clock' });
+    });
+    // Nothing applies or triggers from hand, waiting room or clock.
+    expect(getPower(state, card(0, 0))).toBe(1000);
+    expect(events.some((e) => e.type === 'ABILITY_PLAYED')).toBe(false);
+
+    const placed = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'BL'));
+      put(ctx, card(0, 2), stageSlot(0, 'BR'));
+      put(ctx, card(0, 45), { player: 0, zone: 'climax' });
+    });
+    expect(getPower(placed.state, card(0, 0))).toBe(2500);
+    expect(placed.events.filter((e) => e.type === 'ABILITY_PLAYED')).toHaveLength(1);
+  });
+
+  it('T-ATK-022 / CR-7.7.1.4: a character reversed during the encore step is removed in the same step', () => {
+    // このカードが舞台から控え室に置かれた時、あなたのキャラすべてを【リバース】する
+    const defs = withAbilities(
+      { 0: [{ type: 'AUTO', trigger: { on: 'STAGE_TO_WAITING_ROOM' }, effect: [{ do: 'ORIENT', target: { who: 'ALL_YOURS' }, to: 'REVERSE' }] }] },
+      (p, i) => (p === 1 && i === 0 ? { power: 9000 } : undefined),
+    );
+    const start = scenario({ step: 'ATTACK_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'BL'));
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+      noClimaxes(ctx, 1);
+    }).state;
+    const atCounter = answer(start, { kind: 'ATTACK', attack: { attacker: oid(start, card(0, 0)), type: 'FRONT' } }).state;
+    let { state, events } = answer(atCounter, { kind: 'COUNTER', card: null });
+    const all = [...events];
+    if (state.pending?.kind === 'CHOOSE_ABILITY') {
+      const own = state.pending.abilities.find((a) => a.type === 'CARD')!;
+      ({ state, events } = answer(state, { kind: 'CHOOSE_ABILITY', id: own.id }));
+      all.push(...events);
+    }
+    // The attacker lost the battle and left in the encore step; its ability
+    // reversed the back-row character, which then also left in that step.
+    const removed = all.flatMap((e) => (e.type === 'CARD_MOVED' && e.reason === 'ENCORE_STEP' ? [e.instanceId] : []));
+    expect(removed).toEqual([card(0, 0), card(0, 1)]);
+    expect(state.zones[0].stage.BL).toEqual([]);
+    expect(state.turn).toMatchObject({ player: 1 });
+    assertInvariants(state, { settled: true });
   });
 });

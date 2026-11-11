@@ -1,181 +1,12 @@
 /**
  * Whole games from setup to a result, played by choosing at random among
  * the legal answers, with every invariant checked after every decision.
- *
- * The cards have no abilities yet (STEP 4d). The games exercise setup, every
- * phase, playing cards, attacks, trigger icons, damage and cancels, battles,
- * encore, refresh, level up and the result.
+ * The same games, in much larger numbers, are played by npm run soak.
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  type Ability,
-  type CardDef,
-  type Choice,
-  type Decision,
-  type Effect,
-  type GameEvent,
-  type GameState,
-  type PlayerId,
-  type RngState,
-  type TriggerIcon,
-  checkInvariants,
-  backup,
-  createGame,
-  getPlayerView,
-  nextInt,
-  opponentOf,
-  redactEvent,
-  seedRng,
-  serializeState,
-  submitChoice,
-} from '../src/index';
-import { shouldBeHidden, testConfig } from './helpers';
-
-function pickSome(rng: RngState, items: readonly number[], count: number): number[] {
-  const pool = [...items];
-  const picked: number[] = [];
-  for (let i = 0; i < count; i++) picked.push(pool.splice(nextInt(rng, pool.length), 1)[0]!);
-  return picked;
-}
-
-type Policy = (decision: Decision, rng: RngState) => Choice;
-
-/** Picks uniformly among sensible answers; passes the main phase a third of the time so turns end. */
-const randomPolicy: Policy = (decision, rng) => {
-  switch (decision.kind) {
-    case 'MULLIGAN':
-      return { kind: 'MULLIGAN', discard: pickSome(rng, decision.cards, nextInt(rng, decision.cards.length + 1)) };
-    case 'CLOCK':
-      return { kind: 'CLOCK', card: nextInt(rng, 4) === 0 ? null : decision.cards[nextInt(rng, decision.cards.length)]! };
-    case 'MAIN': {
-      if (nextInt(rng, 3) === 0) return { kind: 'MAIN', action: { type: 'PASS' } };
-      return { kind: 'MAIN', action: decision.actions[nextInt(rng, decision.actions.length)]! };
-    }
-    case 'CLIMAX':
-      if (decision.cards.length === 0 || nextInt(rng, 2) === 0) return { kind: 'CLIMAX', card: null };
-      return { kind: 'CLIMAX', card: decision.cards[nextInt(rng, decision.cards.length)]! };
-    case 'LEVEL_UP':
-      return { kind: 'LEVEL_UP', card: decision.cards[nextInt(rng, decision.cards.length)]! };
-    case 'HAND_LIMIT':
-      return { kind: 'HAND_LIMIT', discard: pickSome(rng, decision.cards, decision.count) };
-    case 'RULE_ACTION_ORDER':
-      return { kind: 'RULE_ACTION_ORDER', first: decision.options[nextInt(rng, decision.options.length)]! };
-    case 'ATTACK':
-      if (nextInt(rng, 6) === 0) return { kind: 'ATTACK', attack: null };
-      return { kind: 'ATTACK', attack: decision.attacks[nextInt(rng, decision.attacks.length)]! };
-    case 'COUNTER': {
-      const options: Choice[] = [
-        ...decision.cards.map((card): Choice => ({ kind: 'COUNTER', card })),
-        ...decision.backups.map((b): Choice => ({ kind: 'COUNTER', card: b.card, ability: b.ability })),
-      ];
-      if (options.length === 0 || nextInt(rng, 3) === 0) return { kind: 'COUNTER', card: null };
-      return options[nextInt(rng, options.length)]!;
-    }
-    case 'CHOOSE_ABILITY':
-      return { kind: 'CHOOSE_ABILITY', id: decision.abilities[nextInt(rng, decision.abilities.length)]!.id };
-    case 'CONFIRM':
-      return { kind: 'CONFIRM', accept: nextInt(rng, 2) === 0 };
-    case 'SELECT_CARDS': {
-      const max = Math.min(decision.max, decision.cards.length);
-      const count = decision.min + nextInt(rng, max - decision.min + 1);
-      return { kind: 'SELECT_CARDS', cards: pickSome(rng, decision.cards, count) };
-    }
-    case 'SELECT_SLOT':
-      return { kind: 'SELECT_SLOT', slot: decision.slots[nextInt(rng, decision.slots.length)]! };
-    case 'SELECT_OPTION':
-      return { kind: 'SELECT_OPTION', option: decision.options[nextInt(rng, decision.options.length)]! };
-  }
-};
-
-/** Never clocks, never plays: the game is decided by refreshes alone. */
-const passivePolicy: Policy = (decision, rng) => {
-  switch (decision.kind) {
-    case 'MULLIGAN':
-      return { kind: 'MULLIGAN', discard: [] };
-    case 'CLOCK':
-      return { kind: 'CLOCK', card: null };
-    case 'MAIN':
-      return { kind: 'MAIN', action: { type: 'PASS' } };
-    case 'CLIMAX':
-      return { kind: 'CLIMAX', card: null };
-    default:
-      return randomPolicy(decision, rng);
-  }
-};
-
-/** Decisions that are only ever asked right after a check timing has finished. */
-const SETTLED_KINDS = new Set<Decision['kind']>(['MULLIGAN', 'CLOCK', 'MAIN', 'CLIMAX', 'ATTACK', 'COUNTER', 'HAND_LIMIT']);
-
-interface Played {
-  state: GameState;
-  events: GameEvent[];
-  decisions: number;
-  /** Every kind of decision that came up. */
-  kinds: Set<Decision['kind']>;
-  problems: string[];
-}
-
-function leakProblems(state: GameState, label: string): string[] {
-  const problems: string[] = [];
-  for (const viewer of [0, 1] as const) {
-    const view = getPlayerView(state, viewer);
-    const json = JSON.stringify(view);
-    if (json.includes('instanceId')) problems.push(`${label}: view of P${viewer} exposes instanceId`);
-    for (const inst of state.instances) {
-      const shown = json.includes(`"${inst.cardId}"`);
-      if (shown === shouldBeHidden(viewer, inst)) {
-        problems.push(`${label}: P${viewer} ${shown ? 'can' : 'cannot'} see ${inst.cardId} in ${inst.location.zone}`);
-      }
-    }
-    // The player who is not deciding learns nothing about the options.
-    const decision = view.decision;
-    if (decision && !decision.mine && Object.keys(decision).sort().join() !== 'id,kind,mine,player') {
-      problems.push(`${label}: P${viewer} sees details of the opponent's decision`);
-    }
-  }
-  return problems;
-}
-
-function playGame(seed: string, policy: Policy, maxDecisions: number, defs?: Parameters<typeof testConfig>[0]): Played {
-  const rng = seedRng(`policy-${seed}`);
-  const created = createGame(testConfig(defs), seed);
-  let state = created.state;
-  const events = [...created.events];
-  const problems: string[] = [];
-  const kinds = new Set<Decision['kind']>();
-  let decisions = 0;
-
-  while (!state.result && problems.length === 0) {
-    const decision = state.pending;
-    if (!decision) {
-      problems.push('the game has neither a result nor a pending decision');
-      break;
-    }
-    if (decisions >= maxDecisions) {
-      problems.push(`no result after ${maxDecisions} decisions`);
-      break;
-    }
-    kinds.add(decision.kind);
-    const label = `decision ${decisions} (${decision.kind})`;
-    for (const p of checkInvariants(state, { settled: SETTLED_KINDS.has(decision.kind) })) problems.push(`${label}: ${p}`);
-    if (decisions % 20 === 0) problems.push(...leakProblems(state, label));
-
-    const result = submitChoice(state, { player: decision.player, decisionId: decision.id, choice: policy(decision, rng) });
-    if (!result.ok) {
-      problems.push(`${label}: a choice built from the decision was rejected: ${result.code} ${result.message}`);
-      break;
-    }
-    state = result.state;
-    events.push(...result.events);
-    decisions++;
-  }
-
-  if (state.result) {
-    for (const p of checkInvariants(state)) problems.push(`final state: ${p}`);
-  }
-  return { state, events, decisions, kinds, problems };
-}
+import { type PlayerId, opponentOf, redactEvent, serializeState } from '../src/index';
+import { ALL_ICONS, CHARACTER_ABILITIES, abilityDeck, iconDeck, passivePolicy, playGame, randomPolicy, resultProblems } from './random-play';
 
 describe('complete games', () => {
   it('40 random games reach a result with every invariant holding at every decision', () => {
@@ -188,6 +19,7 @@ describe('complete games', () => {
     for (let i = 0; i < 40; i++) {
       const game = playGame(`full-${i}`, randomPolicy, 20_000);
       expect(game.problems).toEqual([]);
+      expect(resultProblems(game)).toEqual([]);
       const result = game.state.result!;
       expect(result).not.toBeNull();
 
@@ -221,21 +53,8 @@ describe('complete games', () => {
   });
 
   it('games with every trigger icon, counters, levels, colours and costs reach a result', () => {
-    const colors = ['red', 'blue', 'green', 'yellow'];
-    const icons: TriggerIcon[] = ['SOUL', 'RETURN', 'POOL', 'COMEBACK', 'DRAW', 'SHOT', 'TREASURE', 'GATE', 'STANDBY', 'CHOICE', 'CHANCE', 'DISCOVERY', 'FOCUS'];
-    const climaxIcons: TriggerIcon[][] = [['SOUL', 'SOUL'], ['SOUL', 'GATE'], ['SHOT'], ['TREASURE'], ['CHANCE'], ['DISCOVERY'], ['STANDBY', 'SOUL'], ['CHOICE']];
-    const defs = (_player: PlayerId, i: number): Partial<CardDef> | undefined => {
-      if (i >= 42) return { color: colors[i % 2]!, triggers: climaxIcons[i - 42]! };
-      if (i >= 36) return { kind: 'EVENT', power: null, soul: null, level: 0, cost: i % 2, color: colors[i % 4]!, counter: i % 2 === 0 };
-      return {
-        level: i % 3,
-        cost: i % 2,
-        color: colors[i % 4]!,
-        power: 500 * (1 + (i % 5)),
-        soul: 1 + (i % 2),
-        triggers: i % 2 === 0 ? [icons[i % icons.length]!] : [],
-      };
-    };
+    const defs = iconDeck;
+    const icons = ALL_ICONS;
 
     const cardKinds = new Set<string>();
     const decisionKinds = new Set<string>();
@@ -275,42 +94,8 @@ describe('complete games', () => {
   });
 
   it('games played with cards that have abilities reach a result with every invariant holding', () => {
-    const draw: Effect[] = [{ do: 'DRAW', count: 1 }];
-    const characterAbilities: Ability[][] = [
-      // 応援
-      [{ type: 'CONT', assist: true, apply: [{ target: { who: 'IN_FRONT' }, stat: 'POWER', amount: 500 }] }],
-      // when played from hand, may pay (1) to return a character from the waiting room
-      [{ type: 'AUTO', trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' }, cost: [{ pay: 'STOCK', count: 1 }], effect: [{ do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' }] }],
-      // 集中
-      [{ type: 'ACT', timing: 'MAIN', cost: [{ pay: 'REST_SELF' }], effect: [{ do: 'BRAINSTORM', count: 3, per: { kind: 'CLIMAX' }, each: draw }] }],
-      // 助太刀
-      [backup(1500, 0, [{ pay: 'SELF_TO_WAITING_ROOM' }])],
-      // when it attacks, +1000 power for the turn; when its battle opponent is reversed, may draw
-      [
-        { type: 'AUTO', trigger: { on: 'ATTACKS' }, effect: [{ do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 1000 }] },
-        { type: 'AUTO', trigger: { on: 'BATTLE_OPPONENT_REVERSED' }, optional: true, effect: draw },
-      ],
-      // once per turn: discard a card to put the top deck card into stock
-      [{ type: 'ACT', timing: 'MAIN', limit: 1, cost: [{ pay: 'DISCARD', count: 1 }], effect: [{ do: 'DECK_TOP', count: 1, to: 'STOCK' }] }],
-      // 加速-style: top deck card to clock, then deal 1 damage
-      [{ type: 'ACT', timing: 'MAIN', limit: 1, cost: [{ pay: 'DECK_TOP_TO_CLOCK' }, { pay: 'REST_SELF' }], effect: [{ do: 'DAMAGE', amount: 1 }] }],
-      [],
-    ];
-    const eventEffects: Effect[][] = [
-      [{ do: 'DRAW', count: 2 }, { do: 'CHOOSE', from: 'YOUR_HAND', min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }],
-      [{ do: 'CHOOSE', from: 'YOUR_DECK', filter: { kind: 'CHARACTER' }, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND', reveal: true }, { do: 'SHUFFLE' }],
-      [{ do: 'MODIFY', target: { who: 'ALL_YOURS' }, stat: 'POWER', amount: 1000 }],
-      [{ do: 'CHOOSE', from: 'OPPONENT_STAGE', min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }],
-      [{ do: 'DAMAGE', amount: 1 }],
-      [{ do: 'IF', condition: { if: 'LEVEL', min: 1 }, then: [{ do: 'DRAW', count: 2 }], else: draw }],
-    ];
-    const climaxAbility: Ability[] = [{ type: 'CONT', apply: [{ target: { who: 'ALL_YOURS' }, stat: 'POWER', amount: 1000 }, { target: { who: 'ALL_YOURS' }, stat: 'SOUL', amount: 1 }] }];
-    const defs = (_player: PlayerId, i: number): Partial<CardDef> | undefined => {
-      if (i >= 42) return { abilities: climaxAbility, triggers: i % 2 === 0 ? ['SOUL', 'SOUL'] : ['SOUL'] };
-      if (i >= 36) return { kind: 'EVENT', power: null, soul: null, level: 0, cost: 0, counter: i % 3 === 0, effect: eventEffects[i - 36]! };
-      const abilities = characterAbilities[i % characterAbilities.length]!;
-      return { power: 500 * (1 + (i % 4)), abilities, counter: i % characterAbilities.length === 3, triggers: i % 3 === 0 ? ['SOUL'] : [] };
-    };
+    const defs = abilityDeck;
+    const characterAbilities = CHARACTER_ABILITIES;
 
     const played = new Set<string>();
     let abilityPlays = 0;

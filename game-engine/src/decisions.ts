@@ -108,8 +108,8 @@ export type Decision =
   | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; ability?: number })
   /**
    * Choose between `min` and `max` of the listed cards. `look` gives the
-   * card ids of offered cards the player would not otherwise see, when the
-   * effect lets them look (e.g. searching their deck, CR-4.8.1).
+   * card ids of hidden cards the effect lets this player look at (e.g. the
+   * whole deck when searching it, CR-4.8.1), by object id.
    */
   | (DecisionBase & { kind: 'SELECT_CARDS'; prompt: PromptId; cards: number[]; min: number; max: number; look?: Record<number, string> })
   /** Choose one of the player's own slots. */
