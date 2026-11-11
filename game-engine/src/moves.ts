@@ -11,6 +11,7 @@
  * must clone it first (see cloneState).
  */
 
+import { grantedAutos } from './abilities/query';
 import type { CardMovedEvent, GameEvent, MoveReason } from './events';
 import { shuffleInPlace } from './rng';
 import { getInstance } from './state';
@@ -76,6 +77,8 @@ function relocate(
   const visibleBefore = visibilityPair(inst);
   const fromObjectId = inst.objectId;
   const slotToSlot = from.zone === 'stage' && to.zone === 'stage';
+  // CR-8.7.4.1.2: abilities given to the card count as they were on the stage.
+  const stageGrants = from.zone === 'stage' && !slotToSlot ? grantedAutos(state, instanceId) : [];
 
   source.splice(index, 1);
   const position = opts.position ?? 'TOP';
@@ -116,6 +119,7 @@ function relocate(
     visibleBefore,
     visibleAfter: visibilityPair(inst),
     reason,
+    ...(stageGrants.length > 0 ? { stageGrants } : {}),
   };
   ctx.events.push(event);
 }

@@ -6,7 +6,7 @@
  */
 
 import { canPayCost, countUse, limitReached, playAbility } from '../abilities/effects';
-import { activeSources, evalCondition } from '../abilities/query';
+import { activeSources, evalCondition, grantedAutos, matchesFilter } from '../abilities/query';
 import type { AutoAbility, EffectContext, Trigger } from '../abilities/types';
 import type { AbilityOption } from '../decisions';
 import type { GameEvent } from '../events';
@@ -18,16 +18,23 @@ import type { CardInstance, GameState, PlayerId, SlotId, WaitingAuto } from '../
 import { ENCORE_COST, opponentOf } from '../types';
 import { stageSlot } from '../zones';
 import { attackerInstance, defenderInstance } from './attack-state';
-import { ask, popFrame, pushFrame, takeAnswer } from './core';
+import { ask, popFrame, pushFrame, takeAnswer, topOf } from './core';
 import { pushDamage } from './damage';
 import type { Frame } from './frames';
 
-/** Puts automatic ability number `ability` of a card into the waiting state (CR-8.7.2). */
+/** An automatic ability a card has: printed (index >= 0) or given to it (index -1, `granted` set). */
+interface FoundAuto {
+  index: number;
+  ability: AutoAbility;
+  granted?: AutoAbility;
+}
+
+/** Puts an automatic ability of a card into the waiting state (CR-8.7.2). */
 function wait(
   state: GameState,
   master: PlayerId,
   card: CardInstance,
-  ability: number,
+  found: FoundAuto,
   battleOpponent: number | null,
   slot: { player: PlayerId; slot: SlotId } | null = null,
 ): void {
@@ -37,9 +44,10 @@ function wait(
     master,
     instanceId: card.instanceId,
     objectId: card.objectId,
-    ability,
+    ability: found.index,
     battleOpponent,
     slot,
+    ...(found.granted ? { granted: found.granted } : {}),
   });
 }
 
@@ -48,13 +56,24 @@ function inForce(source: { clockTop: boolean }, ability: AutoAbility): boolean {
   return Boolean(ability.alarm) === source.clockTop;
 }
 
-/** The automatic abilities of a card whose trigger satisfies `match`, as [number, ability] pairs. */
-function autosOf(state: GameState, card: CardInstance, match: (trigger: Trigger) => boolean): [number, AutoAbility][] {
-  const abilities = state.defs[card.cardId]?.abilities ?? [];
-  const found: [number, AutoAbility][] = [];
-  abilities.forEach((ability, index) => {
-    if (ability.type === 'AUTO' && match(ability.trigger)) found.push([index, ability]);
+/**
+ * The automatic abilities of a card whose trigger satisfies `match`: its
+ * printed ones and those it has been given (`grants`, by default the ones it
+ * has now).
+ */
+function autosOf(
+  state: GameState,
+  card: CardInstance,
+  match: (trigger: Trigger) => boolean,
+  grants: readonly AutoAbility[] = grantedAutos(state, card.instanceId),
+): FoundAuto[] {
+  const found: FoundAuto[] = [];
+  (state.defs[card.cardId]?.abilities ?? []).forEach((ability, index) => {
+    if (ability.type === 'AUTO' && match(ability.trigger)) found.push({ index, ability });
   });
+  for (const ability of grants) {
+    if (match(ability.trigger)) found.push({ index: -1, ability, granted: ability });
+  }
   return found;
 }
 
@@ -68,34 +87,63 @@ function battleOpponentOf(state: GameState, card: CardInstance): CardInstance | 
   return null;
 }
 
+/** Abilities of the cards in force whose trigger is met, for triggers of the "when something happens" kind. */
+function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger: Trigger, sourceMaster: PlayerId) => boolean): void {
+  for (const source of activeSources(state)) {
+    if (master !== 'ANY' && source.master !== master) continue;
+    const sourceCard = state.instances[source.instanceId] as CardInstance;
+    for (const found of autosOf(state, sourceCard, (t) => match(t, source.master))) {
+      if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
+    }
+  }
+}
+
 /** Trigger conditions of card abilities met by one event. */
 function registerCardTriggers(state: GameState, event: GameEvent): void {
   switch (event.type) {
     case 'CARD_MOVED': {
       const card = state.instances[event.instanceId] as CardInstance;
-      // このカードが(手札から)舞台に置かれた時
-      if (event.to.zone === 'stage' && event.from.zone !== 'stage' && card.objectId === event.toObjectId) {
+      if (card.objectId !== event.toObjectId) return;
+      // このカードが(手札から)舞台に置かれた時 / 手札から舞台に置かれた時か『チェンジ』で舞台に置かれた時
+      if (event.to.zone === 'stage' && event.from.zone !== 'stage') {
         const fromHand = event.from.zone === 'hand';
-        for (const [index] of autosOf(state, card, (t) => t.on === 'PLACED_ON_STAGE' && (t.from !== 'HAND' || fromHand))) {
-          wait(state, event.to.player, card, index, null);
-        }
+        const byChange = event.reason === 'CHANGE';
+        const placed = autosOf(
+          state,
+          card,
+          (t) => t.on === 'PLACED_ON_STAGE' && (t.from === undefined || (t.from === 'HAND' ? fromHand : fromHand || byChange)),
+        );
+        for (const found of placed) wait(state, event.to.player, card, found, null);
       }
-      // このカードが舞台から控え室に置かれた時 (CR-8.7.4.1.2: judged by what the card was on the stage)
-      if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom' && card.objectId === event.toObjectId) {
-        for (const [index] of autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM')) {
-          wait(state, event.from.player, card, index, null, { player: event.from.player, slot: event.from.slot });
-        }
+      // このカードが舞台から控え室に置かれた時. CR-8.7.4.1.2: the card as it was
+      // on the stage, including abilities it had been given there.
+      if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom') {
+        const left = autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM', event.stageGrants ?? []);
+        for (const found of left) wait(state, event.from.player, card, found, null, { player: event.from.player, slot: event.from.slot });
       }
-      // あなたのクライマックスがクライマックス置場に置かれた時
       if (event.to.zone === 'climax' && event.from.zone !== 'climax') {
-        for (const source of activeSources(state)) {
-          if (source.master !== event.to.player) continue;
-          const sourceCard = state.instances[source.instanceId] as CardInstance;
-          for (const [index, ability] of autosOf(state, sourceCard, (t) => t.on === 'CLIMAX_PLACED')) {
-            if (inForce(source, ability)) wait(state, source.master, sourceCard, index, null);
-          }
+        // このカードが手札からクライマックス置場に置かれた時
+        if (event.from.zone === 'hand') {
+          for (const found of autosOf(state, card, (t) => t.on === 'THIS_CLIMAX_PLACED')) wait(state, event.to.player, card, found, null);
         }
+        // あなたのクライマックスがクライマックス置場に置かれた時
+        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED');
       }
+      return;
+    }
+    case 'TRIGGER_CHECK': {
+      // あなたのキャラのトリガーチェックで…がでた時. The card is in the resolution zone now.
+      const checked = topOf(state.zones[event.player].resolution);
+      if (checked === undefined) return;
+      sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && matchesFilter(state, checked, t.filter));
+      return;
+    }
+    case 'ABILITY_PLAYED': {
+      // あなたがこのカードの『助太刀』を使った時 (CR-10.5.3: its cost has been paid).
+      const card = state.instances[event.instanceId] as CardInstance;
+      const played = state.defs[card.cardId]?.abilities?.[event.ability];
+      if (!played || played.type !== 'ACT' || !(played.keywords ?? []).includes('BACKUP')) return;
+      for (const found of autosOf(state, card, (t) => t.on === 'USED_BACKUP', [])) wait(state, event.player, card, found, null);
       return;
     }
     case 'ATTACK_DECLARED': {
@@ -103,8 +151,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const attacker = attackerInstance(state);
       if (!attacker || attacker.objectId !== event.attackerObjectId) return;
       const defender = defenderInstance(state);
-      for (const [index] of autosOf(state, attacker, (t) => t.on === 'ATTACKS')) {
-        wait(state, event.player, attacker, index, defender ? defender.objectId : null);
+      for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS')) {
+        wait(state, event.player, attacker, found, defender ? defender.objectId : null);
       }
       return;
     }
@@ -113,49 +161,31 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const card = state.instances[event.instanceId] as CardInstance;
       const opponent = battleOpponentOf(state, card);
       // このカードが【リバース】した時
-      for (const [index] of autosOf(state, card, (t) => t.on === 'REVERSED')) {
-        wait(state, event.player, card, index, opponent ? opponent.objectId : null);
+      for (const found of autosOf(state, card, (t) => t.on === 'REVERSED')) {
+        wait(state, event.player, card, found, opponent ? opponent.objectId : null);
       }
       // このカードのバトル相手が【リバース】した時
       if (opponent) {
-        for (const [index] of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED')) {
-          wait(state, opponent.location.player, opponent, index, card.objectId);
+        for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED')) {
+          wait(state, opponent.location.player, opponent, found, card.objectId);
         }
       }
       return;
     }
-    case 'PHASE_STARTED': {
+    case 'PHASE_STARTED':
       // (あなたの/相手の)…フェイズの始めに
-      for (const source of activeSources(state)) {
-        const whose = source.master === event.player ? 'YOURS' : 'OPPONENT';
-        const sourceCard = state.instances[source.instanceId] as CardInstance;
-        const matching = autosOf(
-          state,
-          sourceCard,
-          (t) => t.on === 'PHASE_START' && t.phase === event.phase && (t.turn === 'ANY' || t.turn === whose),
-        );
-        for (const [index, ability] of matching) {
-          if (inForce(source, ability)) wait(state, source.master, sourceCard, index, null);
-        }
-      }
+      sourcesWith(state, 'ANY', (t, master) => {
+        const whose = master === event.player ? 'YOURS' : 'OPPONENT';
+        return t.on === 'PHASE_START' && t.phase === event.phase && (t.turn === 'ANY' || t.turn === whose);
+      });
       return;
-    }
-    case 'STEP_STARTED': {
+    case 'STEP_STARTED':
       // (あなたの/相手の)…ステップの始めに
-      for (const source of activeSources(state)) {
-        const whose = source.master === event.player ? 'YOURS' : 'OPPONENT';
-        const sourceCard = state.instances[source.instanceId] as CardInstance;
-        const matching = autosOf(
-          state,
-          sourceCard,
-          (t) => t.on === 'STEP_START' && t.step === event.step && (t.turn === 'ANY' || t.turn === whose),
-        );
-        for (const [index, ability] of matching) {
-          if (inForce(source, ability)) wait(state, source.master, sourceCard, index, null);
-        }
-      }
+      sourcesWith(state, 'ANY', (t, master) => {
+        const whose = master === event.player ? 'YOURS' : 'OPPONENT';
+        return t.on === 'STEP_START' && t.step === event.step && (t.turn === 'ANY' || t.turn === whose);
+      });
       return;
-    }
     default:
       return;
   }
@@ -200,7 +230,7 @@ export function describeWaiting(state: GameState, ability: WaitingAuto): Ability
     const inst = getInstance(state, ability.instanceId);
     // The card is named only while it is still the public object that triggered.
     const visible = inst.objectId === ability.objectId && isPublicZone(inst.location.zone);
-    return { id: ability.id, type: 'CARD', ability: ability.ability, ...(visible ? { card: ability.objectId } : {}) };
+    return { id: ability.id, type: 'CARD', ability: ability.ability, ...(ability.granted ? { granted: true } : {}), ...(visible ? { card: ability.objectId } : {}) };
   }
   return { id: ability.id, type: 'SHOT' };
 }
@@ -271,7 +301,7 @@ export function stepAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>): voi
 function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting: Extract<WaitingAuto, { kind: 'CARD' }>): void {
   const state = ctx.state;
   const { master } = waiting;
-  const ability = state.defs[getInstance(state, waiting.instanceId).cardId]?.abilities?.[waiting.ability];
+  const ability = waiting.granted ?? state.defs[getInstance(state, waiting.instanceId).cardId]?.abilities?.[waiting.ability];
   if (!ability || ability.type !== 'AUTO') {
     popFrame(ctx, frame);
     return;
@@ -284,6 +314,7 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
     chosen: [],
     battleOpponent: waiting.battleOpponent,
     sourceSlot: waiting.slot ?? (sourceLocation.zone === 'stage' ? { player: sourceLocation.player, slot: sourceLocation.slot } : null),
+    ...(ability.keywords ? { keywords: [...ability.keywords] } : {}),
   };
   const costs = ability.cost ?? [];
 

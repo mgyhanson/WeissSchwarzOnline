@@ -47,6 +47,10 @@ export type PromptId =
   | 'EFFECT_CHOOSE'
   /** Choose the hand cards to discard as a cost. */
   | 'COST_DISCARD'
+  /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
+  | 'LOOK_NEXT'
+  /** Choose a slot for a card ability. */
+  | 'EFFECT_SLOT'
   | 'TRIGGER_ORDER'
   | 'TRIGGER_RETURN'
   | 'TRIGGER_POOL'
@@ -68,6 +72,8 @@ export type PromptId =
 export interface AbilityOption {
   id: number;
   type: 'ENCORE' | 'SHOT' | 'CARD';
+  /** For a card ability: true when the card was given the ability rather than having it printed. */
+  granted?: boolean;
   /** For a card ability: its number among the card's abilities. */
   ability?: number;
   /** The card the ability belongs to, when it is still the same visible object. */
@@ -104,8 +110,11 @@ export type Decision =
   | (DecisionBase & { kind: 'RULE_ACTION_ORDER'; options: RuleActionKind[] })
   /** CR-8.7.3.1: several of the player's automatic abilities are waiting; choose which to play first. */
   | (DecisionBase & { kind: 'CHOOSE_ABILITY'; abilities: AbilityOption[] })
-  /** A "you may" question. `ability` is the ability number when it concerns a card ability. */
-  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; ability?: number })
+  /**
+   * A "you may" question. `ability` is the ability number when it concerns a
+   * card ability. `look` as for SELECT_CARDS: hidden cards this player is looking at.
+   */
+  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; ability?: number; look?: Record<number, string> })
   /**
    * Choose between `min` and `max` of the listed cards. `look` gives the
    * card ids of hidden cards the effect lets this player look at (e.g. the

@@ -8,13 +8,14 @@
     "node": ">=24"
   },
   "workspaces": [
-    "game-engine"
+    "game-engine",
+    "card-database"
   ],
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p game-engine --noEmit && tsc -p . --noEmit",
+    "typecheck": "tsc -p game-engine --noEmit && tsc -p card-database --noEmit && tsc -p . --noEmit",
     "check": "npm run typecheck && npm run test && node scripts/registry.ts --check",
     "backup": "bash scripts/backup.sh",
     "registry": "node scripts/registry.ts",

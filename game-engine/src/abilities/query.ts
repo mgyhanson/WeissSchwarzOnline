@@ -7,8 +7,8 @@
 import { getDef, getInstance } from '../state';
 import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
 import { SLOTS, opponentOf } from '../types';
-import { isBackSlot, slotsInFrontOf } from '../zones';
-import type { CardFilter, ChooseFrom, Condition, ContinuousAbility, EffectContext, PerCharacter, Target } from './types';
+import { FRONT_SLOTS, isBackSlot, slotsInFrontOf } from '../zones';
+import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, EffectContext, PerCharacter, Target } from './types';
 
 type Stat = 'POWER' | 'SOUL' | 'LEVEL';
 
@@ -122,6 +122,18 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
       ).length;
       return count >= condition.min;
     }
+    case 'SELF_IN_SLOT': {
+      const location = getInstance(state, source).location;
+      return location.zone === 'stage' && location.player === master && condition.slots.includes(location.slot);
+    }
+    case 'SELF_RESTED': {
+      const inst = getInstance(state, source);
+      return inst.location.zone === 'stage' && inst.orientation === 'REST';
+    }
+    case 'ALL_CHARACTERS':
+      return stageCharacters(state, master).every((id) => matchesFilter(state, id, condition.filter));
+    case 'STOCK':
+      return zones.stock.length <= condition.max;
     case 'ALL':
       return condition.of.every((part) => evalCondition(state, master, source, part));
     case 'NOT':
@@ -164,30 +176,60 @@ function continuousTargets(
  * effects then see those levels. Everything implemented so far is an
  * addition, so the order within a step cannot change the result.
  */
-export function continuousTotal(state: GameState, instanceId: number, stat: Stat): number {
-  if (getInstance(state, instanceId).location.zone !== 'stage') return 0;
-  const levelOf = stat === 'LEVEL' ? printedLevel : currentLevel;
-  let total = 0;
+/** The continuous abilities currently in force, with the card they are on. */
+function continuousInForce(state: GameState): { source: ActiveSource; ability: ContinuousAbility }[] {
+  const found: { source: ActiveSource; ability: ContinuousAbility }[] = [];
   for (const source of activeSources(state)) {
     for (const ability of source.def.abilities ?? []) {
       if (ability.type !== 'CONT') continue;
       // An アラーム ability works from the top of the clock and only from there.
       if (Boolean(ability.alarm) !== source.clockTop) continue;
-      if (!ability.apply.some((part) => part.stat === stat)) continue;
       if (ability.assist) {
         // CR-10.3.2: only while this card is in a back-row slot.
         const location = getInstance(state, source.instanceId).location;
         if (location.zone !== 'stage' || !isBackSlot(location.slot)) continue;
       }
       if (!evalCondition(state, source.master, source.instanceId, ability.condition)) continue;
-      for (const part of ability.apply) {
-        if (part.stat === stat && continuousTargets(state, source, part.target, levelOf).includes(instanceId)) {
-          total += part.amount * perCount(state, source.master, source.instanceId, part.per);
-        }
-      }
+      found.push({ source, ability });
+    }
+  }
+  return found;
+}
+
+export function continuousTotal(state: GameState, instanceId: number, stat: Stat): number {
+  if (getInstance(state, instanceId).location.zone !== 'stage') return 0;
+  const levelOf = stat === 'LEVEL' ? printedLevel : currentLevel;
+  let total = 0;
+  for (const { source, ability } of continuousInForce(state)) {
+    for (const part of ability.apply) {
+      if (part.stat !== stat || !continuousTargets(state, source, part.target, levelOf).includes(instanceId)) continue;
+      let amount = part.amount * perCount(state, source.master, source.instanceId, part.per);
+      // Ｘはそのキャラのレベル×N. Only power and soul use this, so levels are already settled.
+      if (part.perTargetLevel) amount = part.amount * currentLevel(state, instanceId);
+      total += amount;
     }
   }
   return total;
+}
+
+/**
+ * The automatic abilities a card has been given: by continuous abilities in
+ * force (only while it is on the stage) and by effects lasting this turn.
+ */
+export function grantedAutos(state: GameState, instanceId: number): AutoAbility[] {
+  const inst = getInstance(state, instanceId);
+  const granted: AutoAbility[] = [];
+  if (inst.location.zone === 'stage') {
+    for (const { source, ability } of continuousInForce(state)) {
+      for (const part of ability.grant ?? []) {
+        if (continuousTargets(state, source, part.target, currentLevel).includes(instanceId)) granted.push(part.ability);
+      }
+    }
+  }
+  for (const grant of state.grants) {
+    if (grant.objectId === inst.objectId) granted.push(grant.ability);
+  }
+  return granted;
 }
 
 /** …1枚につき: how many (other) characters of the player match; 1 when the amount is not scaled. */
@@ -284,7 +326,7 @@ export function chooseCandidates(
 ): number[] {
   const { master } = context;
   const zones = state.zones[master];
-  let pool: number[];
+  let pool: number[] = [];
   switch (from) {
     case 'YOUR_STAGE':
       pool = stageCharacters(state, master);
@@ -314,6 +356,14 @@ export function chooseCandidates(
       pool = stillDefending ? [defender.instanceId] : [];
       break;
     }
+    case 'OPPONENT_FRONT_ROW': {
+      const opponent = state.zones[opponentOf(master)];
+      pool = FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]).filter((id) => getDef(state, id).kind === 'CHARACTER');
+      break;
+    }
+    case 'OPPONENT_CLIMAX':
+      pool = state.zones[opponentOf(master)].climax.filter((id) => getDef(state, id).kind === 'CLIMAX');
+      break;
   }
   return pool.filter((id) => !(other && id === context.source) && matchesFilter(state, id, filter));
 }

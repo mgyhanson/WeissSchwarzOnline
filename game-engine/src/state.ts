@@ -112,6 +112,7 @@ export function createInitialState(config: GameConfig, seed: string): GameState 
     shotWatchers: [],
     costDepth: 0,
     abilityUses: {},
+    grants: [],
   };
 }
 

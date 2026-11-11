@@ -1,0 +1,9 @@
+{
+  "name": "@wso/card-database",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Card data: official printed information, ability data, explanations and test decks.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

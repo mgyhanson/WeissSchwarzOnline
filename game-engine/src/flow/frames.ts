@@ -107,6 +107,8 @@ export type Frame =
    * progress within the current effect.
    */
   | { kind: 'EFFECTS'; effects: Effect[]; index: number; step: number; scratch: number[]; context: EffectContext }
+  /** CR-8.6.2.4: announces that an ability was played, once its cost is paid. */
+  | { kind: 'ANNOUNCE_ABILITY'; player: PlayerId; instanceId: number; ability: number }
   /** CR-8.6.2.5.2: an event that has resolved goes from the resolution zone to the waiting room. */
   | { kind: 'FINISH_EVENT'; objectId: number }
   /** CR-4.7.1 / CR-3.2.3: draw cards one at a time. */

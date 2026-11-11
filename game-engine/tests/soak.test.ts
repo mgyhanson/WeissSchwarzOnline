@@ -3,13 +3,14 @@
  * checked at every decision. Too slow for every test run, so it only runs
  * when SOAK is set:
  *
- *   npm run soak              (1000 games per deck, 3000 in all)
+ *   npm run soak              (1000 games per deck, 4000 in all)
  *   SOAK=200 npx vitest run game-engine/tests/soak.test.ts
  */
 
 import { describe, expect, it } from 'vitest';
 import { type DefOverride } from './helpers';
-import { type Played, abilityDeck, iconDeck, playGame, randomPolicy, resultProblems } from './random-play';
+import { type Played, abilityDeck, iconDeck, playGame, playGameWith, randomPolicy, resultProblems } from './random-play';
+import { abilitiesInDecks, abilitiesPlayed, realDeckConfig } from '../../card-database/tests/real-decks';
 import { serializeState } from '../src/index';
 
 const GAMES = Number(process.env.SOAK ?? 0);
@@ -44,6 +45,8 @@ const decks: [string, DefOverride | undefined][] = [
   ['plain', undefined],
   ['icons', iconDeck],
   ['abilities', abilityDeck],
+  // The two real test decks from the card database (涼宮ハルヒ against 一花).
+  ['real', undefined],
 ];
 
 describe.skipIf(GAMES <= 0)(`soak: ${GAMES} random games per deck`, () => {
@@ -53,11 +56,11 @@ describe.skipIf(GAMES <= 0)(`soak: ${GAMES} random games per deck`, () => {
       const failures: string[] = [];
       for (let i = 0; i < GAMES; i++) {
         const seed = `soak-${name}-${i}`;
-        const game = playGame(seed, randomPolicy, 50_000, deck);
+        const game = name === 'real' ? playGameWith(realDeckConfig(i % 2 === 1), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
         const problems = [...game.problems, ...(game.state.result ? resultProblems(game) : [])];
         // INV-07 on every tenth game: the same seed and choices give the same game.
         if (i % 10 === 0 && problems.length === 0) {
-          const again = playGame(seed, randomPolicy, 50_000, deck);
+          const again = name === 'real' ? playGameWith(realDeckConfig(i % 2 === 1), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
           if (serializeState(again.state) !== serializeState(game.state)) problems.push('replay differs (INV-07)');
         }
         if (problems.length > 0) failures.push(`${seed}: ${problems.slice(0, 3).join(' | ')}`);
@@ -65,6 +68,11 @@ describe.skipIf(GAMES <= 0)(`soak: ${GAMES} random games per deck`, () => {
       }
       const summary = tally(games);
       console.log(`[soak ${name}] ${JSON.stringify(summary)}`);
+      if (name === 'real') {
+        const used = abilitiesPlayed(games);
+        const never = [...abilitiesInDecks()].filter((a) => !used.has(a)).sort();
+        console.log(`[soak real] card abilities never played: ${never.length === 0 ? 'none' : never.join(', ')}`);
+      }
       expect(failures).toEqual([]);
       expect(summary.games).toBe(GAMES);
     }, 600_000);

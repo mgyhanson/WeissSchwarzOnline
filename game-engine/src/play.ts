@@ -180,6 +180,10 @@ function abilityContext(master: PlayerId, source: CardInstance): EffectContext {
   };
 }
 
+function withKeywords(context: EffectContext, ability: ActivatedAbility): EffectContext {
+  return ability.keywords ? { ...context, keywords: [...ability.keywords] } : context;
+}
+
 /** Whether an activated ability can be played now: its condition, its per-turn limit and its cost. */
 function canActivate(state: GameState, player: PlayerId, source: CardInstance, index: number, ability: ActivatedAbility): boolean {
   if (limitReached(state, source.objectId, index, ability.limit)) return false;
@@ -196,7 +200,7 @@ function activate(ctx: Ctx, player: PlayerId, objectId: number, index: number): 
     throw new Error('Engine bug: tried to play an activated ability that cannot be played');
   }
   countUse(state, source.objectId, index);
-  playAbility(ctx, abilityContext(player, source), index, ability.cost, ability.effect);
+  playAbility(ctx, withKeywords(abilityContext(player, source), ability), index, ability.cost, ability.effect);
 }
 
 /**

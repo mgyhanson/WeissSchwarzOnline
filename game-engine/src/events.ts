@@ -4,7 +4,7 @@
  * unredacted events; players only ever receive the result of redactEvent().
  */
 
-import type { AttackStepName } from './abilities/types';
+import type { AttackStepName, AutoAbility } from './abilities/types';
 import type {
   AttackType,
   CardKind,
@@ -64,7 +64,9 @@ export type MoveReason =
   /** CR-10.2.2: a character returned to its slot by encore. */
   | 'ENCORE'
   /** A card moved by the effect of a card ability or event. */
-  | 'EFFECT';
+  | 'EFFECT'
+  /** A character put on the stage by the effect of a チェンジ ability (CR-10.8.4). */
+  | 'CHANGE';
 
 export interface CardMovedEvent {
   type: 'CARD_MOVED';
@@ -86,6 +88,11 @@ export interface CardMovedEvent {
   visibleBefore: [boolean, boolean];
   visibleAfter: [boolean, boolean];
   reason: MoveReason;
+  /**
+   * For a card leaving the stage: automatic abilities it had been given, as
+   * they were while it was on the stage (CR-8.7.4.1.2). Engine-internal.
+   */
+  stageGrants?: AutoAbility[];
 }
 
 export interface DeckShuffledEvent {

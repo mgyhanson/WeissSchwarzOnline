@@ -11,10 +11,11 @@ import { pushDamage } from '../flow/damage';
 import type { Frame } from '../flow/frames';
 import type { BatchMove, Ctx } from '../moves';
 import { moveBatch, moveCard, moveCards, revealCard, setOrientation, shuffleDeck } from '../moves';
-import { getInstance } from '../state';
+import { getDef, getInstance } from '../state';
 import { addModifier } from '../stats';
 import type { GameState, ZoneRef } from '../types';
-import { opponentOf } from '../types';
+import { SLOTS, opponentOf } from '../types';
+import { BACK_SLOTS } from '../zones';
 import { chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
@@ -51,6 +52,7 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         discardsNeeded += cost.count;
         break;
       case 'SELF_TO_WAITING_ROOM':
+      case 'SELF_TO_CLOCK':
         if (!sourceIfUnchanged(state, context)) return false;
         break;
       case 'DECK_TOP_TO_CLOCK':
@@ -122,6 +124,10 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       if (top !== undefined) moveCard(ctx, top, { player: master, zone: 'clock' }, { reason: 'COST' });
       return;
     }
+    case 'SELF_TO_CLOCK':
+      frame.index++;
+      moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'clock' }, { reason: 'COST' });
+      return;
   }
 }
 
@@ -138,6 +144,8 @@ export function pushEffects(ctx: Ctx, effects: readonly Effect[], context: Effec
 function destinationZone(state: GameState, context: EffectContext, instanceId: number, to: Destination): { zone: ZoneRef; bottom: boolean } | null {
   const player = getInstance(state, instanceId).owner;
   switch (to) {
+    case 'CHOSEN_SLOT':
+      return context.slot ? { zone: { player: context.master, zone: 'stage', slot: context.slot }, bottom: false } : null;
     case 'SOURCE_SLOT':
       return context.sourceSlot ? { zone: { player: context.sourceSlot.player, zone: 'stage', slot: context.sourceSlot.slot }, bottom: false } : null;
     case 'HAND':
@@ -191,7 +199,9 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'CHOOSE': {
       if (frame.step === 0) {
-        const candidates = chooseCandidates(state, context, effect.from, effect.filter, effect.other);
+        let candidates = chooseCandidates(state, context, effect.from, effect.filter, effect.other);
+        // レベルＸ以下: X set earlier in this resolution, 0 when nothing set it.
+        if (effect.levelMaxX) candidates = candidates.filter((id) => (getDef(state, id).level ?? 0) <= (context.x ?? 0));
         if (candidates.length === 0) {
           // CR-8.6.3.1.3: nothing can be chosen; whatever refers to the choice does nothing.
           context.chosen = [];
@@ -235,11 +245,13 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const moves: BatchMove[] = targets.flatMap((instanceId) => {
         const destination = destinationZone(state, context, instanceId, effect.to);
         if (!destination) return [];
+        // CR-10.8.4: a character put on the stage by a チェンジ ability is placed "by change".
+        const byChange = destination.zone.zone === 'stage' && (context.keywords ?? []).includes('CHANGE');
         return [{
           instanceId,
           to: destination.zone,
           opts: {
-            reason: 'EFFECT' as const,
+            reason: byChange ? ('CHANGE' as const) : ('EFFECT' as const),
             ...(destination.bottom ? { position: 'BOTTOM' as const } : {}),
             ...(effect.rested ? { orientation: 'REST' as const } : {}),
           },
@@ -306,6 +318,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       const flipped = frame.scratch.filter((id) => getInstance(state, id).location.zone === 'resolution');
       const hits = flipped.filter((id) => matchesFilter(state, id, effect.per)).length;
+      if (effect.setX) context.x = hits;
       next();
       for (let i = 0; i < hits; i++) pushEffects(ctx, effect.each, context);
       moveBatch(
@@ -325,7 +338,123 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
       return;
     }
+
+    case 'CHOOSE_SLOT': {
+      if (frame.step === 0) {
+        const zones = state.zones[master];
+        const slots = effect.which === 'ANY' ? [...SLOTS] : BACK_SLOTS.filter((slot) => zones.stage[slot].length === 0);
+        // Nothing was chosen to put anywhere, or there is no such slot.
+        if (context.chosen.length === 0 || slots.length === 0) {
+          context.slot = null;
+          next();
+          return;
+        }
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_SLOT', player: master, prompt: 'EFFECT_SLOT', slots });
+        return;
+      }
+      context.slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      next();
+      return;
+    }
+
+    case 'CLOCK_TOP': {
+      const top = topOf(state.zones[master].clock);
+      next();
+      if (top !== undefined) moveCard(ctx, top, { player: getInstance(state, top).owner, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
+
+    case 'LOOK_TOP': {
+      stepLookTop(ctx, frame, effect, next);
+      return;
+    }
+
+    case 'GRANT': {
+      for (const id of resolveTarget(state, context, effect.target)) {
+        state.grants.push({ objectId: getInstance(state, id).objectId, ability: effect.ability });
+      }
+      next();
+      return;
+    }
   }
+}
+
+/** Card ids of the cards a player is looking at, by object id, for the decision that shows them. */
+function lookMap(state: GameState, instanceIds: readonly number[]): Record<number, string> {
+  const look: Record<number, string> = {};
+  for (const id of instanceIds) look[getInstance(state, id).objectId] = getInstance(state, id).cardId;
+  return look;
+}
+
+/**
+ * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
+ * `scratch` holds the instance ids looked at, top first. Step 0: ask about
+ * the next card (CR-3.2.3.1); step 1: its answer; step 2: choose; step 3: move.
+ */
+function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effect: Extract<Effect, { do: 'LOOK_TOP' }>, next: () => void): void {
+  const state = ctx.state;
+  const { context } = frame;
+  const { master } = context;
+  const deck = state.zones[master].deck;
+  const limit = effect.per ? effect.upTo * perCount(state, master, context.source, effect.per) : effect.upTo;
+
+  if (frame.step === 0) {
+    // CR-3.2.3.3: no more cards than the deck has.
+    if (frame.scratch.length >= limit || frame.scratch.length >= deck.length) {
+      frame.step = 2;
+      return;
+    }
+    frame.step = 1;
+    ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'LOOK_NEXT', look: lookMap(state, frame.scratch) });
+    return;
+  }
+  if (frame.step === 1) {
+    if (takeAnswer(ctx, 'CONFIRM').accept) {
+      frame.scratch.push(deck[deck.length - 1 - frame.scratch.length] as number);
+      frame.step = 0;
+    } else {
+      frame.step = 2;
+    }
+    return;
+  }
+  if (frame.step === 2) {
+    const candidates = frame.scratch.filter((id) => matchesFilter(state, id, effect.pick));
+    if (candidates.length === 0) {
+      context.chosen = [];
+      frame.step = 4;
+      return;
+    }
+    frame.step = 3;
+    ask(ctx, {
+      kind: 'SELECT_CARDS',
+      player: master,
+      prompt: 'EFFECT_CHOOSE',
+      cards: candidates.map((id) => getInstance(state, id).objectId),
+      min: 0,
+      max: 1,
+      look: lookMap(state, frame.scratch),
+    });
+    return;
+  }
+  if (frame.step === 3) {
+    context.chosen = takeAnswer(ctx, 'SELECT_CARDS').cards;
+    frame.step = 4;
+    return;
+  }
+  // The chosen card to the hand (shown first when the text says so), the rest to the waiting room, together.
+  const looked = [...frame.scratch];
+  const chosen = context.chosen.map((objectId) => findObject(state, objectId).instanceId);
+  next();
+  if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
+  moveBatch(
+    ctx,
+    looked.map((instanceId) => ({
+      instanceId,
+      to: { player: master, zone: chosen.includes(instanceId) ? ('hand' as const) : ('waitingRoom' as const) },
+      opts: { reason: 'EFFECT' as const },
+    })),
+  );
 }
 
 /** CR-8.6.2.5.2: the resolved event goes to its owner's waiting room. */
@@ -343,11 +472,16 @@ export function stepFinishEvent(ctx: Ctx, frame: Extract<Frame, { kind: 'FINISH_
  * are pushed before the cost.
  */
 export function playAbility(ctx: Ctx, context: EffectContext, abilityNumber: number, costs: readonly Cost[], effects: readonly Effect[]): void {
-  const state = ctx.state;
-  const source = getInstance(state, context.source);
-  emit(ctx, { type: 'ABILITY_PLAYED', player: context.master, instanceId: source.instanceId, cardId: source.cardId, ability: abilityNumber });
   pushEffects(ctx, effects, context);
+  // CR-8.6.2.4: "played" (and, for backup, "used", CR-10.5.3) once the cost is paid.
+  pushFrame(ctx, { kind: 'ANNOUNCE_ABILITY', player: context.master, instanceId: context.source, ability: abilityNumber });
   pushCost(ctx, costs, context);
+}
+
+export function stepAnnounceAbility(ctx: Ctx, frame: Extract<Frame, { kind: 'ANNOUNCE_ABILITY' }>): void {
+  popFrame(ctx, frame);
+  const source = getInstance(ctx.state, frame.instanceId);
+  emit(ctx, { type: 'ABILITY_PLAYED', player: frame.player, instanceId: source.instanceId, cardId: source.cardId, ability: frame.ability });
 }
 
 /** CR-10.19: counting and checking plays of an ability with a per-turn limit. */

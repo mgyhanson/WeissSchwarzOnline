@@ -2,7 +2,7 @@
  * The engine loop: executes frames until the game needs a decision or ends.
  */
 
-import { stepEffects, stepFinishEvent, stepPayCost } from '../abilities/effects';
+import { stepAnnounceAbility, stepEffects, stepFinishEvent, stepPayCost } from '../abilities/effects';
 import type { Ctx } from '../moves';
 import { stepAttackPhase } from './attack';
 import { registerTriggers, stepAuto } from './autos';
@@ -53,6 +53,8 @@ function stepFrame(ctx: Ctx, frame: Frame): void {
       return stepEffects(ctx, frame);
     case 'FINISH_EVENT':
       return stepFinishEvent(ctx, frame);
+    case 'ANNOUNCE_ABILITY':
+      return stepAnnounceAbility(ctx, frame);
   }
 }
 

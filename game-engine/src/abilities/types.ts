@@ -44,6 +44,14 @@ export type Condition =
   | { if: 'EXPERIENCE'; min: number }
   /** 記憶: あなたの思い出置場に…がN枚以上あるなら */
   | { if: 'MEMORY'; min: number; filter?: CardFilter }
+  /** 前列の中央の枠にこのカードがいるなら */
+  | { if: 'SELF_IN_SLOT'; slots: SlotId[] }
+  /** このカードが【レスト】しているなら */
+  | { if: 'SELF_RESTED' }
+  /** あなたのキャラすべてが…なら */
+  | { if: 'ALL_CHARACTERS'; filter: CardFilter }
+  /** あなたのストックがN枚以下なら */
+  | { if: 'STOCK'; max: number }
   | { if: 'ALL'; of: Condition[] }
   | { if: 'NOT'; of: Condition };
 
@@ -58,7 +66,9 @@ export type Cost =
   /** (手札の)このカードを控え室に置く */
   | { pay: 'SELF_TO_WAITING_ROOM' }
   /** 自分の山札の上から1枚をクロック置場に置く (the cost of 加速, CR-10.12) */
-  | { pay: 'DECK_TOP_TO_CLOCK' };
+  | { pay: 'DECK_TOP_TO_CLOCK' }
+  /** このカードをクロック置場に置く */
+  | { pay: 'SELF_TO_CLOCK' };
 
 /** Which cards an effect applies to. */
 export type Target =
@@ -83,7 +93,11 @@ export type ChooseFrom =
   /** 自分の山札を見て…: a hidden zone, so choosing fewer is always allowed (CR-8.6.3.1.4). */
   | 'YOUR_DECK'
   /** あなたがマスターであるフロントアタックされたキャラ (backup, CR-10.5.2) */
-  | 'FRONT_ATTACKED';
+  | 'FRONT_ATTACKED'
+  /** 相手の前列のキャラ */
+  | 'OPPONENT_FRONT_ROW'
+  /** 相手のクライマックス置場のクライマックス */
+  | 'OPPONENT_CLIMAX';
 
 export type Destination =
   | 'HAND'
@@ -94,7 +108,9 @@ export type Destination =
   | 'DECK_TOP'
   | 'DECK_BOTTOM'
   /** このカードがいた枠 / それが直前に置かれていた枠: the slot the ability's card is or was in. */
-  | 'SOURCE_SLOT';
+  | 'SOURCE_SLOT'
+  /** The slot chosen by the most recent CHOOSE_SLOT of this resolution. */
+  | 'CHOSEN_SLOT';
 
 /** …1枚につき: multiplies an amount by the number of (other) characters of yours that match. */
 export interface PerCharacter {
@@ -109,7 +125,7 @@ export type Effect =
   /** あなたはN枚引く / 引いてよい */
   | { do: 'DRAW'; count: number; optional?: boolean }
   /** …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1). */
-  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean }
+  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
   | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean }
   /** そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき) */
@@ -126,14 +142,34 @@ export type Effect =
    * 集中 (CR-10.7): 自分の山札の上からN枚をめくり、控え室に置く。それらのカードの…1枚につき、…
    * `each` is performed once per turned-over card matching `per`.
    */
-  | { do: 'BRAINSTORM'; count: number; per: CardFilter; each: Effect[] }
+  | { do: 'BRAINSTORM'; count: number; per: CardFilter; each: Effect[]; setX?: boolean }
   /** …なら、… (a condition checked while resolving) */
-  | { do: 'IF'; condition: Condition; then: Effect[]; else?: Effect[] };
+  | { do: 'IF'; condition: Condition; then: Effect[]; else?: Effect[] }
+  /**
+   * Choose a slot of your own: 舞台の好きな枠 (ANY) or 後列のキャラのいない枠
+   * (EMPTY_BACK). Skipped when the previous CHOOSE chose nothing.
+   */
+  | { do: 'CHOOSE_SLOT'; which: 'ANY' | 'EMPTY_BACK' }
+  /** 自分のクロックの上から1枚を、控え室に置く */
+  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' }
+  /**
+   * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
+   * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
+   */
+  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean }
+  /** そのターン中、…に次の能力を与える。『…』 */
+  | { do: 'GRANT'; target: Target; ability: AutoAbility };
 
 /** The trigger condition of an automatic ability (CR-8.1.1.2.1). */
 export type Trigger =
-  /** このカードが(手札から)舞台に置かれた時 */
-  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' }
+  /** このカードが(手札から)舞台に置かれた時; HAND_OR_CHANGE: 手札から舞台に置かれた時か『チェンジ』で舞台に置かれた時 */
+  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' | 'HAND_OR_CHANGE' }
+  /** このカードが手札からクライマックス置場に置かれた時 */
+  | { on: 'THIS_CLIMAX_PLACED' }
+  /** あなたのキャラのトリガーチェックで…がでた時 */
+  | { on: 'TRIGGER_CHECK_REVEALS'; filter?: CardFilter }
+  /** あなたがこのカードの『助太刀』を使った時 (CR-10.5.3) */
+  | { on: 'USED_BACKUP' }
   /** このカードがアタックした時 */
   | { on: 'ATTACKS' }
   /** このカードが【リバース】した時 */
@@ -190,7 +226,11 @@ export interface ContinuousAbility {
     stat: 'POWER' | 'SOUL' | 'LEVEL';
     amount: number;
     per?: PerCharacter;
+    /** Ｘはそのキャラのレベル×N: multiplies the amount by the target's level. */
+    perTargetLevel?: boolean;
   }[];
+  /** …に『…』を与える: automatic abilities given to the targets while this ability is active. */
+  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' }>; ability: AutoAbility }[];
 }
 
 /** 【自】 (CR-8.1.1.2) */
@@ -275,6 +315,8 @@ export function encore(cost: Cost[]): AutoAbility {
     keywords: ['ENCORE'],
     trigger: { on: 'STAGE_TO_WAITING_ROOM' },
     cost,
+    // Without a cost the ability is still optional: "you may".
+    ...(cost.length === 0 ? { optional: true } : {}),
     effect: [{ do: 'MOVE', target: { who: 'SELF' }, to: 'SOURCE_SLOT', rested: true }],
   };
 }
@@ -292,4 +334,10 @@ export interface EffectContext {
   battleOpponent: number | null;
   /** The slot the card is in, or was in when it left the stage (CR-8.7.4.1.2). */
   sourceSlot: { player: 0 | 1; slot: SlotId } | null;
+  /** Keywords of the ability (moves made by a チェンジ ability count as change, CR-10.8.4). */
+  keywords?: Keyword[];
+  /** Ｘ: set by a BRAINSTORM with setX, used by CHOOSE with levelMaxX. */
+  x?: number;
+  /** The slot chosen by the most recent CHOOSE_SLOT. */
+  slot?: SlotId | null;
 }

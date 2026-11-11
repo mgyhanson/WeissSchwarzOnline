@@ -10,11 +10,15 @@ import {
   type Choice,
   type Decision,
   type Effect,
+  type GameConfig,
   type GameEvent,
   type GameState,
   type PlayerId,
   type RngState,
   type TriggerIcon,
+  type CardView,
+  PILE_ZONES,
+  SLOTS,
   backup,
   checkInvariants,
   createGame,
@@ -110,37 +114,70 @@ export interface Played {
   problems: string[];
 }
 
+/**
+ * Compares each player's view with the state position by position: every
+ * card must be hidden exactly when the rules say so (an independent
+ * statement in helpers.ts), and a visible card must show the right card.
+ * Hidden cards a player may look at are only given in that player's own
+ * decision, and only for cards of their own deck.
+ */
 function leakProblems(state: GameState, label: string): string[] {
   const problems: string[] = [];
   for (const viewer of [0, 1] as const) {
     const view = getPlayerView(state, viewer);
-    const json = JSON.stringify(view);
-    if (json.includes('instanceId')) problems.push(`${label}: view of P${viewer} exposes instanceId`);
-    // Hidden cards the viewer's own pending decision lets them look at (CR-4.8.1).
-    const looking = new Set(
-      view.decision?.mine && view.decision.decision.kind === 'SELECT_CARDS' ? Object.keys(view.decision.decision.look ?? {}).map(Number) : [],
-    );
-    for (const inst of state.instances) {
-      const shown = json.includes(`"${inst.cardId}"`);
-      const mayBeShown = !shouldBeHidden(viewer, inst) || looking.has(inst.objectId);
-      if (shown && !mayBeShown) {
-        problems.push(`${label}: P${viewer} can see ${inst.cardId} in ${inst.location.zone}`);
-      } else if (!shown && !shouldBeHidden(viewer, inst)) {
-        problems.push(`${label}: P${viewer} cannot see ${inst.cardId} in ${inst.location.zone}`);
+    if (JSON.stringify(view).includes('instanceId')) problems.push(`${label}: view of P${viewer} exposes instanceId`);
+
+    for (const owner of [0, 1] as const) {
+      const zones = state.zones[owner];
+      const side = view.sides[owner];
+      const piles: [string, number[], CardView[]][] = [
+        ...PILE_ZONES.map((zone): [string, number[], CardView[]] => [zone, zones[zone], side[zone]]),
+        ...SLOTS.flatMap((slot): [string, number[], CardView[]][] => [
+          [`stage.${slot}`, zones.stage[slot], side.stage[slot]],
+          [`marker.${slot}`, zones.marker[slot], side.marker[slot]],
+        ]),
+      ];
+      for (const [name, ids, cards] of piles) {
+        if (ids.length !== cards.length) problems.push(`${label}: P${viewer} sees ${cards.length} cards in P${owner}.${name}, there are ${ids.length}`);
+        ids.forEach((id, i) => {
+          const inst = state.instances[id]!;
+          const shown = cards[i];
+          if (!shown) return;
+          if (shown.hidden !== shouldBeHidden(viewer, inst)) {
+            problems.push(`${label}: P${viewer} ${shown.hidden ? 'cannot' : 'can'} see ${inst.cardId} in P${owner}.${name}`);
+          } else if (!shown.hidden && (shown.cardId !== inst.cardId || shown.objectId !== inst.objectId)) {
+            problems.push(`${label}: P${viewer} sees the wrong card in P${owner}.${name}`);
+          }
+        });
       }
     }
-    // The player who is not deciding learns nothing about the options.
+
     const decision = view.decision;
     if (decision && !decision.mine && Object.keys(decision).sort().join() !== 'id,kind,mine,player') {
       problems.push(`${label}: P${viewer} sees details of the opponent's decision`);
+    }
+    if (decision?.mine && (decision.decision.kind === 'SELECT_CARDS' || decision.decision.kind === 'CONFIRM')) {
+      for (const objectId of Object.keys(decision.decision.look ?? {}).map(Number)) {
+        const inst = state.instances.find((i) => i.objectId === objectId);
+        if (!inst || inst.location.zone !== 'deck' || inst.location.player !== viewer) {
+          problems.push(`${label}: P${viewer} is shown a card outside their own deck`);
+        } else if (decision.decision.look![objectId] !== inst.cardId) {
+          problems.push(`${label}: P${viewer} is shown the wrong card for a card they look at`);
+        }
+      }
     }
   }
   return problems;
 }
 
 export function playGame(seed: string, policy: Policy, maxDecisions: number, defs?: DefOverride): Played {
+  return playGameWith(testConfig(defs), seed, policy, maxDecisions);
+}
+
+/** Plays a complete game with any card data and decks (for example real cards from the card database). */
+export function playGameWith(config: GameConfig, seed: string, policy: Policy, maxDecisions: number): Played {
   const rng = seedRng(`policy-${seed}`);
-  const created = createGame(testConfig(defs), seed);
+  const created = createGame(config, seed);
   let state = created.state;
   const events = [...created.events];
   const problems: string[] = [];
@@ -160,7 +197,9 @@ export function playGame(seed: string, policy: Policy, maxDecisions: number, def
     kinds.add(decision.kind);
     const label = `decision ${decisions} (${decision.kind})`;
     for (const p of checkInvariants(state, { settled: SETTLED_KINDS.has(decision.kind) })) problems.push(`${label}: ${p}`);
-    if (decisions % 20 === 0) problems.push(...leakProblems(state, label));
+    // Views are compared every 20 decisions, and at every decision that shows the player hidden cards.
+    const looks = (decision.kind === 'SELECT_CARDS' || decision.kind === 'CONFIRM') && decision.look !== undefined;
+    if (decisions % 20 === 0 || looks) problems.push(...leakProblems(state, label));
 
     const result = submitChoice(state, { player: decision.player, decisionId: decision.id, choice: policy(decision, rng) });
     if (!result.ok) {
