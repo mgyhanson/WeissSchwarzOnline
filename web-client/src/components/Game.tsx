@@ -7,7 +7,9 @@ import { decisionUi, waitingText } from '../model/options';
 import { ATTACK_STEP_ZH, ATTACK_ZH, PHASE_TERM, PHASE_ZH, SLOT_ZH, ZONE_ZH, who } from '../model/text';
 import { Resolution, Side } from './Board';
 import { CardFace } from './CardFace';
-import { DecisionPanel, LogPanel } from './Panels';
+import { type Speed, PresentationQueue, SPEED_ZH } from '../presentation/queue';
+import { DecisionPanel, LogPanel, RevealHistory } from './Panels';
+import { RevealPanel } from './RevealPanel';
 import { CardSheet, Modal, ZoneSheet } from './Sheets';
 
 type Sheet =
@@ -20,15 +22,55 @@ type Sheet =
 
 const LOSS_TEXT = { LEVEL_4: '達到 Level 4', NO_CARDS: '山札及控え室都沒有卡', RESIGNED: '投降' } as const;
 
+const SPEED_KEY = 'wso.animationSpeed';
+
+function initialSpeed(): Speed {
+  try {
+    const saved = window.localStorage.getItem(SPEED_KEY);
+    if (saved === 'NORMAL' || saved === 'FAST' || saved === 'OFF') return saved;
+  } catch {
+    // Storage unavailable: use the default.
+  }
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'OFF' : 'NORMAL';
+}
+
+/** One presentation queue per host, starting from what exists when the game screen opens. */
+function useQueue(host: GameHost): PresentationQueue {
+  const queue = useMemo(() => {
+    const snap = host.getSnapshot();
+    const last = snap.updates[snap.updates.length - 1];
+    const seq = snap.events.reduce((max, e) => Math.max(max, e.seq), -1);
+    return new PresentationQueue(host.seat, { view: last?.view ?? snap.view, updateId: last?.id ?? -1, seq }, { speed: initialSpeed(), onBusy: (busy) => host.setHold(busy) });
+  }, [host]);
+  const snapshot = useSyncExternalStore(host.subscribe, host.getSnapshot);
+  useEffect(() => {
+    queue.sync(snapshot.updates, snapshot.restoredUpTo);
+  }, [queue, snapshot]);
+  useEffect(() => () => host.setHold(false), [host]);
+  return queue;
+}
+
 export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: () => void; onNewGame: () => void }) {
   const snapshot = useSyncExternalStore(host.subscribe, host.getSnapshot);
-  const { view } = snapshot;
+  const queue = useQueue(host);
+  const presentation = useSyncExternalStore(queue.subscribe, queue.getSnapshot);
+  // The board shows what has been presented so far, not what the engine already knows.
+  const view = presentation.view;
+  const logEvents = useMemo(() => snapshot.events.filter((e) => e.seq <= presentation.shownSeq), [snapshot.events, presentation.shownSeq]);
+  const setSpeed = (speed: Speed) => {
+    queue.setSpeed(speed);
+    try {
+      window.localStorage.setItem(SPEED_KEY, speed);
+    } catch {
+      // Not saved; the choice still applies to this game.
+    }
+  };
   const seat = host.seat;
   const opponent: PlayerId = seat === 0 ? 1 : 0;
   const [sheet, setSheet] = useState<Sheet>(null);
   const [picked, setPicked] = useState<number[]>([]);
 
-  const decision = view.decision?.mine ? view.decision.decision : null;
+  const decision = view.decision?.mine && !presentation.busy ? view.decision.decision : null;
   const ui = useMemo(() => (decision ? decisionUi(view, decision) : null), [view, decision]);
   const decisionKey = view.decision ? `${view.decision.mine ? view.decision.decision.id : view.decision.id}` : 'none';
 
@@ -82,6 +124,16 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
           )}
         </div>
         <div className="bar-buttons">
+          <label className="speed-select">
+            動畫
+            <select value={presentation.speed} onChange={(e) => setSpeed(e.target.value as Speed)}>
+              {(['NORMAL', 'FAST', 'OFF'] as const).map((s) => (
+                <option key={s} value={s}>
+                  {SPEED_ZH[s]}
+                </option>
+              ))}
+            </select>
+          </label>
           <span className="chip opponent-level">對手：{AI_LEVEL_ZH[host.setup.level ?? 'NORMAL']} AI</span>
           <button type="button" className="button small mobile-only" onClick={() => setSheet({ type: 'log' })}>
             紀錄
@@ -108,6 +160,7 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
               <span className="midline-text">{turn?.phase === 'ATTACK' ? ATTACK_STEP_ZH.ATTACK_DECLARATION : ''}</span>
             )}
             <Resolution view={view} onCard={(objectId, cardId) => setSheet({ type: 'card', objectId, cardId })} />
+            <RevealPanel presentation={presentation} seat={seat} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} onSkip={() => queue.skip()} />
           </div>
           <Side view={view} side={seat} ui={ui} picked={picked} {...handlers} />
           <div className="hand" aria-label={`手牌 ${hand.length} 張`}>
@@ -149,6 +202,13 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
                   </button>
                 </div>
               </div>
+            ) : presentation.busy ? (
+              <div className="decision">
+                <p className="waiting">正在顯示剛才發生的事…</p>
+                <button type="button" className="button small" onClick={() => queue.skip()}>
+                  跳過動畫
+                </button>
+              </div>
             ) : ui ? (
               snapshot.autoPlay ? (
                 <p className="waiting">自動代打中…</p>
@@ -164,7 +224,8 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
           </div>
           <div className="panel log-panel desktop-only">
             <h2 className="panel-title">對局紀錄</h2>
-            <LogPanel events={snapshot.events} seat={seat} />
+            <LogPanel events={logEvents} seat={seat} />
+            <RevealHistory records={presentation.history} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
           </div>
         </aside>
       </div>
@@ -189,7 +250,8 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
       {sheet?.type === 'term' && <TermSheet id={sheet.id} onClose={() => setSheet(null)} />}
       {sheet?.type === 'log' && (
         <Modal title="對局紀錄" onClose={() => setSheet(null)}>
-          <LogPanel events={snapshot.events} seat={seat} />
+          <LogPanel events={logEvents} seat={seat} />
+          <RevealHistory records={presentation.history} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
         </Modal>
       )}
       {sheet?.type === 'resign' && (

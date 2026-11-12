@@ -1149,3 +1149,232 @@ select,
 .opponent-level {
   cursor: default;
 }
+
+/* ---------- Reveal panel ---------- */
+
+.table {
+  position: relative;
+}
+
+.reveal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+  background: rgba(17, 22, 31, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px #000a;
+  padding: 10px 14px;
+  max-width: min(720px, calc(100% - 16px));
+  animation: reveal-in 0.18s ease-out;
+}
+
+.reveal-banner {
+  padding: 8px 16px;
+  pointer-events: none;
+}
+
+.reveal-panel {
+  width: min(640px, calc(100% - 16px));
+}
+
+.reveal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.reveal-title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.tone-trigger {
+  border-color: var(--accent);
+}
+.tone-damage {
+  border-color: var(--theirs);
+}
+.tone-cancel {
+  border-color: var(--good);
+}
+.tone-attack {
+  border-color: var(--bad);
+}
+.tone-ability {
+  border-color: var(--purple);
+}
+
+.reveal-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0 4px;
+}
+
+.reveal-single {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.reveal-single .reveal-cards {
+  margin: 0;
+}
+
+.reveal-facts {
+  font-size: 0.85rem;
+  min-width: 0;
+}
+
+.reveal-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.reveal-meta {
+  color: var(--muted);
+}
+
+.reveal-text {
+  margin-top: 6px;
+  max-height: 7.5em;
+  overflow: auto;
+  font-size: 0.8rem;
+  background: #0004;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.reveal-text p {
+  margin: 0 0 2px;
+}
+
+.reveal-outcome {
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.reveal-outcome p {
+  margin: 0 0 4px;
+}
+
+.trigger-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  animation: badge-pop 0.35s ease-out;
+}
+
+.reveal-dest {
+  margin: 6px 0 0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.reveal-dest.is-cancel {
+  color: var(--good);
+  font-size: 1.05rem;
+}
+
+.tone-cancel .reveal-cards .card {
+  filter: grayscale(0.7) brightness(0.8);
+  transition: filter 0.3s;
+}
+
+/* Cards turn face up as they are revealed. */
+.reveal-flip {
+  display: inline-block;
+  perspective: 600px;
+}
+
+.reveal-flip > .card {
+  animation: flip-up 0.45s ease-out both;
+  backface-visibility: hidden;
+}
+
+@keyframes flip-up {
+  from {
+    transform: rotateY(75deg) scale(0.92);
+  }
+  to {
+    transform: rotateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Movement only: the panel is readable even if the animation never runs (e.g. a background tab). */
+@keyframes reveal-in {
+  from {
+    transform: translate(-50%, -46%);
+  }
+  to {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.speed-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.speed-select select {
+  width: auto;
+  padding: 2px 6px;
+}
+
+.reveal-history {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.reveal-history ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  max-height: 30vh;
+  overflow: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-flip > .card,
+  .trigger-badge {
+    animation: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .reveal-single {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.reveal-zh {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}

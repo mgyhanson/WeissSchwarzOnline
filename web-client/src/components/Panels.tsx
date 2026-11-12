@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { Choice, GameEventView, PlayerId } from '@wso/game-engine';
 import { logLines } from '../model/log';
+import { cardInfo } from '../model/cards';
 import type { DecisionUi, PickCard } from '../model/options';
+import type { RevealRecord } from '../presentation/queue';
 import { CardFace } from './CardFace';
 
 function PickList({ cards, picked, onToggle, onInfo }: { cards: PickCard[]; picked?: readonly number[]; onToggle?: (id: number) => void; onInfo: (cardId: string) => void }) {
@@ -111,5 +113,33 @@ export function LogPanel({ events, seat }: { events: readonly GameEventView[]; s
       ))}
       <div ref={end} />
     </div>
+  );
+}
+
+/** Cards revealed so far (newest first). Only cards the reveal showed to this player; click a name for details. */
+export function RevealHistory({ records, onCard }: { records: readonly RevealRecord[]; onCard: (cardId: string) => void }) {
+  if (records.length === 0) return null;
+  return (
+    <details className="reveal-history">
+      <summary>已揭示的卡（{records.length}）</summary>
+      <ul>
+        {[...records].reverse().map((record) => (
+          <li key={`${record.kind}-${record.seq}`}>
+            <span className="muted">{record.note}：</span>
+            {record.cards.map((card, i) =>
+              card.cardId ? (
+                <button key={i} type="button" className="link-button" onClick={() => onCard(card.cardId!)}>
+                  「{cardInfo(card.cardId).name}」
+                </button>
+              ) : (
+                <span key={i} className="muted">
+                  （看不到的卡）
+                </span>
+              ),
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

@@ -149,3 +149,20 @@ export const OPTION_ZH: Record<string, string> = {
 export function who(player: PlayerId, seat: PlayerId): string {
   return player === seat ? '你' : '對手';
 }
+
+/** What each trigger icon does when executed (CR-4.14.2), in short. */
+export const TRIGGER_EFFECT_ZH: Record<TriggerIcon, string> = {
+  SOUL: '攻擊角色該回合 Soul +1',
+  RETURN: '可選對手 1 張角色返回手牌',
+  POOL: '可把山札頂 1 張放到 Stock',
+  COMEBACK: '可從控え室選 1 張角色加入手牌',
+  DRAW: '可抽 1 張',
+  SHOT: '這次攻擊的下一次傷害被 Cancel 時，給予對手 1 點傷害',
+  TREASURE: '這張卡加入手牌，然後可把山札頂 1 張放到 Stock',
+  GATE: '可從控え室選 1 張 Climax 加入手牌',
+  STANDBY: '可從控え室選 1 張 Level 不高於自己 Level +1 的角色，以 Rest 狀態放到舞台',
+  CHOICE: '可從控え室選 1 張有 Soul 圖示的角色，加入手牌或放到 Stock',
+  CHANCE: '這張卡放到控え室；公開山札頂最多 2 張，1 張放到 Stock，另 1 張加入手牌',
+  DISCOVERY: '公開山札頂最多 3 張，可選其中 1 張角色加入手牌，其餘放到控え室',
+  FOCUS: '可從控え室選 1 張 Event 或 Cost 0 或以下的角色加入手牌',
+};
