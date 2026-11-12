@@ -225,10 +225,11 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
     case 'END_FINISH':
       // CR-6.8.1.4: after that check timing, everything that lasts "until end
       // of turn" or "during this turn" ends.
-      state.modifiers = [];
+      // Changes lasting until the end of a later turn (次の相手のターンの終わりまで) stay.
+      state.modifiers = state.modifiers.filter((m) => m.untilTurn !== undefined && m.untilTurn > turn.number);
       state.shotWatchers = [];
       state.abilityUses = {};
-      state.grants = [];
+      state.grants = state.grants.filter((g) => g.untilTurn !== undefined && g.untilTurn > turn.number);
       // CR-6.8.1.5: the turn ends only if the hand is within the limit and
       // nothing was resolved in that last check timing. Otherwise the end
       // phase is performed again from the start.

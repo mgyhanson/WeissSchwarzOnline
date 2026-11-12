@@ -78,6 +78,7 @@ export function matchesFilter(
   if (filter.traits && !filter.traits.some((trait) => def.traits.includes(trait))) return false;
   if (filter.name !== undefined && def.name !== filter.name) return false;
   if (filter.nameIncludes !== undefined && !def.name.includes(filter.nameIncludes)) return false;
+  if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => def.name.includes(part))) return false;
   if (filter.color !== undefined && def.color !== filter.color) return false;
   if (filter.hasTrigger && !def.triggers.includes(filter.hasTrigger)) return false;
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
@@ -115,6 +116,9 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
       }
       return total >= condition.min;
     }
+    case 'LAST_MOVED':
+      // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).
+      return false;
     case 'MEMORY': {
       // CR-10.9; a face-down memory card is a blank card (CR-3.12.2.2.1).
       const count = zones.memory.filter(

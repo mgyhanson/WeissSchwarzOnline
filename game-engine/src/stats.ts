@@ -33,8 +33,19 @@ export function getCardLevel(state: GameState, instanceId: number): number {
 }
 
 /** Adds a change to a number of a card that lasts until the end of the turn. */
-export function addModifier(state: GameState, objectId: number, stat: 'POWER' | 'SOUL' | 'LEVEL', delta: number): void {
-  if (delta !== 0) state.modifiers.push({ objectId, stat, delta });
+export function addModifier(state: GameState, objectId: number, stat: 'POWER' | 'SOUL' | 'LEVEL', delta: number, untilTurn?: number): void {
+  if (delta !== 0) state.modifiers.push({ objectId, stat, delta, ...(untilTurn !== undefined ? { untilTurn } : {}) });
+}
+
+/**
+ * 次の相手のターンの終わりまで: the number of the next turn whose turn player
+ * is the master's opponent. From the master's own turn that is the next
+ * turn; from the opponent's turn, the one after.
+ */
+export function nextOpponentTurn(state: GameState, master: PlayerId): number {
+  const turn = state.turn;
+  if (!turn) return 0;
+  return turn.player === master ? turn.number + 1 : turn.number + 2;
 }
 
 /**

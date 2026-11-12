@@ -10,7 +10,7 @@ import { type Played, playGameWith, randomPolicy, resultProblems } from '../../g
 import { abilitiesPlayed, realDeckConfig } from './real-decks';
 
 describe('complete games with the real test decks', () => {
-  it('60 random games, every pairing of the four test decks from both seats, reach a result with every invariant holding at every decision', () => {
+  it('60 random games, every pairing of the five test decks from both seats, reach a result with every invariant holding at every decision', () => {
     const games: Played[] = [];
     for (let i = 0; i < 60; i++) {
       const game = playGameWith(realDeckConfig(i), `real-${i}`, randomPolicy, 30_000);
@@ -25,6 +25,9 @@ describe('complete games with the real test decks', () => {
     expect(used.has('5HY/W83-T11#event')).toBe(true);
     expect([...used].filter((u) => u.startsWith('SAO/')).length).toBeGreaterThan(5);
     expect([...used].filter((u) => u.startsWith('GUP/')).length).toBeGreaterThan(5);
+    // The second SAO batch: its own sets' abilities and the three new SAO/S20 cards.
+    expect([...used].filter((u) => /^SAO\/S(51|65|71|80)-/.test(u)).length).toBeGreaterThan(5);
+    expect([...used].filter((u) => /^SAO\/S20-0(18|76|80)#/.test(u)).length).toBeGreaterThan(1);
   });
 
   it('INV-07: a game with the real decks replays exactly', () => {

@@ -162,7 +162,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const card = state.instances[event.instanceId] as CardInstance;
       const opponent = battleOpponentOf(state, card);
       // このカードが【リバース】した時
-      for (const found of autosOf(state, card, (t) => t.on === 'REVERSED')) {
+      // バトル中のこのカード: the attacking or defending character of a front attack (CR-7.2.1.5.1).
+      for (const found of autosOf(state, card, (t) => t.on === 'REVERSED' && (!t.inBattle || opponent !== null))) {
         wait(state, event.player, card, found, opponent ? opponent.objectId : null);
       }
       // このカードのバトル相手が【リバース】した時

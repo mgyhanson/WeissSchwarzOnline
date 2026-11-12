@@ -43,6 +43,17 @@ describe('every level plays legal, complete games', () => {
     }
   });
 
+  it('every test deck: ADVANCED and NORMAL play legal, complete games with it (each deck once from each seat)', () => {
+    for (const [i, deck] of TEST_DECKS.entries()) {
+      const other = TEST_DECKS[(i + 1) % TEST_DECKS.length]!.id;
+      for (const decks of [[deck.id, other], [other, deck.id]] as [string, string][]) {
+        const match = playMatch(['ADVANCED', 'NORMAL'], decks, `legal-deck-${deck.id}-${decks[0]}`, {}, 10);
+        expect(match.problems, deck.id).toEqual([]);
+        expect(match.state.result, deck.id).not.toBeNull();
+      }
+    }
+  });
+
   it('the same seed gives the same game (levels are deterministic for a given seed)', () => {
     for (const level of AI_LEVELS) {
       const extra = level === 'EXPERT' ? FAST_EXPERT : {};

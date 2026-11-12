@@ -41,6 +41,7 @@ export const GLOSSARY: readonly Term[] = [
   { id: 'phase-climax', name: 'Climax 階段', group: '回合流程', text: '可以從手牌放 1 張 Climax。', rules: ['CR-6.6'] },
   { id: 'phase-attack', name: '攻擊階段', group: '回合流程', text: '前列 Stand 狀態的角色可以逐一攻擊。先攻玩家的第一回合只可以攻擊一次。', rules: ['CR-7.1', 'CR-7.2.1.3.1.2'] },
   { id: 'phase-end', name: '結束階段', group: '回合流程', text: '處理手牌上限、Climax 放到控え室，「回合結束前」的效果消失，然後輪到對手。', rules: ['CR-6.8'] },
+  { id: 'until-next-opponent-turn', name: '直到下一個對手回合結束（次の相手のターンの終わりまで）', group: '回合流程', text: '效果一直持續到下一個對手回合的結束階段，所以對手攻擊時仍然有效；之後在自己的回合開始前消失。', rules: ['CR-8.2.1.2', 'CR-6.8.1.4'] },
 
   { id: 'front-attack', name: '正面攻擊（Front Attack）', group: '攻擊', text: '攻擊正面的對手角色。對手可以在 Counter 步驟回應，之後雙方比較 Power。', rules: ['CR-7.2.1.4'] },
   { id: 'side-attack', name: '側面攻擊（Side Attack）', group: '攻擊', text: '不戰鬥，但這次攻擊的 Soul 減去正面角色的 Level。', rules: ['CR-7.2.1.4.2'] },
@@ -59,6 +60,10 @@ export const GLOSSARY: readonly Term[] = [
   { id: 'brainstorm', name: '集中', group: '關鍵字', text: '翻開山札頂若干張放到控え室，按翻到的卡（通常是 Climax）的張數得到效果。', rules: ['CR-10.7'] },
   { id: 'change', name: 'Change（チェンジ）', group: '關鍵字', text: '把這張卡換成指定的另一張卡，放到同一個枠。', rules: ['CR-10.8'] },
   { id: 'cx-combo', name: 'CX Combo', group: '關鍵字', text: '指定的 Climax 在 Climax 置場時才有效的能力。', rules: [] },
+  { id: 'alarm', name: 'アラーム', group: '關鍵字', text: '這張卡在自己 Clock 最上面時才有作用的能力。在舞台上、或被其他 Clock 的卡蓋住時都沒有作用。', rules: ['CR-10.1'] },
+  { id: 'experience', name: '経験', group: '關鍵字', text: '計算自己 Level 置場的卡本身的 Level 合計（不是張數）。合計達到卡上寫的數值，能力才有效。', rules: ['CR-10.10'] },
+  { id: 'memory-keyword', name: '記憶', group: '關鍵字', text: '自己的思い出置場有指定的卡時才有效的能力。', rules: ['CR-10.9'] },
+  { id: 'accelerate', name: '加速', group: '關鍵字', text: '把自己山札頂 1 張直接放到 Clock 作為費用，換取強化。這不是傷害，不能 Cancel；Clock 滿 7 張同樣會 Level Up。', rules: ['CR-10.12'] },
 ];
 
 export function term(id: string): Term | undefined {

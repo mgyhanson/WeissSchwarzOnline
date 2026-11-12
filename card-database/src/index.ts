@@ -12,6 +12,8 @@ import { records as sao } from '../sets/SAO_S20/cards';
 import saoOfficial from '../sets/SAO_S20/official.json';
 import { records as gup } from '../sets/GUP_W141/cards';
 import gupOfficial from '../sets/GUP_W141/official.json';
+import { records as saoOthers } from '../sets/SAO_OTHERS/cards';
+import saoOthersOfficial from '../sets/SAO_OTHERS/official.json';
 import { toCardDef } from './official';
 import type { CardRecord, CardSet, OfficialCard, OfficialSet } from './types';
 
@@ -24,6 +26,7 @@ export const SETS: readonly CardSet[] = [
   { id: '5HY_W83_TD_ICHIKA', official: hyOfficial as OfficialSet, records: hy },
   { id: 'SAO_S20', official: saoOfficial as OfficialSet, records: sao },
   { id: 'GUP_W141', official: gupOfficial as OfficialSet, records: gup },
+  { id: 'SAO_OTHERS', official: saoOthersOfficial as OfficialSet, records: saoOthers },
 ];
 
 export interface DatabaseCard {

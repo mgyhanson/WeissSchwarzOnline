@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Choice, type Ctx, type GameState, type PlayerId, getCardLevel, getInstance, getPower, getSoul, stageSlot } from '@wso/game-engine';
+import { type Choice, type Ctx, type GameState, type PlayerId, getCardLevel, getInstance, getPower, getSoul, moveCard, stageSlot } from '@wso/game-engine';
 import { getCard } from '../src/index';
 import { HARUHI, SAO, answer, answerAll, oid, pending, scenario, stackTop, take } from './helpers';
 import type { RealScenario } from './helpers';
@@ -73,6 +73,10 @@ describe('SAO/S20 ソードアート・オンライン', () => {
         take(ctx, 0, S(1), stageSlot(0, 'FC'));
         if (climax) take(ctx, 0, climax, { player: 0, zone: 'climax' });
         take(ctx, 0, S(17), { player: 0, zone: 'stock' });
+        // The search shuffles the deck, so keep climaxes out of it: the trigger check then reveals no climax.
+        for (const id of [...ctx.state.zones[0].deck]) {
+          if (getCard(getInstance(ctx.state, id).cardId).def.kind === 'CLIMAX') moveCard(ctx, id, { player: 0, zone: 'memory' });
+        }
         plainTopForP0(ctx);
         safeTopForP1(ctx);
       }).state;

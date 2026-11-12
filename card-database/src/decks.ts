@@ -106,7 +106,22 @@ export const GUP_TEST_DECK: TestDeck = {
   ],
 };
 
-export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK, SAO_TEST_DECK, GUP_TEST_DECK];
+const saoNo = (no: string, count: number): DeckEntry => ({ cardId: `SAO/${no}`, count });
+
+export const SAO_MEMORY_TEST_DECK: TestDeck = {
+  id: 'test-sao-memory',
+  name: 'ソードアート・オンライン 経験・記憶・アラーム 測試卡組',
+  title: 'SAO',
+  note: 'Made by this project from the second batch of SAO cards in the database (SAO/S20-018, 076, 080 and the SAO_OTHERS set), to exercise 経験, 記憶, アラーム and 次の相手のターンの終わりまで; not an official or tournament list.',
+  entries: [
+    saoNo('S51-002', 4), saoNo('S71-022', 3), saoNo('S65-073', 2), saoNo('S65-079', 2), saoNo('S80-040', 2), sao('076', 2), sao('018', 2),
+    saoNo('S65-083', 3), saoNo('S71-079', 3), saoNo('S71-085', 2), saoNo('S51-014', 3), saoNo('S80-074', 2), sao('080', 2),
+    saoNo('S51-010', 3), saoNo('S71-095', 2), saoNo('S71-104', 2), saoNo('S100-019', 3),
+    saoNo('S80-097', 4), sao('099', 2), sao('023', 2),
+  ],
+};
+
+export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK, SAO_TEST_DECK, GUP_TEST_DECK, SAO_MEMORY_TEST_DECK];
 
 /** The deck as a list of 50 card ids, in the order listed. */
 export function deckList(deck: TestDeck): string[] {

@@ -198,6 +198,12 @@ export interface Modifier {
   objectId: number;
   stat: 'POWER' | 'SOUL' | 'LEVEL';
   delta: number;
+  /**
+   * The turn at whose end (CR-6.8.1.4) the change ends; absent: the current
+   * turn. Set for 次の相手のターンの終わりまで (CR-8.2.1.2: a continuous effect
+   * lasts for the period it states).
+   */
+  untilTurn?: number;
 }
 
 /** CR-10.2.3: stock cost of the encore ability every character has. */
@@ -309,5 +315,5 @@ export interface GameState {
   /** CR-10.19: how often each limited ability was played this turn, keyed by "objectId:abilityNumber". */
   abilityUses: Record<string, number>;
   /** Abilities given to cards by effects until the end of the turn. */
-  grants: { objectId: number; ability: AutoAbility }[];
+  grants: { objectId: number; ability: AutoAbility; untilTurn?: number }[];
 }

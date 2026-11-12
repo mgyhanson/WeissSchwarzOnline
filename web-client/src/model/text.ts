@@ -120,6 +120,7 @@ export const PROMPT_ZH: Record<PromptId, string> = {
   USE_ABILITY: '要使用這個能力嗎？',
   EFFECT_CHOOSE: '請按卡牌效果選擇卡牌。',
   COST_DISCARD: '請選擇要作為費用放到控え室的手牌。',
+  COST_REST: '請選擇要作為費用 Rest 的角色。',
   LOOK_NEXT: '要再查看山札頂的下一張卡嗎？',
   EFFECT_SLOT: '請選擇要把卡放到哪一個枠。',
   TRIGGER_ORDER: '翻出的卡有多個 Trigger 圖示，請選擇先執行哪一個。',

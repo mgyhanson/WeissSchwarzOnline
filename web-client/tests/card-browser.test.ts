@@ -30,7 +30,7 @@ describe('card browser', () => {
     expect(find({ soul: '2' }).every((id) => cardInfo(id).soul === 2)).toBe(true);
     expect(find({ powerMin: '9000' }).every((id) => (cardInfo(id).power ?? 0) >= 9000)).toBe(true);
     expect(find({ trigger: 'RETURN' })).toEqual(['5HY/W83-T12', 'SAO/S20-024']);
-    expect(find({ trigger: 'GATE' })).toEqual(['GUP/W141-111']);
+    expect(find({ trigger: 'GATE' })).toEqual(['GUP/W141-111', 'SAO/S80-097']);
     expect(find({ trigger: 'NONE' }).every((id) => cardInfo(id).triggers.length === 0)).toBe(true);
     expect(find({ support: 'unsupported' })).toEqual(allCards().filter((c) => c.record.support === 'unsupported').map((c) => c.record.cardId));
   });

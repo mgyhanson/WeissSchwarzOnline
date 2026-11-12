@@ -22,6 +22,8 @@ export interface CardFilter {
   name?: string;
   /** カード名に「…」を含む */
   nameIncludes?: string;
+  /** カード名に「A」か「B」か「C」を含む */
+  nameIncludesAny?: string[];
   levelMax?: number;
   levelMin?: number;
   costMax?: number;
@@ -52,6 +54,8 @@ export type Condition =
   | { if: 'ALL_CHARACTERS'; filter: CardFilter }
   /** あなたのストックがN枚以下なら */
   | { if: 'STOCK'; max: number }
+  /** それらのカードに…があるなら: the cards moved by the most recent DECK_TOP of this resolution (inside IF only). */
+  | { if: 'LAST_MOVED'; min: number; filter?: CardFilter }
   | { if: 'ALL'; of: Condition[] }
   | { if: 'NOT'; of: Condition };
 
@@ -68,7 +72,13 @@ export type Cost =
   /** 自分の山札の上から1枚をクロック置場に置く (the cost of 加速, CR-10.12) */
   | { pay: 'DECK_TOP_TO_CLOCK' }
   /** このカードをクロック置場に置く */
-  | { pay: 'SELF_TO_CLOCK' };
+  | { pay: 'SELF_TO_CLOCK' }
+  /** (他の)あなたの(【スタンド】している)…のキャラをN枚【レスト】する: the player chooses standing characters. */
+  | { pay: 'REST_CHARACTERS'; count: number; filter?: CardFilter; other?: boolean }
+  /** あなたのストックの上からN枚をクロック置場に置く */
+  | { pay: 'STOCK_TO_CLOCK'; count: number }
+  /** このカードを思い出にする */
+  | { pay: 'SELF_TO_MEMORY' };
 
 /** Which cards an effect applies to. */
 export type Target =
@@ -128,8 +138,11 @@ export type Effect =
   | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
   | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean }
-  /** そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき) */
-  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter }
+  /**
+   * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
+   * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
+   */
+  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN' }
   /** …を【スタンド】/【レスト】/【リバース】する */
   | { do: 'ORIENT'; target: Target; to: Orientation }
   /** 相手にNダメージを与える */
@@ -157,8 +170,8 @@ export type Effect =
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
   | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean }
-  /** そのターン中、…に次の能力を与える。『…』 */
-  | { do: 'GRANT'; target: Target; ability: AutoAbility };
+  /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
+  | { do: 'GRANT'; target: Target; ability: AutoAbility; until?: 'NEXT_OPPONENT_TURN' };
 
 /** The trigger condition of an automatic ability (CR-8.1.1.2.1). */
 export type Trigger =
@@ -172,8 +185,8 @@ export type Trigger =
   | { on: 'USED_BACKUP' }
   /** このカードがアタックした時 */
   | { on: 'ATTACKS' }
-  /** このカードが【リバース】した時 */
-  | { on: 'REVERSED' }
+  /** このカードが【リバース】した時; `inBattle`: バトル中のこのカードが【リバース】した時 (CR-7.2.1.5.1) */
+  | { on: 'REVERSED'; inBattle?: boolean }
   /** このカードのバトル相手が【リバース】した時 */
   | { on: 'BATTLE_OPPONENT_REVERSED' }
   /** (あなたの/相手の)…フェイズの始めに */
@@ -340,4 +353,6 @@ export interface EffectContext {
   x?: number;
   /** The slot chosen by the most recent CHOOSE_SLOT. */
   slot?: SlotId | null;
+  /** Instance ids moved by the most recent DECK_TOP (for それらのカードに…があるなら). */
+  moved?: number[];
 }

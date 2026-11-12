@@ -92,7 +92,8 @@ export function cardInfo(cardId: string): CardInfo {
     support: card.record.support,
     faqs: card.official.faqs,
     set: card.set,
-    product: set?.official.source.product ?? '',
+    // A selection from several products names the card's own product.
+    product: set && new Set(set.official.cards.map((c) => c.expansion)).size > 1 ? card.official.expansion : (set?.official.source.product ?? ''),
     officialUrl: `https://ws-tcg.com/cardlist/?cardno=${cardId}`,
   };
   cache.set(cardId, info);

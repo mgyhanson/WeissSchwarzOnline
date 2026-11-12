@@ -9,7 +9,9 @@
  * while cards move; checks for horizontal scrolling and console errors;
  * saves a screenshot. Then plays one whole game to the end. Screenshots go
  * to QA_OUT (default data.nosync/qa, which iCloud does not sync and Git
- * ignores). Exits with an error when a check fails.
+ * ignores). QA_DECKS picks the two test decks by id, e.g.
+ * QA_DECKS=test-sao-memory,test-sao (default: the first two). Exits with an
+ * error when a check fails.
  */
 
 import { mkdirSync } from 'node:fs';
@@ -18,6 +20,7 @@ import { chromium } from 'playwright';
 const URL = process.env.QA_URL ?? 'http://localhost:5173';
 const OUT = process.env.QA_OUT ?? 'data.nosync/qa';
 const SECONDS = Number(process.env.QA_SECONDS ?? 15);
+const DECKS = process.env.QA_DECKS ? process.env.QA_DECKS.split(',') : null;
 mkdirSync(OUT, { recursive: true });
 
 const SIZES = [
@@ -30,6 +33,10 @@ async function startGame(page, speed) {
   await page.goto(URL);
   await page.evaluate(() => localStorage.clear());
   await page.goto(URL);
+  if (DECKS) {
+    await page.getByRole('combobox').nth(0).selectOption(DECKS[0]);
+    await page.getByRole('combobox').nth(1).selectOption(DECKS[1]);
+  }
   await page.getByRole('button', { name: '開始新對局' }).click();
   await page.locator('.speed-select select').selectOption(speed);
   await page.locator('.toggle input').check();

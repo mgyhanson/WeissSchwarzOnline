@@ -47,6 +47,8 @@ export type PromptId =
   | 'EFFECT_CHOOSE'
   /** Choose the hand cards to discard as a cost. */
   | 'COST_DISCARD'
+  /** Choose the characters to rest as a cost. */
+  | 'COST_REST'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
   | 'LOOK_NEXT'
   /** Choose a slot for a card ability. */

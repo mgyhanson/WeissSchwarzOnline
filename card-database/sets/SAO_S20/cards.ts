@@ -1,5 +1,5 @@
 /**
- * ブースターパック ソードアート・オンライン (SAO/S20): 27 of its 104 cards.
+ * ブースターパック ソードアート・オンライン (SAO/S20): 30 of its 104 cards.
  *
  * Printed information comes from official.json. Ability data below was
  * written from the official text and Q&A in that file. Errata page checked
@@ -7,11 +7,13 @@
  * restriction list checked 2026-11-12: the only ソードアート・オンライン entry is
  * SAO/S100-011, which is not among these cards.
  *
- * Cards of the set that need what the engine cannot do yet were not taken:
- * effects lasting until the end of the opponent's next turn (e.g. 加速 on
- * 006, 080), markers (011, 082), abilities active in memory (071), "the
- * opponent cannot encore" (006), "draw up to two" (081), triggers on other
- * characters attacking (005) and similar. See docs/04-visual-card-expansion-plan.md.
+ * 018, 076 and 080 were added in the second batch (docs/05-card-pool-2.md),
+ * once the engine had costs that rest characters and effects lasting until
+ * the end of the opponent's next turn. Cards of the set that need what the
+ * engine cannot do yet were not taken: markers (011, 082), abilities active
+ * in memory (071), "the opponent cannot encore" (006), "draw up to two"
+ * (081), triggers on other characters attacking (005) and similar. See
+ * docs/04-visual-card-expansion-plan.md.
  * Chinese explanations are AI-assisted and unverified.
  */
 
@@ -176,6 +178,26 @@ export const records: CardRecord[] = [
   { cardId: 'SAO/S20-015', support: 'verified', abilities: [{ type: 'CONT', condition: { if: 'YOUR_TURN' }, apply: [{ target: { who: 'SELF' }, stat: 'POWER', amount: 1000 }] }], explanation: AI('【永】我方回合中，這張卡 Power +1000。') },
   { cardId: 'SAO/S20-017', support: 'verified', explanation: AI(VANILLA) },
   {
+    cardId: 'SAO/S20-018',
+    support: 'verified',
+    abilities: [
+      {
+        type: 'ACT',
+        timing: 'MAIN',
+        cost: [{ pay: 'STOCK', count: 1 }, { pay: 'REST_CHARACTERS', count: 2 }],
+        effect: [
+          { do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 1500 },
+          { do: 'MODIFY', target: { who: 'SELF' }, stat: 'SOUL', amount: 1 },
+        ],
+      },
+    ],
+    notes: ['「あなたのキャラを2枚【レスト】する」 does not say 他の, so this card itself may be one of the two (CR-8.4: the player chooses standing characters to rest).'],
+    explanation: AI(
+      '【起】[(1) 把我方 2 張角色 Rest]：該回合這張卡 Power +1500、Soul +1。\n' +
+        '費用沒有寫「其他」，所以這張卡自己也可以是被 Rest 的 2 張之一；被 Rest 的角色不能再攻擊。',
+    ),
+  },
+  {
     cardId: 'SAO/S20-020',
     support: 'verified',
     abilities: [
@@ -256,6 +278,36 @@ export const records: CardRecord[] = [
     explanation: AI('【永】我方所有角色 Power +1000、Soul +1。\nTrigger 圖示「Treasure」：翻出時這張卡加入手牌（不放到 Stock），然後可以把山札頂 1 張放到 Stock。'),
   },
   {
+    cardId: 'SAO/S20-076',
+    support: 'verified',
+    abilities: [
+      {
+        type: 'ACT',
+        timing: 'MAIN',
+        cost: [{ pay: 'STOCK', count: 1 }],
+        effect: [
+          { do: 'DRAW', count: 1 },
+          { do: 'CHOOSE', from: 'YOUR_HAND', min: 1, max: 1 },
+          { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' },
+        ],
+      },
+      {
+        type: 'ACT',
+        timing: 'MAIN',
+        cost: [{ pay: 'REST_CHARACTERS', count: 1, other: true }, { pay: 'REST_SELF' }],
+        effect: [
+          { do: 'CHOOSE', from: 'YOUR_STAGE', min: 1, max: 1 },
+          { do: 'MODIFY', target: { who: 'CHOSEN' }, stat: 'POWER', amount: 1000, until: 'NEXT_OPPONENT_TURN' },
+        ],
+      },
+    ],
+    notes: ['次の相手のターンの終わりまで: the effect ends at the end of the next turn of the opponent of this ability\'s master (CR-8.2.1.2, CR-6.8.1.4), so a boost given in your turn also holds through the opponent\'s following turn.'],
+    explanation: AI(
+      '【起】[(1)]：抽 1 張，然後選自己 1 張手牌放到控え室。\n' +
+        '【起】[把我方另外 1 張角色及這張卡 Rest]：選我方 1 張角色，直到下一個對手回合結束為止 Power +1000（即在對手的回合防守時仍然有效）。',
+    ),
+  },
+  {
     cardId: 'SAO/S20-079',
     support: 'verified',
     abilities: [
@@ -271,6 +323,35 @@ export const records: CardRecord[] = [
       },
     ],
     explanation: AI('【自】[(1) 把 1 張手牌放到控え室]：這張卡由手牌放到舞台時，可以支付費用；支付後查看自己整個山札，選最多 1 張《アバター》角色，給對手看後加入手牌，然後洗山札。'),
+  },
+  {
+    cardId: 'SAO/S20-080',
+    support: 'verified',
+    abilities: [
+      {
+        type: 'AUTO',
+        trigger: { on: 'ATTACKS' },
+        condition: { if: 'CLIMAX_IN_PLAY', name: '世界の終焉' },
+        cost: [{ pay: 'STOCK', count: 1 }],
+        effect: [{ do: 'DRAW', count: 1 }],
+      },
+      {
+        type: 'AUTO',
+        keywords: ['ACCELERATE'],
+        trigger: { on: 'PHASE_START', phase: 'CLIMAX', turn: 'YOURS' },
+        cost: [{ pay: 'DECK_TOP_TO_CLOCK' }],
+        effect: [{ do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 2500, until: 'NEXT_OPPONENT_TURN' }],
+      },
+    ],
+    notes: [
+      'The first ability is not labelled 【CXコンボ】 on the card, so it carries no CX_COMBO keyword; it still needs 「世界の終焉」 (SAO/S20-099) in the climax area.',
+      '加速 (CR-10.12) is the label of the second ability; paying its cost puts the top card of the deck into the clock, which can level you up (CR-9.3 checks the clock at the next rule process).',
+    ],
+    explanation: AI(
+      '【自】[(1)]：這張卡攻擊時，如果 Climax 置場有「世界の終焉」，可以支付費用；支付後抽 1 張。\n' +
+        '【自】加速 [把自己山札頂 1 張放到 Clock]：我方 Climax 階段開始時，可以支付費用；支付後直到下一個對手回合結束為止，這張卡 Power +2500。\n' +
+        '加速的代價是把山札頂 1 張直接放進 Clock（這不是傷害，不能 Cancel），Clock 滿 7 張同樣會 Level Up。',
+    ),
   },
   {
     cardId: 'SAO/S20-083',

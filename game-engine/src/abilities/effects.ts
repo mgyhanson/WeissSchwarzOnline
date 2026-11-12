@@ -12,7 +12,7 @@ import type { Frame } from '../flow/frames';
 import type { BatchMove, Ctx } from '../moves';
 import { moveBatch, moveCard, moveCards, revealCard, setOrientation, shuffleDeck } from '../moves';
 import { getDef, getInstance } from '../state';
-import { addModifier } from '../stats';
+import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS } from '../zones';
@@ -22,6 +22,14 @@ import type { Cost, Destination, Effect, EffectContext } from './types';
 // ---------------------------------------------------------------------------
 // Costs (CR-8.4)
 // ---------------------------------------------------------------------------
+
+/** Standing characters that may be rested for a REST_CHARACTERS cost. */
+function restable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'REST_CHARACTERS' }>): number[] {
+  const stage = state.zones[context.master].stage;
+  return SLOTS.flatMap((slot) => stage[slot]).filter(
+    (id) => getInstance(state, id).orientation === 'STAND' && !(cost.other && id === context.source) && matchesFilter(state, id, cost.filter),
+  );
+}
 
 /** Hand cards that may be discarded for a DISCARD cost: matching ones other than the card itself. */
 function discardable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'DISCARD' }>): number[] {
@@ -53,11 +61,21 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         break;
       case 'SELF_TO_WAITING_ROOM':
       case 'SELF_TO_CLOCK':
+      case 'SELF_TO_MEMORY':
         if (!sourceIfUnchanged(state, context)) return false;
         break;
       case 'DECK_TOP_TO_CLOCK':
         deckNeeded++;
         break;
+      case 'STOCK_TO_CLOCK':
+        stockNeeded += cost.count;
+        break;
+      case 'REST_CHARACTERS': {
+        // A REST_SELF of the same cost rests the card first, so it cannot count here too.
+        const others = restable(state, context, cost).filter((id) => !(costs.some((c) => c.pay === 'REST_SELF') && id === context.source));
+        if (others.length < cost.count) return false;
+        break;
+      }
     }
   }
   if (zones.stock.length < stockNeeded) return false;
@@ -128,6 +146,29 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'clock' }, { reason: 'COST' });
       return;
+    case 'SELF_TO_MEMORY':
+      frame.index++;
+      moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'memory' }, { reason: 'COST' });
+      return;
+    case 'STOCK_TO_CLOCK': {
+      // From the top of the stock (CR-3.10.2).
+      const fromTop = zones.stock.slice(zones.stock.length - cost.count).reverse();
+      frame.index++;
+      moveCards(ctx, fromTop, { player: master, zone: 'clock' }, { reason: 'COST' });
+      return;
+    }
+    case 'REST_CHARACTERS': {
+      if (!frame.asked) {
+        frame.asked = true;
+        const cards = restable(state, context, cost).map((id) => getInstance(state, id).objectId);
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'COST_REST', cards, min: cost.count, max: cost.count });
+        return;
+      }
+      frame.asked = false;
+      frame.index++;
+      for (const objectId of takeAnswer(ctx, 'SELECT_CARDS').cards) setOrientation(ctx, findObject(state, objectId).instanceId, 'REST');
+      return;
+    }
   }
 }
 
@@ -264,8 +305,9 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     case 'MODIFY': {
       // CR-8.9.2: applies to the cards that are there now, not to ones arriving later.
       const amount = effect.amount * perCount(state, master, context.source, effect.per);
+      const untilTurn = effect.until === 'NEXT_OPPONENT_TURN' ? nextOpponentTurn(state, master) : undefined;
       for (const id of resolveTarget(state, context, effect.target)) {
-        addModifier(state, getInstance(state, id).objectId, effect.stat, amount);
+        addModifier(state, getInstance(state, id).objectId, effect.stat, amount, untilTurn);
       }
       next();
       return;
@@ -287,12 +329,14 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     case 'DECK_TOP': {
       // One card per step (CR-3.2.3), so a refresh in between happens in place.
       const done = frame.scratch[0] ?? 0;
+      if (done === 0) context.moved = [];
       const top = topOf(state.zones[master].deck);
       if (done >= effect.count || top === undefined) {
         next();
         return;
       }
       frame.scratch[0] = done + 1;
+      context.moved = [...(context.moved ?? []), top];
       const zone = effect.to === 'STOCK' ? 'stock' : effect.to === 'CLOCK' ? 'clock' : 'waitingRoom';
       moveCard(ctx, top, { player: master, zone }, { reason: 'EFFECT' });
       return;
@@ -333,7 +377,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'IF': {
-      const holds = evalCondition(state, master, context.source, effect.condition);
+      const condition = effect.condition;
+      const holds =
+        condition.if === 'LAST_MOVED'
+          ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
+          : evalCondition(state, master, context.source, condition);
       next();
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
       return;
@@ -371,8 +419,9 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'GRANT': {
+      const untilTurn = effect.until === 'NEXT_OPPONENT_TURN' ? nextOpponentTurn(state, master) : undefined;
       for (const id of resolveTarget(state, context, effect.target)) {
-        state.grants.push({ objectId: getInstance(state, id).objectId, ability: effect.ability });
+        state.grants.push({ objectId: getInstance(state, id).objectId, ability: effect.ability, ...(untilTurn !== undefined ? { untilTurn } : {}) });
       }
       next();
       return;
