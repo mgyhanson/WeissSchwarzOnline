@@ -127,12 +127,7 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
         </button>
         <span className="zone-label">Clock {clockCards.length}/7</span>
       </div>
-      <div className="zone zone-mm" style={{ gridArea: 'mm' }} data-zone={zoneAnchor(side, mine ? 'memory' : 'hand')}>
-        {!mine && (
-          <button type="button" className="chip" onClick={() => onZone(side, 'hand')}>
-            手牌 {zones.hand.length}
-          </button>
-        )}
+      <div className="zone zone-mm" style={{ gridArea: 'mm' }} data-zone={zoneAnchor(side, 'memory')}>
         {zones.memory.length > 0 && (
           <button type="button" className="chip" onClick={() => onZone(side, 'memory')}>
             Memory {zones.memory.length}

@@ -31,6 +31,8 @@ export interface CardInfo {
   explanationLabel: string;
   support: DatabaseCard['record']['support'];
   faqs: { date: string; q: string; a: string }[];
+  /** Folder id of the set in card-database/sets. */
+  set: string;
   product: string;
   officialUrl: string;
 }
@@ -84,6 +86,7 @@ export function cardInfo(cardId: string): CardInfo {
     explanationLabel: `${EXPLANATION_LABEL[card.record.explanation.source]}・${card.record.explanation.status}`,
     support: card.record.support,
     faqs: card.official.faqs,
+    set: card.set,
     product: set?.official.source.product ?? '',
     officialUrl: `https://ws-tcg.com/cardlist/?cardno=${cardId}`,
   };
@@ -106,4 +109,28 @@ export function abilityText(cardId: string, index: number | undefined): string {
 
 export function allCardIds(): string[] {
   return SETS.flatMap((set) => set.records.map((record) => record.cardId));
+}
+
+export interface SetSummary {
+  id: string;
+  product: string;
+  /** Title prefix of the card numbers, e.g. "SY". */
+  title: string;
+  total: number;
+  verified: number;
+  pending: number;
+  unsupported: number;
+}
+
+/** Per set: how many cards were imported and how far each is supported. */
+export function setSummaries(): SetSummary[] {
+  return SETS.map((set) => ({
+    id: set.id,
+    product: set.official.source.product,
+    title: set.records[0]?.cardId.split('/')[0] ?? '',
+    total: set.records.length,
+    verified: set.records.filter((r) => r.support === 'verified').length,
+    pending: set.records.filter((r) => r.support === 'pending').length,
+    unsupported: set.records.filter((r) => r.support === 'unsupported').length,
+  }));
 }

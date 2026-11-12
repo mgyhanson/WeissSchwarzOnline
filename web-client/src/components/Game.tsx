@@ -7,6 +7,7 @@ import { decisionUi, waitingText } from '../model/options';
 import { ATTACK_STEP_ZH, ATTACK_ZH, PHASE_TERM, PHASE_ZH, SLOT_ZH, ZONE_ZH, who } from '../model/text';
 import { Resolution, Side } from './Board';
 import { CardFace } from './CardFace';
+import { PhaseTracker, PlayerBar } from './PlayerBar';
 import { createAnimator } from '../presentation/animate';
 import { type Speed, PresentationQueue, SPEED_ZH } from '../presentation/queue';
 import { DecisionPanel, LogPanel, RevealHistory } from './Panels';
@@ -114,7 +115,7 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
           {turn ? (
             <>
               <span className={`turn-owner ${turn.player === seat ? 'mine' : 'theirs'}`}>
-                第 {turn.number} 回合・{who(turn.player, seat)}
+                第 {turn.number} 回合・{turn.player === seat ? '你的回合' : '對手的回合'}
               </span>
               <button type="button" className="phase-chip" onClick={() => setSheet({ type: 'term', id: PHASE_TERM[turn.phase] })}>
                 {PHASE_ZH[turn.phase]} ⓘ
@@ -135,7 +136,6 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
               ))}
             </select>
           </label>
-          <span className="chip opponent-level">對手：{AI_LEVEL_ZH[host.setup.level ?? 'NORMAL']} AI</span>
           <button type="button" className="button small mobile-only" onClick={() => setSheet({ type: 'log' })}>
             紀錄
           </button>
@@ -151,8 +151,10 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
 
       <div className="game-layout">
         <div className="table">
+          <PlayerBar view={view} side={opponent} label={`對手・${AI_LEVEL_ZH[host.setup.level ?? 'NORMAL']} AI`} onZone={handlers.onZone} />
           <Side view={view} side={opponent} ui={ui} picked={picked} {...handlers} />
           <div className="midline" data-zone="center">
+            <PhaseTracker view={view} onTerm={(id) => setSheet({ type: 'term', id })} />
             {view.attack ? (
               <span className="attack-info">
                 {who(view.attack.player, seat)}的{SLOT_ZH[view.attack.attackerSlot]}角色：{ATTACK_ZH[view.attack.type]}
@@ -164,6 +166,7 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
             <RevealPanel presentation={presentation} seat={seat} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} onSkip={() => queue.skip()} />
           </div>
           <Side view={view} side={seat} ui={ui} picked={picked} {...handlers} />
+          <PlayerBar view={view} side={seat} label="你" onZone={handlers.onZone} />
           <div className="hand" aria-label={`手牌 ${hand.length} 張`} data-zone={`p${seat}-hand`}>
             {hand.map((card, i) =>
               card.hidden ? (

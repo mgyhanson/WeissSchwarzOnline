@@ -15,13 +15,11 @@ describe('animation anchors', () => {
   const anchors = new Set([...html.matchAll(/data-zone="([^"]+)"/g)].map((m) => m[1]));
 
   it('every zone a card can move to or from has a place on the board to fly to', () => {
-    // The player's own hand and the centre are anchored by the game screen itself.
-    const elsewhere = new Set(['p0-hand', 'center']);
+    // Hands and the centre are anchored by the game screen itself (hand row, opponent's player bar).
+    const elsewhere = new Set(['p0-hand', 'p1-hand', 'center']);
     for (const player of [0, 1] as const) {
       for (const zone of PILE_ZONES) {
         if (zone === 'resolution') continue;
-        if (zone === 'memory' && player === 1) continue; // the opponent's memory shares the chip area with their hand
-        if (zone === 'hand' && player === 0) continue;
         const anchor = anchorOf({ player, zone });
         expect(anchors.has(anchor) || elsewhere.has(anchor), anchor).toBe(true);
       }

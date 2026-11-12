@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { AI_LEVELS, AI_LEVEL_ZH, type AiLevel } from '@wso/ai';
 import { TEST_DECKS } from '@wso/card-database';
-import { allCardIds, cardInfo } from '../model/cards';
+import { type CardFilter, NO_FILTER, matches } from '../model/cardFilter';
+import { allCardIds, cardInfo, setSummaries } from '../model/cards';
 import { GLOSSARY, type Term } from '../model/glossary';
-import { COLOR_ZH, KIND_ZH } from '../model/text';
+import { COLOR_ZH, KIND_ZH, TRIGGER_ZH } from '../model/text';
 import { CardFace } from './CardFace';
 import { CardDetail, Modal } from './Sheets';
 
@@ -87,37 +88,93 @@ export function Home({
   );
 }
 
+const SUPPORT_ZH = { verified: '可自動執行', pending: '待核實', unsupported: '未確認 — 暫不支援自動執行' } as const;
+
+function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  return (
+    <label className="filter">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">全部</option>
+        {options.map(([v, text]) => (
+          <option key={v} value={v}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function CardList() {
   const [open, setOpen] = useState<string | null>(null);
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState<CardFilter>(NO_FILTER);
   const ids = useMemo(() => allCardIds(), []);
-  const shown = ids.filter((id) => {
-    if (!filter) return true;
-    const info = cardInfo(id);
-    return `${id} ${info.name} ${info.traits.join(' ')} ${info.text.join(' ')}`.toLowerCase().includes(filter.toLowerCase());
-  });
+  const infos = useMemo(() => ids.map(cardInfo), [ids]);
+  const summaries = useMemo(() => setSummaries(), []);
+  const shown = infos.filter((info) => matches(info, filter));
+  const set = (patch: Partial<CardFilter>) => setFilter((f) => ({ ...f, ...patch }));
+  const distinct = (pick: (i: (typeof infos)[number]) => number | null) =>
+    [...new Set(infos.map(pick).filter((v): v is number => v !== null))].sort((a, b) => a - b).map((v): [string, string] => [String(v), String(v)]);
   return (
-    <div className="panel">
-      <h2>卡牌一覽（{shown.length}/{ids.length}）</h2>
-      <input className="search" type="search" placeholder="搜尋卡名、卡號、特徵或文字" value={filter} onChange={(e) => setFilter(e.target.value)} />
-      <div className="card-table">
-        {shown.map((id) => {
-          const info = cardInfo(id);
-          return (
-            <button key={id} type="button" className="card-row" onClick={() => setOpen(id)}>
-              <CardFace cardId={id} size="small" />
-              <span className="card-row-text">
-                <span className="card-row-name">{info.name}</span>
-                <span className="muted">
-                  {id}・{KIND_ZH[info.kind]}・{COLOR_ZH[info.color]}
-                  {info.kind !== 'CLIMAX' ? `・Lv${info.level}／Cost${info.cost}` : ''}
-                  {info.kind === 'CHARACTER' ? `・${info.power}／Soul ${info.soul}` : ''}
-                </span>
+    <div className="card-browser">
+      <section className="panel">
+        <h2>已匯入的系列</h2>
+        <div className="set-table" role="table">
+          <div className="set-row set-head" role="row">
+            <span role="columnheader">系列</span>
+            <span role="columnheader">卡數</span>
+            <span role="columnheader">可自動執行</span>
+            <span role="columnheader">待核實</span>
+            <span role="columnheader">不支援</span>
+          </div>
+          {summaries.map((s) => (
+            <button key={s.id} type="button" role="row" className={`set-row ${filter.set === s.id ? 'current' : ''}`} onClick={() => set({ set: filter.set === s.id ? '' : s.id })}>
+              <span role="cell">
+                <strong>{s.title}</strong> {s.product}
               </span>
+              <span role="cell">{s.total}</span>
+              <span role="cell" className="ok">{s.verified}</span>
+              <span role="cell">{s.pending}</span>
+              <span role="cell">{s.unsupported}</span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+        <p className="muted">只有「可自動執行」的卡可以放入對戰卡組；其他卡只供查閱。</p>
+      </section>
+      <section className="panel">
+        <h2>
+          卡牌一覽（{shown.length}/{ids.length}）
+        </h2>
+        <input className="search" type="search" placeholder="搜尋卡名、卡號、特徵、效果或中文說明" value={filter.text} onChange={(e) => set({ text: e.target.value })} />
+        <div className="filters">
+          <Select label="系列" value={filter.set} onChange={(v) => set({ set: v })} options={summaries.map((s) => [s.id, `${s.title} ${s.product}`])} />
+          <Select label="種類" value={filter.kind} onChange={(v) => set({ kind: v as CardFilter['kind'] })} options={Object.entries(KIND_ZH)} />
+          <Select label="顏色" value={filter.color} onChange={(v) => set({ color: v })} options={Object.entries(COLOR_ZH)} />
+          <Select label="Level" value={filter.level} onChange={(v) => set({ level: v })} options={distinct((i) => i.level)} />
+          <Select label="Cost" value={filter.cost} onChange={(v) => set({ cost: v })} options={distinct((i) => i.cost)} />
+          <Select label="Soul" value={filter.soul} onChange={(v) => set({ soul: v })} options={distinct((i) => i.soul)} />
+          <Select label="Power 至少" value={filter.powerMin} onChange={(v) => set({ powerMin: v })} options={['3000', '5000', '7000', '9000', '10000'].map((v) => [v, v])} />
+          <Select label="Trigger" value={filter.trigger} onChange={(v) => set({ trigger: v as CardFilter['trigger'] })} options={[['NONE', '沒有'], ...Object.entries(TRIGGER_ZH)]} />
+          <Select label="支援" value={filter.support} onChange={(v) => set({ support: v as CardFilter['support'] })} options={Object.entries(SUPPORT_ZH)} />
+          <button type="button" className="button small" onClick={() => setFilter(NO_FILTER)}>
+            清除篩選
+          </button>
+        </div>
+        <div className="card-grid-browser">
+          {shown.map((info) => (
+            <div key={info.cardId} className="browser-card">
+              <CardFace cardId={info.cardId} onClick={() => setOpen(info.cardId)} />
+              <span className="browser-name">{info.name}</span>
+              <span className="muted browser-meta">
+                {info.cardId}
+                {info.support !== 'verified' && <span className="warning"> {SUPPORT_ZH[info.support]}</span>}
+              </span>
+            </div>
+          ))}
+          {shown.length === 0 && <p className="muted">沒有符合條件的卡。</p>}
+        </div>
+      </section>
       {open && (
         <Modal title={cardInfo(open).name} onClose={() => setOpen(null)}>
           <CardDetail cardId={open} />
