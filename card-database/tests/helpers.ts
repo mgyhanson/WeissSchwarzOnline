@@ -32,6 +32,8 @@ function setCards(setId: string): string[] {
 
 export const HARUHI = 'SY_W08_TD';
 export const ICHIKA = '5HY_W83_TD_ICHIKA';
+export const SAO = 'SAO_S20';
+export const GUP = 'GUP_W141';
 
 export interface RealScenario {
   step: TurnStep;

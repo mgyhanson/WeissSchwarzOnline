@@ -17,18 +17,19 @@
 | STEP 4d-2 常見關鍵字 | 完成 |
 | STEP 5 規則覆蓋檢查及大量隨機對局 | 完成 |
 | STEP 6a 第一批真實卡牌：兩副 Trial Deck（35 張） | 完成 |
-| STEP 6b 補充包卡牌（SAO、2026 年系列等） | **未開始** |
+| STEP 6b 補充包卡牌：SAO/S20 27 張、GUP/W141 19 張 | 完成（第一批；長期目標約 100 至 130 種） |
 | STEP 7 對戰介面、卡牌一覽、術語解釋 | 完成 |
 | STEP 8 四種難度的 AI（入門、普通、進階、專家） | 完成 |
+| 第二階段視覺：卡牌揭示、卡面、動畫、介面重設、卡牌一覽（分支 `feat/card-visual-reveal-ux`） | 完成，見 [docs/04-visual-card-expansion-plan.md](docs/04-visual-card-expansion-plan.md) |
 | STEP 9 起（網上對戰、卡組編輯器、教學） | 未開始 |
 
-目前共 332 個自動測試通過，另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局用兩副真實卡組）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
+目前共 403 個自動測試通過，另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局輪流使用四副真實卡組的所有配對）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
 
-卡牌資料庫收錄了 35 張真實卡牌（涼宮ハルヒの憂鬱及五等分の花嫁 一花的 Trial Deck），全部可以自動執行並逐張有測試，見 [card-database/README.md](card-database/README.md)。
+卡牌資料庫收錄了 81 張真實卡牌（涼宮ハルヒの憂鬱及五等分の花嫁 一花的 Trial Deck、ソードアート・オンライン SAO/S20、ガールズ＆パンツァー GUP/W141），全部可以自動執行並逐張有測試，見 [card-database/README.md](card-database/README.md)。
 
 瀏覽器介面（`web-client/`）可以在電腦及手機上與四種難度的電腦對手打完整局。電腦對手不作弊：只看到自己座位可以看到的資訊，見 [ai/README.md](ai/README.md)。
 
-仍未完成：網上對戰；卡池只有兩副 Trial Deck；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
+仍未完成：網上對戰；卡池仍然細小（81 張）；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
 
 ## 試玩
 

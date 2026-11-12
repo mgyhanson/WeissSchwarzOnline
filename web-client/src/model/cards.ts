@@ -41,6 +41,11 @@ const ICON_TEXT: Record<string, string> = {
   'soul.gif': '〔Soul〕',
   'salvage.gif': '〔門〕',
   'bounce.gif': '〔風〕',
+  'shot.gif': '〔Shot〕',
+  'draw.gif': '〔Draw〕',
+  'treasure.gif': '〔Treasure〕',
+  'choice.gif': '〔Choice〕',
+  'gate.gif': '〔Gate〕',
 };
 
 /** Writes out the icon images of the official text. An icon not listed stays visible as its file name. */

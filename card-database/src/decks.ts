@@ -75,7 +75,38 @@ export const ICHIKA_TEST_DECK: TestDeck = {
   ],
 };
 
-export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK];
+const sao = (n: string, count: number): DeckEntry => ({ cardId: `SAO/S20-${n}`, count });
+const gup = (n: string, count: number): DeckEntry => ({ cardId: `GUP/W141-${n}`, count });
+
+export const SAO_TEST_DECK: TestDeck = {
+  id: 'test-sao',
+  name: 'ソードアート・オンライン 黃藍測試卡組',
+  title: 'SAO',
+  note: 'Made by this project from the SAO/S20 cards in the database (yellow and blue); not an official or tournament list.',
+  entries: [
+    sao('008', 2), sao('009', 2), sao('014', 2), sao('015', 4), sao('017', 2),
+    sao('079', 4), sao('083', 2), sao('084', 2), sao('089', 2),
+    sao('001', 4), sao('004', 3), sao('010', 2), sao('085', 2), sao('086', 3),
+    sao('022', 1),
+    sao('020', 2), sao('093', 1), sao('094', 2),
+    sao('023', 1), sao('024', 2), sao('025', 2), sao('098', 2), sao('099', 1),
+  ],
+};
+
+export const GUP_TEST_DECK: TestDeck = {
+  id: 'test-gup',
+  name: 'ガールズ＆パンツァー 三色測試卡組',
+  title: 'GUP',
+  note: 'Made by this project from the GUP/W141 cards in the database (yellow, green and blue); not an official or tournament list.',
+  entries: [
+    gup('001', 4), gup('010', 3), gup('017', 3), gup('038', 4), gup('044', 3), gup('084', 4), gup('088', 3), gup('104', 3),
+    gup('039', 4), gup('048', 3), gup('099', 2),
+    gup('041', 3), gup('091', 3),
+    gup('025', 2), gup('054', 2), gup('111', 2), gup('113', 2),
+  ],
+};
+
+export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK, SAO_TEST_DECK, GUP_TEST_DECK];
 
 /** The deck as a list of 50 card ids, in the order listed. */
 export function deckList(deck: TestDeck): string[] {
@@ -85,8 +116,10 @@ export function deckList(deck: TestDeck): string[] {
 /**
  * Neo-Standard restrictions that concern cards in this database, from the
  * official deck construction rules page (https://ws-tcg.com/rules/deck_rule/,
- * 2026 late season, in force from 2026-06-27, page checked 2026-11-11).
- * Only these entries have been copied so far.
+ * 2026 late season, in force from 2026-06-27, page checked 2026-11-11 and
+ * again 2026-11-12). Only these entries have been copied so far. The page's
+ * only ソードアート・オンライン entry (SAO/S100-011) and its ガールズ＆パンツァー
+ * entries (none) concern no card in this database.
  */
 export const NEO_STANDARD_BANNED: Readonly<Record<string, string>> = {
   'SY/W08-T16': '情報連結解除 (also SY/W08-097): 使用不可',

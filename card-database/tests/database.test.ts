@@ -33,7 +33,7 @@ describe('official data', () => {
   it('refuses data it cannot read rather than guessing', () => {
     const card = getCard('SY/W08-T01').official;
     expect(() => toCardDef({ ...card, kind: '9' })).toThrow(/unknown card kind/);
-    expect(() => toCardDef({ ...card, trigger: '[[gate.gif]]' })).toThrow(/not been verified/);
+    expect(() => toCardDef({ ...card, trigger: '[[standby.gif]]' })).toThrow(/not been verified/);
     expect(() => toCardDef({ ...card, color: '[[pink.gif]]' })).toThrow(/colour/);
     expect(() => toCardDef({ ...card, power: '3,000' })).toThrow(/power/);
   });

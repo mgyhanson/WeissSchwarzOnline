@@ -8,6 +8,10 @@ import { records as sy } from '../sets/SY_W08_TD/cards';
 import syOfficial from '../sets/SY_W08_TD/official.json';
 import { records as hy } from '../sets/5HY_W83_TD_ICHIKA/cards';
 import hyOfficial from '../sets/5HY_W83_TD_ICHIKA/official.json';
+import { records as sao } from '../sets/SAO_S20/cards';
+import saoOfficial from '../sets/SAO_S20/official.json';
+import { records as gup } from '../sets/GUP_W141/cards';
+import gupOfficial from '../sets/GUP_W141/official.json';
 import { toCardDef } from './official';
 import type { CardRecord, CardSet, OfficialCard, OfficialSet } from './types';
 
@@ -18,6 +22,8 @@ export * from './decks';
 export const SETS: readonly CardSet[] = [
   { id: 'SY_W08_TD', official: syOfficial as OfficialSet, records: sy },
   { id: '5HY_W83_TD_ICHIKA', official: hyOfficial as OfficialSet, records: hy },
+  { id: 'SAO_S20', official: saoOfficial as OfficialSet, records: sao },
+  { id: 'GUP_W141', official: gupOfficial as OfficialSet, records: gup },
 ];
 
 export interface DatabaseCard {

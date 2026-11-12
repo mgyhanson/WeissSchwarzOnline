@@ -17,12 +17,22 @@ const COLORS = new Set(['yellow', 'green', 'red', 'blue', 'purple']);
  *  - salvage.gif: SY/W08-T10 「このカードがトリガーした時、あなたは自分の控え室のキャラを1枚選び、手札に戻してよい」 = CR-4.14.2.5 カムバック
  *  - bounce.gif: 5HY/W83-T12 「…あなたは相手のキャラを1枚選び、手札に戻してよい」 = CR-4.14.2.3 リターン
  *  - soul.gif: the soul icon, also used for the soul value (CR-2.10.2, CR-4.14.2.2)
+ *  - shot.gif: SAO/S20-025 「このターン中、このカードをトリガーした攻撃キャラが次に与えるダメージがキャンセルされた時、相手に1ダメージを与える」 = CR-4.14.2.7 ショット
+ *  - draw.gif: SAO/S20-098, GUP/W141-113 「このカードがトリガーした時、あなたは1枚引いてよい」 = CR-4.14.2.6 ドロー
+ *  - treasure.gif: SAO/S20-045, GUP/W141-052 「…あなたはこのカードを手札に戻す。あなたは自分の山札の上から1枚を、ストック置場に置いてよい」 = CR-4.14.2.8 トレジャー
+ *  - choice.gif: GUP/W141-025 「…自分の控え室のトリガーアイコンに[soul]があるキャラを1枚選び、手札に戻すかストック置場に置いてよい」 = CR-4.14.2.11 チョイス
+ *  - gate.gif: GUP/W141-111 「…自分の控え室のCXを1枚選び、手札に戻してよい」 = CR-4.14.2.9 ゲート
  * Other icons must be added here, with their evidence, when a set needs them.
  */
 const TRIGGER_ICONS: Record<string, TriggerIcon> = {
   'soul.gif': 'SOUL',
   'salvage.gif': 'COMEBACK',
   'bounce.gif': 'RETURN',
+  'shot.gif': 'SHOT',
+  'draw.gif': 'DRAW',
+  'treasure.gif': 'TREASURE',
+  'choice.gif': 'CHOICE',
+  'gate.gif': 'GATE',
 };
 
 function icons(field: string): string[] {

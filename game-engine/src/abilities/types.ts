@@ -34,8 +34,8 @@ export type Condition =
   | { if: 'YOUR_TURN' }
   /** 相手のターン中 */
   | { if: 'OPPONENT_TURN' }
-  /** クライマックス置場に「…」があるなら (the usual CX combo condition) */
-  | { if: 'CLIMAX_IN_PLAY'; name: string }
+  /** クライマックス置場に「…」があるなら (the usual CX combo condition); without a name: CX置場にCXがあるなら */
+  | { if: 'CLIMAX_IN_PLAY'; name?: string }
   /** (他の)あなたの…のキャラがN枚以上なら */
   | { if: 'CHARACTERS'; min: number; filter?: CardFilter; other?: boolean }
   /** あなたのレベルがN以上なら */
@@ -178,8 +178,8 @@ export type Trigger =
   | { on: 'BATTLE_OPPONENT_REVERSED' }
   /** (あなたの/相手の)…フェイズの始めに */
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
-  /** あなたのクライマックスがクライマックス置場に置かれた時 */
-  | { on: 'CLIMAX_PLACED' }
+  /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
+  | { on: 'CLIMAX_PLACED'; filter?: CardFilter }
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */

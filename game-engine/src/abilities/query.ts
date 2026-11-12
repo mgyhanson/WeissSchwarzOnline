@@ -98,7 +98,7 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
     case 'OPPONENT_TURN':
       return state.turn !== null && state.turn.player !== master;
     case 'CLIMAX_IN_PLAY':
-      return zones.climax.some((id) => getDef(state, id).kind === 'CLIMAX' && getDef(state, id).name === condition.name);
+      return zones.climax.some((id) => getDef(state, id).kind === 'CLIMAX' && (condition.name === undefined || getDef(state, id).name === condition.name));
     case 'CHARACTERS': {
       const count = stageCharacters(state, master).filter(
         (id) => !(condition.other && id === source) && matchesFilter(state, id, condition.filter),

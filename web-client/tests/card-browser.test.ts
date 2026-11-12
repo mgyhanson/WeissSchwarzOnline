@@ -23,13 +23,14 @@ describe('card browser', () => {
   it('filters by series, kind, colour, level, cost, soul, power, trigger and support', () => {
     expect(find({ set: '5HY_W83_TD_ICHIKA' }).every((id) => id.startsWith('5HY/'))).toBe(true);
     expect(find({ kind: 'CLIMAX' }).every((id) => cardInfo(id).kind === 'CLIMAX')).toBe(true);
-    expect(find({ kind: 'EVENT' })).toEqual(['SY/W08-T16', '5HY/W83-T11']);
+    expect(find({ kind: 'EVENT' })).toEqual(['SY/W08-T16', '5HY/W83-T11', 'SAO/S20-022']);
     expect(find({ color: 'blue', set: 'SY_W08_TD' }).every((id) => cardInfo(id).color === 'blue')).toBe(true);
     expect(find({ level: '3' }).every((id) => cardInfo(id).level === 3)).toBe(true);
     expect(find({ cost: '2' }).every((id) => cardInfo(id).cost === 2)).toBe(true);
     expect(find({ soul: '2' }).every((id) => cardInfo(id).soul === 2)).toBe(true);
     expect(find({ powerMin: '9000' }).every((id) => (cardInfo(id).power ?? 0) >= 9000)).toBe(true);
-    expect(find({ trigger: 'RETURN' })).toEqual(['5HY/W83-T12']);
+    expect(find({ trigger: 'RETURN' })).toEqual(['5HY/W83-T12', 'SAO/S20-024']);
+    expect(find({ trigger: 'GATE' })).toEqual(['GUP/W141-111']);
     expect(find({ trigger: 'NONE' }).every((id) => cardInfo(id).triggers.length === 0)).toBe(true);
     expect(find({ support: 'unsupported' })).toEqual(allCards().filter((c) => c.record.support === 'unsupported').map((c) => c.record.cardId));
   });
