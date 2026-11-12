@@ -1521,3 +1521,58 @@ select,
   padding-top: 4px;
   border-top: 1px solid var(--line);
 }
+
+/* ---------- Animation layer ---------- */
+
+.fly-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.flyer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform, opacity;
+}
+
+.flyer .card {
+  box-shadow: 0 10px 24px #000b;
+}
+
+/* Rest, stand and reverse turn smoothly when the board shows the new state. */
+.slot .card {
+  transition:
+    transform var(--t-med) ease,
+    box-shadow var(--t-fast) ease,
+    filter var(--t-med) ease;
+}
+
+.pop {
+  display: inline-block;
+  animation: num-pop 0.6s ease-out;
+}
+
+@keyframes num-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.45);
+    text-shadow: 0 0 6px currentColor;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot .card {
+    transition: none;
+  }
+  .pop {
+    animation: none;
+  }
+}

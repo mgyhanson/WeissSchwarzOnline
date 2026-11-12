@@ -6,7 +6,7 @@
  * proportion of a real card.
  */
 
-import { memo, useState, useSyncExternalStore } from 'react';
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Orientation, StageStats } from '@wso/game-engine';
 import { catalog } from '../images/providers';
 import { cardInfo } from '../model/cards';
@@ -49,7 +49,19 @@ function Picture({ cardId, color, kind }: { cardId: string; color: string; kind:
   );
 }
 
+/** True on the render where a number changed (not on the first render), so the change can be highlighted. */
+function useChanged(value: number | null | undefined): boolean {
+  const previous = useRef(value);
+  const changed = previous.current !== undefined && previous.current !== value;
+  useEffect(() => {
+    previous.current = value;
+  }, [value]);
+  return changed;
+}
+
 export const CardFace = memo(function CardFace({ cardId, orientation, stats, active, selected, size = 'normal', onClick, label }: CardFaceProps) {
+  const powerChanged = useChanged(stats?.power);
+  const soulChanged = useChanged(stats?.soul);
   const classes = ['card', `card-${size}`];
   if (orientation === 'REST') classes.push('is-rest');
   if (orientation === 'REVERSE') classes.push('is-reverse');
@@ -108,8 +120,10 @@ export const CardFace = memo(function CardFace({ cardId, orientation, stats, act
       </span>
       {info.kind === 'CHARACTER' && (
         <span className="c-stats">
-          <span className={`c-pow ${change(stats?.power, info.power)}`}>{power}</span>
-          <span className={`c-soul ${change(stats?.soul, info.soul)}`}>
+          <span key={`p${power}`} className={`c-pow ${change(stats?.power, info.power)}${powerChanged ? ' pop' : ''}`}>
+            {power}
+          </span>
+          <span key={`s${soul}`} className={`c-soul ${change(stats?.soul, info.soul)}${soulChanged ? ' pop' : ''}`}>
             <span className="c-soul-mark" aria-hidden="true">◆</span>
             {soul}
           </span>

@@ -7,6 +7,7 @@ import { decisionUi, waitingText } from '../model/options';
 import { ATTACK_STEP_ZH, ATTACK_ZH, PHASE_TERM, PHASE_ZH, SLOT_ZH, ZONE_ZH, who } from '../model/text';
 import { Resolution, Side } from './Board';
 import { CardFace } from './CardFace';
+import { createAnimator } from '../presentation/animate';
 import { type Speed, PresentationQueue, SPEED_ZH } from '../presentation/queue';
 import { DecisionPanel, LogPanel, RevealHistory } from './Panels';
 import { RevealPanel } from './RevealPanel';
@@ -40,7 +41,7 @@ function useQueue(host: GameHost): PresentationQueue {
     const snap = host.getSnapshot();
     const last = snap.updates[snap.updates.length - 1];
     const seq = snap.events.reduce((max, e) => Math.max(max, e.seq), -1);
-    return new PresentationQueue(host.seat, { view: last?.view ?? snap.view, updateId: last?.id ?? -1, seq }, { speed: initialSpeed(), onBusy: (busy) => host.setHold(busy) });
+    return new PresentationQueue(host.seat, { view: last?.view ?? snap.view, updateId: last?.id ?? -1, seq }, { speed: initialSpeed(), animator: createAnimator(host.seat), onBusy: (busy) => host.setHold(busy) });
   }, [host]);
   const snapshot = useSyncExternalStore(host.subscribe, host.getSnapshot);
   useEffect(() => {
@@ -151,7 +152,7 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
       <div className="game-layout">
         <div className="table">
           <Side view={view} side={opponent} ui={ui} picked={picked} {...handlers} />
-          <div className="midline">
+          <div className="midline" data-zone="center">
             {view.attack ? (
               <span className="attack-info">
                 {who(view.attack.player, seat)}的{SLOT_ZH[view.attack.attackerSlot]}角色：{ATTACK_ZH[view.attack.type]}
@@ -163,7 +164,7 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
             <RevealPanel presentation={presentation} seat={seat} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} onSkip={() => queue.skip()} />
           </div>
           <Side view={view} side={seat} ui={ui} picked={picked} {...handlers} />
-          <div className="hand" aria-label={`手牌 ${hand.length} 張`}>
+          <div className="hand" aria-label={`手牌 ${hand.length} 張`} data-zone={`p${seat}-hand`}>
             {hand.map((card, i) =>
               card.hidden ? (
                 <CardFace key={i} cardId={null} />
