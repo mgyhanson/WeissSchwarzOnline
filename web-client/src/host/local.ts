@@ -15,7 +15,7 @@ import {
   type GameEventView,
   type GameState,
   type PlayerId,
-  type PlayerView,
+  RULES_VERSION,
   createGame,
   getPlayerView,
   redactEvent,
@@ -23,7 +23,11 @@ import {
   submitChoice,
 } from '@wso/game-engine';
 import { TEST_DECKS, deckList, defsFor, getCard } from '@wso/card-database';
-import { type Ai, type AiLevel, createAi, createWorldSampler } from '@wso/ai';
+import { AI_LEVEL_ZH, type Ai, type AiLevel, createAi, createWorldSampler } from '@wso/ai';
+import type { Replay } from '@wso/server/shared';
+import type { GameHost, HostSnapshot, HostUpdate } from './types';
+
+export type { GameHost, HostSnapshot, HostUpdate } from './types';
 
 export interface GameSetup {
   seed: string;
@@ -44,46 +48,8 @@ export interface SavedGame {
   entries: Entry[];
 }
 
-/**
- * What one answer (or the game setup) produced, as the human seat sees it:
- * the redacted events and the view afterwards. The presentation layer plays
- * updates in order; `id` increases by one per update.
- */
-export interface HostUpdate {
-  id: number;
-  events: GameEventView[];
-  view: PlayerView;
-}
-
 /** How many recent updates the snapshot keeps (older ones are only needed for animation, which never lags that far). */
 const KEPT_UPDATES = 120;
-
-export interface HostSnapshot {
-  view: PlayerView;
-  /** Every event of the game so far, as the human seat received it. */
-  events: GameEventView[];
-  /** The most recent updates, oldest first. */
-  updates: HostUpdate[];
-  /** Updates up to this id were replayed from a save and need no animation. */
-  restoredUpTo: number;
-  autoPlay: boolean;
-  /** The opponent (or auto-play) is about to answer. */
-  waiting: boolean;
-  error: string | null;
-}
-
-export interface GameHost {
-  readonly seat: PlayerId;
-  readonly setup: GameSetup;
-  getSnapshot(): HostSnapshot;
-  subscribe(listener: () => void): () => void;
-  submit(choice: Choice): void;
-  resign(): void;
-  setAutoPlay(on: boolean): void;
-  /** While held, computer players wait (the screen is still showing what happened). Rules are never delayed. */
-  setHold(hold: boolean): void;
-  dispose(): void;
-}
 
 export const SAVE_KEY = 'wso.localGame.v1';
 
@@ -109,6 +75,7 @@ function deck(id: string): string[] {
 
 export class LocalHost implements GameHost {
   readonly seat: PlayerId = 0;
+  readonly mode = 'local' as const;
   private state: GameState;
   private events: GameEventView[] = [];
   private entries: Entry[] = [];
@@ -148,6 +115,28 @@ export class LocalHost implements GameHost {
     this.save();
     this.schedule();
   }
+
+  get opponentLabel(): string {
+    return `對手・${AI_LEVEL_ZH[this.setup.level ?? 'NORMAL']} AI`;
+  }
+
+  /** The replay of this game once it is over (it contains the seed, so not before). */
+  getReplay = async (): Promise<Replay> => {
+    if (!this.state.result) throw new Error('The game is not over');
+    const deckOf = (id: string, cards: string[]) => ({ id, name: TEST_DECKS.find((d) => d.id === id)?.name ?? id, cards });
+    return {
+      format: 'wso-replay',
+      version: 1,
+      rulesVersion: RULES_VERSION,
+      createdAt: new Date().toISOString(),
+      source: 'local',
+      players: ['你', this.opponentLabel.replace('對手・', '')],
+      seed: this.setup.seed,
+      decks: [deckOf(this.setup.decks[0], this.lists[0]), deckOf(this.setup.decks[1], this.lists[1])],
+      entries: this.entries.map((entry) => ('resign' in entry ? { player: entry.player, resign: true } : { player: entry.player, choice: entry.choice })),
+      result: this.state.result,
+    };
+  };
 
   // Arrow functions: React calls these unbound (useSyncExternalStore).
   getSnapshot = (): HostSnapshot => this.snapshot;

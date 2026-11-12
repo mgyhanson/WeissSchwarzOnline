@@ -58,7 +58,8 @@ function userArt(): Plugin {
 export default defineConfig({
   plugins: [react(), userArt()],
   cacheDir: '../node_modules/.vite-web-client',
-  server: { port: 5173, strictPort: true },
-  preview: { port: 4173, strictPort: true },
+  // Online play: the game server (npm run server:dev, port 8787) answers /ws.
+  server: { port: 5173, strictPort: true, proxy: { '/ws': { target: 'ws://127.0.0.1:8787', ws: true } } },
+  preview: { port: 4173, strictPort: true, proxy: { '/ws': { target: 'ws://127.0.0.1:8787', ws: true } } },
   build: { outDir: 'dist.nosync', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
 });

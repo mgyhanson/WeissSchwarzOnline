@@ -19,10 +19,12 @@ export function Home({
   hasSaved,
   onStart,
   onContinue,
+  onOnline,
 }: {
   hasSaved: boolean;
   onStart: (decks: [string, string], level: AiLevel) => void;
   onContinue: () => void;
+  onOnline: () => void;
 }) {
   const [mine, setMine] = useState(TEST_DECKS[0]!.id);
   const [theirs, setTheirs] = useState(TEST_DECKS[1]!.id);
@@ -77,6 +79,16 @@ export function Home({
         <p className="muted">
           兩副都是本專案用 Trial Deck 的卡自行組成的測試卡組，不是官方的固定卡表。先後攻由系統隨機決定。對局會保存在這個瀏覽器，重新整理頁面後可以繼續。
         </p>
+      </section>
+      <section className="panel">
+        <h2>網上對戰（雙人）</h2>
+        <p>建立房間，把房間代碼或邀請連結傳給朋友，就可以在不同的電腦或手機上對戰。對局在伺服器上進行，重新整理頁面或短暫斷線都可以回到對局。</p>
+        <p className="muted">需要先啟動伺服器（npm run server），並用伺服器的網址開啟本頁。</p>
+        <div className="decision-buttons">
+          <button type="button" className="button primary" onClick={onOnline}>
+            前往網上對戰
+          </button>
+        </div>
       </section>
       <section className="panel">
         <h2>規則依據</h2>

@@ -1,0 +1,19 @@
+{
+  "name": "@wso/server",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Game server: rooms, WebSocket connections, reconnection, persistence and replays. The engine runs only here; each player receives only their own player view.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./shared": "./src/shared/index.ts"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
+  }
+}

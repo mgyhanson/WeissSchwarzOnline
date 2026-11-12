@@ -176,6 +176,23 @@ describe('presentation queue', () => {
     expect(snap.history[59]!.seq).toBe(reveals[reveals.length - 1]!.seq);
   });
 
+  it('updates shown without animation (a jump to the end of a replay) still move the log forward', async () => {
+    let animated = 0;
+    const queue = new PresentationQueue(seat, start(), {
+      wait: instant,
+      animator: async () => {
+        animated++;
+      },
+    });
+    const part = mine.slice(0, 50);
+    queue.sync(part, 49);
+    await idle(queue);
+    expect(animated).toBe(0);
+    const lastSeq = Math.max(...part.flatMap((u) => u.events.map((e) => e.seq)));
+    expect(queue.getSnapshot().shownSeq).toBe(lastSeq);
+    expect(queue.getSnapshot().view).toEqual(part[49]!.view);
+  });
+
   it('with animation off nothing is animated and the view follows at once', async () => {
     let animated = 0;
     const queue = new PresentationQueue(seat, start(), {

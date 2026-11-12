@@ -11,7 +11,7 @@
  */
 
 import type { PlayerId, PlayerView } from '@wso/game-engine';
-import type { HostUpdate } from '../host/local';
+import type { HostUpdate } from '../host/types';
 import { type Step, type StepCard, toSteps } from './steps';
 
 export type Speed = 'NORMAL' | 'FAST' | 'OFF';
@@ -127,7 +127,8 @@ function recordOf(step: Step, seat: PlayerId): RevealRecord | null {
 export class PresentationQueue {
   private state: Presentation;
   private readonly listeners = new Set<() => void>();
-  private readonly pending: HostUpdate[] = [];
+  /** `lastSeq`: the newest event of the update, kept when its events are not animated. */
+  private readonly pending: (HostUpdate & { lastSeq: number })[] = [];
   private lastQueued: number;
   private latest: PlayerView;
   private latestSeq: number;
@@ -161,10 +162,11 @@ export class PresentationQueue {
       this.lastQueued = update.id;
       this.latest = update.view;
       this.latestSeq = Math.max(this.latestSeq, ...update.events.map((e) => e.seq));
+      const lastSeq = update.events.reduce((max, e) => Math.max(max, e.seq), -1);
       if (update.id <= restoredUpTo || this.state.speed === 'OFF') {
         // Nothing to animate: show the result at once (after anything still queued).
-        this.pending.push({ ...update, events: this.state.speed === 'OFF' ? update.events : [] });
-      } else this.pending.push(update);
+        this.pending.push({ ...update, events: this.state.speed === 'OFF' ? update.events : [], lastSeq });
+      } else this.pending.push({ ...update, lastSeq });
     }
     void this.run();
   }
@@ -238,7 +240,8 @@ export class PresentationQueue {
       }
       // The update is fully shown: the board now shows its result (unless a skip already did).
       if (!signal.aborted) {
-        const lastSeq = update.events.reduce((max, e) => Math.max(max, e.seq), this.state.shownSeq);
+        // Also past events that were not animated (a restored update), so the log shows them.
+        const lastSeq = Math.max(this.state.shownSeq, update.lastSeq);
         this.set({ view: update.view, step: null, shown: 0, phase: 'reveal', shownSeq: lastSeq });
       }
     }

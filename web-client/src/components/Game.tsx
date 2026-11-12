@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { Choice, PileZone, PlayerId, SlotId } from '@wso/game-engine';
-import { AI_LEVEL_ZH } from '@wso/ai';
-import type { GameHost } from '../host/local';
+import { type Replay, replayFileName } from '@wso/server/shared';
+import type { GameHost, ReplayStatus } from '../host/types';
+import { downloadText } from '../model/download';
 import { term } from '../model/glossary';
 import { decisionUi, waitingText } from '../model/options';
 import { ATTACK_STEP_ZH, ATTACK_ZH, PHASE_TERM, PHASE_ZH, SLOT_ZH, ZONE_ZH, who } from '../model/text';
@@ -52,7 +53,51 @@ function useQueue(host: GameHost): PresentationQueue {
   return queue;
 }
 
-export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: () => void; onNewGame: () => void }) {
+export interface GameProps {
+  host: GameHost;
+  onLeave: () => void;
+  leaveLabel?: string;
+  /** "Play again": a new local game, or a rematch request online. Absent in a replay. */
+  onNewGame?: () => void;
+  newGameLabel?: string;
+  /** Open the replay of this finished game in the viewer. */
+  onWatchReplay?: (replay: Replay) => void;
+  /** Shown under the result, e.g. the rematch status of an online room. */
+  endNote?: ReactNode;
+}
+
+function ReplayControls({ host, status }: { host: GameHost; status: ReplayStatus }) {
+  const controls = host.replayControls!;
+  const done = status.position >= status.total;
+  return (
+    <div className="decision replay-controls">
+      <h2 className="decision-title">重播</h2>
+      <p className="muted">
+        第 {status.position}／{status.total} 個行動・以「{status.viewer}」的視角
+      </p>
+      <div className="decision-buttons">
+        {status.playing ? (
+          <button type="button" className="button" onClick={controls.pause}>
+            ⏸ 暫停
+          </button>
+        ) : (
+          <button type="button" className="button primary" onClick={controls.play} disabled={done}>
+            ▶ 播放
+          </button>
+        )}
+        <button type="button" className="button" onClick={controls.step} disabled={done}>
+          下一步
+        </button>
+        <button type="button" className="button" onClick={controls.toEnd} disabled={done}>
+          跳到結尾
+        </button>
+      </div>
+      <p className="muted">只顯示這名玩家當時看到的資訊。</p>
+    </div>
+  );
+}
+
+export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGameLabel = '再來一局', onWatchReplay, endNote }: GameProps) {
   const snapshot = useSyncExternalStore(host.subscribe, host.getSnapshot);
   const queue = useQueue(host);
   const presentation = useSyncExternalStore(queue.subscribe, queue.getSnapshot);
@@ -139,19 +184,28 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
           <button type="button" className="button small mobile-only" onClick={() => setSheet({ type: 'log' })}>
             紀錄
           </button>
-          <label className="toggle">
-            <input type="checkbox" checked={snapshot.autoPlay} onChange={(e) => host.setAutoPlay(e.target.checked)} disabled={!!view.result} />
-            自動代打
-          </label>
-          <button type="button" className="button small" onClick={() => setSheet({ type: 'resign' })} disabled={!!view.result}>
-            投降
-          </button>
+          {host.mode !== 'replay' && (
+            <>
+              <label className="toggle">
+                <input type="checkbox" checked={snapshot.autoPlay} onChange={(e) => host.setAutoPlay(e.target.checked)} disabled={!!view.result} />
+                自動代打
+              </label>
+              <button type="button" className="button small" onClick={() => setSheet({ type: 'resign' })} disabled={!!view.result}>
+                投降
+              </button>
+            </>
+          )}
+          {host.mode === 'replay' && (
+            <button type="button" className="button small" onClick={onLeave}>
+              {leaveLabel}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="game-layout">
         <div className="table">
-          <PlayerBar view={view} side={opponent} label={`對手・${AI_LEVEL_ZH[host.setup.level ?? 'NORMAL']} AI`} onZone={handlers.onZone} />
+          <PlayerBar view={view} side={opponent} label={host.opponentLabel} onZone={handlers.onZone} />
           <Side view={view} side={opponent} ui={ui} picked={picked} {...handlers} />
           <div className="midline" data-zone="center">
             <PhaseTracker view={view} onTerm={(id) => setSheet({ type: 'term', id })} />
@@ -187,7 +241,10 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
 
         <aside className="sidebar">
           <div className="panel decision-panel">
-            {view.result ? (
+            {snapshot.notice && <p className="notice" role="status">{snapshot.notice}</p>}
+            {host.mode === 'replay' && snapshot.replay && !(view.result && snapshot.replay.position >= snapshot.replay.total) ? (
+              <ReplayControls host={host} status={snapshot.replay} />
+            ) : view.result ? (
               <div className="decision">
                 <h2 className="decision-title">遊戲結束</h2>
                 <p className="result-text">
@@ -197,12 +254,25 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
                       ? `你勝出！（對手${LOSS_TEXT[view.result.reason]}）`
                       : `你落敗。（你${LOSS_TEXT[view.result.reason]}）`}
                 </p>
+                {endNote}
                 <div className="decision-buttons">
-                  <button type="button" className="button primary" onClick={onNewGame}>
-                    再來一局
-                  </button>
+                  {onNewGame && (
+                    <button type="button" className="button primary" onClick={onNewGame}>
+                      {newGameLabel}
+                    </button>
+                  )}
+                  {host.getReplay && (
+                    <button type="button" className="button" onClick={() => void saveReplay(host)}>
+                      下載重播檔
+                    </button>
+                  )}
+                  {host.getReplay && onWatchReplay && (
+                    <button type="button" className="button" onClick={() => void host.getReplay!().then(onWatchReplay)}>
+                      觀看重播
+                    </button>
+                  )}
                   <button type="button" className="button" onClick={onLeave}>
-                    回主頁
+                    {leaveLabel}
                   </button>
                 </div>
               </div>
@@ -280,6 +350,15 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
       )}
     </div>
   );
+}
+
+async function saveReplay(host: GameHost): Promise<void> {
+  try {
+    const replay = await host.getReplay!();
+    downloadText(replayFileName(replay), JSON.stringify(replay));
+  } catch {
+    window.alert('暫時未能取得重播檔，請稍後再試。');
+  }
 }
 
 export function TermSheet({ id, onClose }: { id: string; onClose: () => void }) {
