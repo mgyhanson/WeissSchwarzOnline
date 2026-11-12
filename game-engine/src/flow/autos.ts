@@ -128,7 +128,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           for (const found of autosOf(state, card, (t) => t.on === 'THIS_CLIMAX_PLACED')) wait(state, event.to.player, card, found, null);
         }
         // あなたのクライマックスがクライマックス置場に置かれた時
-        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED');
+        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && matchesFilter(state, event.instanceId, t.filter));
       }
       return;
     }

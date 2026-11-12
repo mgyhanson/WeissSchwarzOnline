@@ -28,10 +28,15 @@ function top(cards: readonly CardView[]): CardView | undefined {
   return cards[cards.length - 1];
 }
 
-function Pile({ title, cards, onOpen, area, faceUp = true }: { title: string; cards: readonly CardView[]; onOpen?: () => void; area: string; faceUp?: boolean }) {
+/** The value of the data-zone attribute animations use to find a zone on screen (presentation/animate.ts). */
+export function zoneAnchor(player: PlayerId, zone: string, slot?: SlotId): string {
+  return slot ? `p${player}-${zone}-${slot}` : `p${player}-${zone}`;
+}
+
+function Pile({ title, cards, onOpen, area, faceUp = true, anchor }: { title: string; cards: readonly CardView[]; onOpen?: () => void; area: string; faceUp?: boolean; anchor: string }) {
   const card = top(cards);
   return (
-    <div className={`zone zone-${area}`} style={{ gridArea: area }}>
+    <div className={`zone zone-${area}`} style={{ gridArea: area }} data-zone={anchor}>
       <button type="button" className="pile" onClick={onOpen} disabled={!onOpen} aria-label={`${title}：${cards.length} 張`}>
         {card ? <CardFace cardId={faceUp && !card.hidden ? card.cardId : null} size="small" /> : <span className="empty-frame" />}
         <span className="count">{cards.length}</span>
@@ -56,7 +61,7 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
       else if (attack.defenderObjectId === card.objectId) role = 'is-defender';
     }
     return (
-      <div key={slot} className={`zone slot ${highlighted ? 'is-target' : ''} ${role}`} style={{ gridArea: slot.toLowerCase() }}>
+      <div key={slot} className={`zone slot ${highlighted ? 'is-target' : ''} ${role}`} style={{ gridArea: slot.toLowerCase() }} data-zone={zoneAnchor(side, 'stage', slot)}>
         {card && !card.hidden ? (
           <CardFace
             cardId={card.cardId}
@@ -82,7 +87,7 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
   return (
     <section className={`side ${mine ? 'side-me' : 'side-opponent'}`} aria-label={mine ? '我方' : '對方'}>
       {SLOTS.map(slotCell)}
-      <div className="zone zone-cx" style={{ gridArea: 'cx' }}>
+      <div className="zone zone-cx" style={{ gridArea: 'cx' }} data-zone={zoneAnchor(side, 'climax')}>
         {climax && !climax.hidden ? (
           <CardFace cardId={climax.cardId} size="small" onClick={() => onCard(climax.objectId, climax.cardId)} />
         ) : (
@@ -90,9 +95,9 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
         )}
         <span className="zone-label">Climax</span>
       </div>
-      <Pile title={ZONE_ZH.deck} cards={zones.deck} area="dk" faceUp={false} />
-      <Pile title={ZONE_ZH.waitingRoom} cards={zones.waitingRoom} area="wr" onOpen={() => onZone(side, 'waitingRoom')} />
-      <div className="zone zone-lv" style={{ gridArea: 'lv' }}>
+      <Pile title={ZONE_ZH.deck} cards={zones.deck} area="dk" faceUp={false} anchor={zoneAnchor(side, 'deck')} />
+      <Pile title={ZONE_ZH.waitingRoom} cards={zones.waitingRoom} area="wr" onOpen={() => onZone(side, 'waitingRoom')} anchor={zoneAnchor(side, 'waitingRoom')} />
+      <div className="zone zone-lv" style={{ gridArea: 'lv' }} data-zone={zoneAnchor(side, 'level')}>
         <button type="button" className="level-stack" onClick={() => onZone(side, 'level')} aria-label={`Level ${zones.level.length}`}>
           {zones.level.map((card, i) => (
             <span key={i} className="level-card">
@@ -102,14 +107,14 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
           <span className="level-number">Lv {zones.level.length}</span>
         </button>
       </div>
-      <div className="zone zone-st" style={{ gridArea: 'st' }}>
+      <div className="zone zone-st" style={{ gridArea: 'st' }} data-zone={zoneAnchor(side, 'stock')}>
         <div className="pile stock-pile" aria-label={`Stock：${zones.stock.length} 張`}>
           {zones.stock.length > 0 ? <CardFace cardId={null} size="small" /> : <span className="empty-frame" />}
           <span className="count">{zones.stock.length}</span>
         </div>
         <span className="zone-label">Stock</span>
       </div>
-      <div className="zone zone-ck" style={{ gridArea: 'ck' }}>
+      <div className="zone zone-ck" style={{ gridArea: 'ck' }} data-zone={zoneAnchor(side, 'clock')}>
         <button type="button" className="clock-row" onClick={() => onZone(side, 'clock')} aria-label={`Clock：${clockCards.length} 張`}>
           {Array.from({ length: 7 }, (_, i) => {
             const card = clockCards[i];
@@ -122,12 +127,7 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
         </button>
         <span className="zone-label">Clock {clockCards.length}/7</span>
       </div>
-      <div className="zone zone-mm" style={{ gridArea: 'mm' }}>
-        {!mine && (
-          <button type="button" className="chip" onClick={() => onZone(side, 'hand')}>
-            手牌 {zones.hand.length}
-          </button>
-        )}
+      <div className="zone zone-mm" style={{ gridArea: 'mm' }} data-zone={zoneAnchor(side, 'memory')}>
         {zones.memory.length > 0 && (
           <button type="button" className="chip" onClick={() => onZone(side, 'memory')}>
             Memory {zones.memory.length}
@@ -142,7 +142,7 @@ export function Resolution({ view, onCard }: { view: PlayerView; onCard: BoardHa
   const cards = [...view.sides[0].resolution, ...view.sides[1].resolution];
   if (cards.length === 0) return null;
   return (
-    <div className="resolution" aria-label="解決領域">
+    <div className="resolution" aria-label="解決領域" data-zone="resolution">
       <span className="zone-label">解決領域</span>
       {cards.map((card, i) => (
         <CardFace key={i} cardId={card.hidden ? null : card.cardId} size="small" onClick={card.hidden ? undefined : () => onCard(card.objectId, card.cardId)} />

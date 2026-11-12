@@ -59,11 +59,11 @@ describe.skipIf(GAMES <= 0)(`soak: ${GAMES} random games per deck`, () => {
         // single block of ~25 s makes its progress messages time out.
         if (i % 50 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
         const seed = `soak-${name}-${i}`;
-        const game = name === 'real' ? playGameWith(realDeckConfig(i % 2 === 1), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
+        const game = name === 'real' ? playGameWith(realDeckConfig(i), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
         const problems = [...game.problems, ...(game.state.result ? resultProblems(game) : [])];
         // INV-07 on every tenth game: the same seed and choices give the same game.
         if (i % 10 === 0 && problems.length === 0) {
-          const again = name === 'real' ? playGameWith(realDeckConfig(i % 2 === 1), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
+          const again = name === 'real' ? playGameWith(realDeckConfig(i), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
           if (serializeState(again.state) !== serializeState(game.state)) problems.push('replay differs (INV-07)');
         }
         if (problems.length > 0) failures.push(`${seed}: ${problems.slice(0, 3).join(' | ')}`);

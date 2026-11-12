@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect } from 'react';
 import type { CardView, Choice, StageStats } from '@wso/game-engine';
+import { catalog } from '../images/providers';
 import { cardInfo } from '../model/cards';
 import type { UiButton } from '../model/options';
 import { COLOR_ZH, KIND_ZH, TRIGGER_ZH } from '../model/text';
@@ -102,7 +103,18 @@ export function CardDetail({ cardId, stats }: { cardId: string; stats?: StageSta
         </details>
       )}
       <p className="source">
-        資料來源：<a href={info.officialUrl} target="_blank" rel="noreferrer noopener">官方卡表（ws-tcg.com）</a>・{info.product}
+        <a className="button small official-link" href={info.officialUrl} target="_blank" rel="noreferrer noopener">
+          查看官方卡牌圖片 ↗
+        </a>
+      </p>
+      <p className="source">
+        資料來源：官方卡表（ws-tcg.com）・{info.product}
+        <br />
+        卡面：{(() => {
+          const image = catalog.imageFor(cardId);
+          if (!image) return '本專案的原創圖案（不使用官方卡圖）';
+          return image.source === 'LICENSED' ? `已取得許可的圖片：${image.attribution ?? ''}` : `你自己提供的圖片${image.attribution ? `（${image.attribution}）` : ''}，只在你的電腦顯示`;
+        })()}
       </p>
     </div>
   );

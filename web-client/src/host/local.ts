@@ -44,10 +44,28 @@ export interface SavedGame {
   entries: Entry[];
 }
 
+/**
+ * What one answer (or the game setup) produced, as the human seat sees it:
+ * the redacted events and the view afterwards. The presentation layer plays
+ * updates in order; `id` increases by one per update.
+ */
+export interface HostUpdate {
+  id: number;
+  events: GameEventView[];
+  view: PlayerView;
+}
+
+/** How many recent updates the snapshot keeps (older ones are only needed for animation, which never lags that far). */
+const KEPT_UPDATES = 120;
+
 export interface HostSnapshot {
   view: PlayerView;
   /** Every event of the game so far, as the human seat received it. */
   events: GameEventView[];
+  /** The most recent updates, oldest first. */
+  updates: HostUpdate[];
+  /** Updates up to this id were replayed from a save and need no animation. */
+  restoredUpTo: number;
   autoPlay: boolean;
   /** The opponent (or auto-play) is about to answer. */
   waiting: boolean;
@@ -62,6 +80,8 @@ export interface GameHost {
   submit(choice: Choice): void;
   resign(): void;
   setAutoPlay(on: boolean): void;
+  /** While held, computer players wait (the screen is still showing what happened). Rules are never delayed. */
+  setHold(hold: boolean): void;
   dispose(): void;
 }
 
@@ -93,6 +113,10 @@ export class LocalHost implements GameHost {
   private events: GameEventView[] = [];
   private entries: Entry[] = [];
   private listeners = new Set<() => void>();
+  private updates: HostUpdate[] = [];
+  private nextUpdateId = 0;
+  private restoredUpTo = -1;
+  private hold = false;
   private snapshot: HostSnapshot;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private autoPlay = false;
@@ -119,6 +143,7 @@ export class LocalHost implements GameHost {
     for (const entry of options.entries ?? []) {
       if (!this.apply(entry)) break;
     }
+    if ((options.entries ?? []).length > 0) this.restoredUpTo = this.nextUpdateId - 1;
     this.snapshot = this.makeSnapshot();
     this.save();
     this.schedule();
@@ -151,6 +176,12 @@ export class LocalHost implements GameHost {
     this.changed();
   }
 
+  setHold(hold: boolean): void {
+    if (this.hold === hold) return;
+    this.hold = hold;
+    if (!hold) this.schedule();
+  }
+
   dispose(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
@@ -180,7 +211,10 @@ export class LocalHost implements GameHost {
   }
 
   private record(events: readonly Parameters<typeof redactEvent>[0][]): void {
-    for (const event of events) this.events.push(redactEvent(event, this.seat));
+    const redacted = events.map((event) => redactEvent(event, this.seat));
+    this.events.push(...redacted);
+    this.updates.push({ id: this.nextUpdateId++, events: redacted, view: getPlayerView(this.state, this.seat) });
+    if (this.updates.length > KEPT_UPDATES) this.updates.splice(0, this.updates.length - KEPT_UPDATES);
   }
 
   private botTurn(): boolean {
@@ -189,11 +223,11 @@ export class LocalHost implements GameHost {
   }
 
   private schedule(): void {
-    if (this.timer || !this.botTurn()) return;
+    if (this.timer || this.hold || !this.botTurn()) return;
     const delay = this.state.pending?.player === this.seat ? Math.min(this.botDelay, 250) : this.botDelay;
     this.timer = setTimeout(() => {
       this.timer = null;
-      if (!this.botTurn()) return;
+      if (this.hold || !this.botTurn()) return;
       const player = this.state.pending!.player;
       // The computer player sees what its seat is allowed to see, nothing more.
       const view = getPlayerView(this.state, player);
@@ -209,6 +243,8 @@ export class LocalHost implements GameHost {
     return {
       view: getPlayerView(this.state, this.seat),
       events: [...this.events],
+      updates: [...this.updates],
+      restoredUpTo: this.restoredUpTo,
       autoPlay: this.autoPlay,
       waiting: this.botTurn(),
       error: this.error,
