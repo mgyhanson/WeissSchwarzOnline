@@ -346,7 +346,7 @@ select,
 
 .c-art {
   position: absolute;
-  inset: 0 0 34% 0;
+  inset: 0 0 44% 0;
   overflow: hidden;
 }
 
@@ -468,7 +468,7 @@ select,
   left: 0;
   right: 0;
   bottom: 14%;
-  height: 22%;
+  height: 31%;
   padding: 0.2em 0.35em;
   background: linear-gradient(180deg, #0d1018e6, #0d1018f2);
   border-top: 2px solid var(--frame);
@@ -479,6 +479,10 @@ select,
 }
 
 .c-name {
+  flex: 0 1 auto;
+  min-height: 0;
+  line-height: 1.08;
+  font-size: 0.95em;
   font-weight: 700;
   overflow: hidden;
   display: -webkit-box;
@@ -489,6 +493,7 @@ select,
 
 .c-no,
 .c-traits {
+  flex: none;
   font-size: 0.72em;
   color: #b8bfcf;
   white-space: nowrap;
@@ -537,17 +542,17 @@ select,
 .kind-climax .c-band,
 .kind-event .c-band {
   bottom: 0;
-  height: 28%;
+  height: 32%;
 }
 
 .kind-climax .c-art,
 .kind-event .c-art {
-  inset: 0 0 28% 0;
+  inset: 0 0 32% 0;
 }
 
 /* Small cards: the name gets most of the space; the number is left out. */
 .card-small .c-band {
-  height: 26%;
+  height: 29%;
   padding: 0.1em 0.25em;
 }
 
@@ -556,7 +561,7 @@ select,
 }
 
 .card-large .c-band {
-  height: 24%;
+  height: 29%;
 }
 
 .card-back {
@@ -1319,12 +1324,14 @@ select,
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 8;
-  background: rgba(17, 22, 31, 0.94);
+  background: #121821;
   border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 12px 40px #000a;
+  box-shadow: 0 12px 40px #000c;
   padding: 10px 14px;
   max-width: min(720px, calc(100% - 16px));
+  max-height: 72vh;
+  overflow-y: auto;
   animation: reveal-in 0.18s ease-out;
 }
 
@@ -2000,5 +2007,15 @@ button.set-row {
   }
   .browser-card {
     width: 98px;
+  }
+}
+
+/* Narrow screens: the table is taller than the screen, so reveals sit in the middle of the screen, above the decision panel. */
+@media (max-width: 979px) {
+  .reveal {
+    position: fixed;
+    top: 42%;
+    z-index: 12;
+    max-height: 62vh;
   }
 }

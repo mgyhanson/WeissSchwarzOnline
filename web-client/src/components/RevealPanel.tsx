@@ -76,8 +76,9 @@ function content(step: Step, p: Presentation, seat: PlayerId, onCard: (cardId: s
               <div className="reveal-outcome">
                 {step.icons.length === 0
                   ? '沒有 Trigger 圖示'
-                  : step.icons.map((icon) => (
-                      <p key={icon}>
+                  : step.icons.map((icon, i) => (
+                      // A card can show the same icon twice (e.g. two soul icons): key by position.
+                      <p key={i}>
                         <span className="trigger-badge">{TRIGGER_ZH[icon]}</span>
                         {TRIGGER_EFFECT_ZH[icon]}
                       </p>

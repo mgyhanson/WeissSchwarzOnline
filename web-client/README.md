@@ -22,7 +22,11 @@ npm run build     # 正式版，輸出到 web-client/dist.nosync/（iCloud 不�
 | `src/model/log.ts` | 對局紀錄的中文文字，只用已過濾的事件 |
 | `src/model/glossary.ts` | 術語解釋（本專案自行撰寫，附綜合規則條號） |
 | `src/model/text.ts` | 各種引擎數值的中文名稱 |
-| `src/components/` | React 元件：棋盤、卡牌、決定面板、卡牌詳情、主頁、卡牌一覽、術語頁 |
+| `src/presentation/steps.ts` | 把座位收到的事件轉成「展示步驟」：抽牌、Trigger Check、逐張傷害、效果翻開、出牌、攻擊、Level Up、Refresh 等。只用已過濾的事件，看不到的卡永遠沒有身份 |
+| `src/presentation/queue.ts` | 展示佇列：按次序播放每個更新，不重播；棋盤在播放完成後才換成新狀態；跳過；一般／快速／關閉三種速度（`prefers-reduced-motion` 預設關閉）；已揭示的卡的紀錄 |
+| `src/presentation/animate.ts` | 卡牌飛行、攻擊、Level Up 等動畫（Web Animations API，只用 transform 及 opacity） |
+| `src/images/` | 卡圖來源鏈：已授權清單 → 玩家自備圖片（開發伺服器 `/user-art/`）→ 原創卡面。見 `card-assets/README.md` |
+| `src/components/` | React 元件：棋盤、卡面（`CardFace`、原創圖案 `CardArt`）、揭示面板、玩家資訊列及階段列、決定面板、卡牌詳情、主頁、卡牌一覽（篩選及系列統計）、術語頁 |
 
 ## 原則
 
@@ -43,8 +47,11 @@ npm run build     # 正式版，輸出到 web-client/dist.nosync/（iCloud 不�
 
 測試曾以故意改壞程式驗證：拿走交換位置、Clock 張數上限寫錯、拿走「結束攻擊」、拿走助太刀、查看山札時不顯示卡，五種錯誤都會令測試失敗。
 
+## 瀏覽器 QA
+
+`npm run dev` 運行時，另開終端機執行 `npm run qa:ui`：以無介面 Chromium 在電腦、手機直向、手機橫向三種尺寸量度動畫期間的幀率，檢查橫向捲動及 Console 錯誤，儲存截圖到 `data.nosync/qa/`，再打一整局到結束。
+
 ## 已知限制
 
 - 電腦對手在瀏覽器主執行緒思考，專家級每步會令畫面停頓最多約 0.3 秒。
-- 動畫只有簡單過渡；對方的行動要看對局紀錄。
 - 沒有拖放操作，一律點擊卡牌再選行動。
