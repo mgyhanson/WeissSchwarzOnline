@@ -38,7 +38,7 @@ WeissSchwarzOnline/
 │   └── tests/            每張支援卡的測試
 ├── card-assets/          圖片提供者設定及佔位圖（與卡牌資料分離）
 ├── backend/              房間、WebSocket、持久化、AI 執行
-├── frontend/             React 介面
+├── web-client/           React 介面（STEP 7）
 ├── ai/                   AI 策略（只使用玩家視圖）
 ├── tutorials/            教學腳本（資料驅動）
 ├── rules/                規則研究、規則登記表
@@ -67,7 +67,7 @@ createGame(config, seed): { state, events }        // 建立對局並執行遊�
 getPendingDecision(state): Decision | null         // 現在輪到誰決定甚麼，以及合法答案
 submitChoice(state, { player, decisionId, choice }) // 接受則回傳新狀態及事件；否則回傳拒絕原因
 resign(state, player): { state, events }           // 投降（CR-1.2.4）
-getPlayerView(state, player): PlayerView           // 已過濾隱藏資訊
+getPlayerView(state, player): PlayerView           // 已過濾隱藏資訊；附場上角色的現時 Power／Soul／Level
 ```
 
 - `Decision` 本身列明合法答案：單選類（Main Phase 行動、Level Up、Clock）直接列出選項；多選類（換牌、棄牌至手牌上限）列出可選的卡及張數要求。多選類不逐一列舉所有組合，因為組合數量可以很大。
@@ -244,12 +244,16 @@ Power、Soul、Level、特徵、能力等「現在的值」不會儲存，每次
 | 覆蓋檢查 | `scripts/registry-lib.ts` | 標為「已測試」的規則必須有測試名稱提及它；「部分」必須在登記表第 14 節說明；「未實作」不能有測試聲稱覆蓋；測試名稱中的編號必須登記；每個不變量都要有測試。卡牌的覆蓋檢查在 STEP 6 加入 |
 | 長時間隨機對局 | `npm run soak` | 三種測試卡組各 1000 局，每個決定點檢查不變量，每 10 局檢查一次重播是否完全相同 |
 
-## 10. 前端
+## 10. 前端（STEP 7 已實作，見 `web-client/`）
 
-- React + Vite，手機優先的自適應佈局。
-- 介面完全由 `PlayerView` 及事件驅動，不含任何規則判斷。可選的行動來自伺服器提供的合法選項。
-- 動畫以事件為單位排隊播放（CSS transform），不影響狀態。
-- 點擊任何術語顯示繁中解釋，資料來自術語表及規則登記表。
+- React + Vite，同一套佈局在電腦（棋盤在左、決定面板及紀錄在右）及手機（決定面板固定在底部）使用。
+- 介面只經 `GameHost` 介面取得資料：玩家視圖及已過濾的事件。STEP 7 的 `LocalHost` 在瀏覽器內執行引擎及練習對手；STEP 9 會換成經 WebSocket 連接伺服器的版本，介面本身不用改。
+- 介面不含任何規則判斷：每個按鈕及可選的卡都由 `Decision` 列出的合法答案產生（`web-client/src/model/options.ts`）。測試以「只按介面提供的選項」打完整局，檢查每個選項都合法、每個合法答案都有提供。
+- 場上角色的現時數值由引擎在玩家視圖內提供，介面不自行計算。
+- 卡牌以資料繪製，不使用官方卡圖，附官方卡表連結；中文說明一律顯示來源及核實狀態。
+- 點擊階段名稱顯示繁中解釋；另有術語頁，附綜合規則條號。
+- 對局以「種子 + 答案列表」保存在瀏覽器，重新整理後重播到同一局面。
+- 動畫暫時只有簡單的 CSS 過渡；以事件排隊播放的動畫留待之後。
 - 不使用任何官方 UI 素材。
 
 ## 11. 開發原則

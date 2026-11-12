@@ -27,6 +27,7 @@ import type {
   ZoneRef,
 } from './types';
 import { PILE_ZONES, SLOTS } from './types';
+import { getCardLevel, getPower, getSoul } from './stats';
 import { canSee } from './visibility';
 
 export interface VisibleCardView {
@@ -70,6 +71,13 @@ export type DecisionView =
   | { mine: true; decision: Decision }
   | { mine: false; id: number; player: PlayerId; kind: DecisionKind };
 
+/** Current values of a character on the stage (CR-2.6, 2.9, 2.10), with every effect applied. Public. */
+export interface StageStats {
+  power: number;
+  soul: number;
+  level: number;
+}
+
 export interface PlayerView {
   viewer: PlayerId;
   rulesVersion: string;
@@ -81,6 +89,8 @@ export interface PlayerView {
   attack: AttackState | null;
   decision: DecisionView | null;
   result: GameResult | null;
+  /** Current power, soul and level of every card on either stage, by object id. Stage cards are public (CR-3.6.2). */
+  stats: Record<number, StageStats>;
 }
 
 function viewCard(viewer: PlayerId, inst: CardInstance): CardView {
@@ -130,7 +140,21 @@ export function getPlayerView(state: GameState, viewer: PlayerId): PlayerView {
     attack: state.attack ? { ...state.attack } : null,
     decision: getDecisionView(state, viewer),
     result: state.result ? structuredClone(state.result) : null,
+    stats: stageStats(state),
   };
+}
+
+function stageStats(state: GameState): Record<number, StageStats> {
+  const stats: Record<number, StageStats> = {};
+  for (const zones of state.zones) {
+    for (const slot of SLOTS) {
+      for (const id of zones.stage[slot]) {
+        const inst = state.instances[id] as CardInstance;
+        stats[inst.objectId] = { power: getPower(state, id), soul: getSoul(state, id), level: getCardLevel(state, id) };
+      }
+    }
+  }
+  return stats;
 }
 
 export interface CardMovedView {

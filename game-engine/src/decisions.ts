@@ -78,6 +78,8 @@ export interface AbilityOption {
   ability?: number;
   /** The card the ability belongs to, when it is still the same visible object. */
   card?: number;
+  /** The card id of that card, when the deciding player can see the card where it is now. For display only. */
+  cardId?: string;
 }
 
 interface DecisionBase {
@@ -112,9 +114,9 @@ export type Decision =
   | (DecisionBase & { kind: 'CHOOSE_ABILITY'; abilities: AbilityOption[] })
   /**
    * A "you may" question. `ability` is the ability number when it concerns a
-   * card ability. `look` as for SELECT_CARDS: hidden cards this player is looking at.
+   * card ability; `card` / `cardId` name the card as in AbilityOption. `look` as for SELECT_CARDS: hidden cards this player is looking at.
    */
-  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; ability?: number; look?: Record<number, string> })
+  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; cardId?: string; ability?: number; look?: Record<number, string> })
   /**
    * Choose between `min` and `max` of the listed cards. `look` gives the
    * card ids of hidden cards the effect lets this player look at (e.g. the

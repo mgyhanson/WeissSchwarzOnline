@@ -51,10 +51,13 @@ const decks: [string, DefOverride | undefined][] = [
 
 describe.skipIf(GAMES <= 0)(`soak: ${GAMES} random games per deck`, () => {
   for (const [name, deck] of decks) {
-    it(`${name} deck: every game reaches a result with all invariants holding (INV-01 to INV-07)`, () => {
+    it(`${name} deck: every game reaches a result with all invariants holding (INV-01 to INV-07)`, async () => {
       const games: Played[] = [];
       const failures: string[] = [];
       for (let i = 0; i < GAMES; i++) {
+        // Give the test worker a chance to talk to Vitest now and then; a
+        // single block of ~25 s makes its progress messages time out.
+        if (i % 50 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
         const seed = `soak-${name}-${i}`;
         const game = name === 'real' ? playGameWith(realDeckConfig(i % 2 === 1), seed, randomPolicy, 50_000) : playGame(seed, randomPolicy, 50_000, deck);
         const problems = [...game.problems, ...(game.state.result ? resultProblems(game) : [])];

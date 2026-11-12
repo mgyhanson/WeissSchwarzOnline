@@ -18,18 +18,31 @@
 | STEP 5 規則覆蓋檢查及大量隨機對局 | 完成 |
 | STEP 6a 第一批真實卡牌：兩副 Trial Deck（35 張） | 完成 |
 | STEP 6b 補充包卡牌（SAO、2026 年系列等） | **未開始** |
-| STEP 7 起（介面、AI、連線） | 未開始 |
+| STEP 7 對戰介面（單機對練習對手）、卡牌一覽、術語解釋 | 完成 |
+| STEP 8 起（四種難度 AI、連線、卡組編輯器、教學） | 未開始 |
 
-目前共 294 個自動測試通過，另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局用兩副真實卡組）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
+目前共 312 個自動測試通過，另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局用兩副真實卡組）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
 
 卡牌資料庫收錄了 35 張真實卡牌（涼宮ハルヒの憂鬱及五等分の花嫁 一花的 Trial Deck），全部可以自動執行並逐張有測試，見 [card-database/README.md](card-database/README.md)。
 
-但**還不是可以玩的 WS**：沒有介面、AI 及連線；卡池只有兩副 Trial Deck；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
+瀏覽器介面（`web-client/`）可以在電腦及手機上與「練習對手」打完整局。練習對手只按簡單規則行動，不是正式 AI。
+
+仍未完成：四種難度的 AI 及網上對戰；卡池只有兩副 Trial Deck；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
+
+## 試玩
+
+```bash
+npm run dev
+```
+
+然後在瀏覽器打開 http://localhost:5173 。想用同一 Wi-Fi 的手機試玩，改用 `npm run dev:lan`，再在手機打開終端機顯示的 Network 網址。
 
 ## 開發指令
 
 ```bash
 npm run setup      # 安裝依賴（必須用這個，不要直接 npm install）
+npm run dev        # 啟動瀏覽器介面（http://localhost:5173）
+npm run build      # 建立正式版介面（輸出到 web-client/dist.nosync/）
 npm test           # 執行全部測試
 npm run typecheck  # 型別檢查
 npm run check      # 型別檢查 + 全部測試 + 規則登記表覆蓋檢查
@@ -49,6 +62,7 @@ Git 資料存放在 `~/GitRepos/WeissSchwarzOnline.git`（iCloud 之外），專
 - [rules/rule-registry.md](rules/rule-registry.md)：規則登記表（每條規則的官方編號、實作狀態、測試編號）
 - [docs/02-architecture.md](docs/02-architecture.md)：技術架構
 - [docs/03-phase1-plan.md](docs/03-phase1-plan.md)：第一階段卡牌系列、開發步驟、風險及版權、待決定事項
+- [web-client/README.md](web-client/README.md)：瀏覽器介面的結構及測試
 
 ## 規則基準
 

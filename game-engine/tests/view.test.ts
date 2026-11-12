@@ -4,7 +4,11 @@ import {
   type Ctx,
   type PlayerId,
   type PlayerView,
+  getCardLevel,
+  getInstance,
   getPlayerView,
+  getPower,
+  getSoul,
   markerSlot,
   moveCard,
   redactEvent,
@@ -203,6 +207,24 @@ describe('events as seen by a player', () => {
       for (const viewer of [0, 1] as const) {
         expect(JSON.stringify(redactEvent(event, viewer))).not.toContain('instanceId');
       }
+    }
+  });
+});
+
+describe('stage values in the view', () => {
+  it('both players get the current power, soul and level of every stage card, and of nothing else', () => {
+    const ctx = fullPosition();
+    put(ctx, card(1, 3), stageSlot(1, 'BL'));
+    const expected: Record<number, { power: number; soul: number; level: number }> = {};
+    for (const id of [card(0, 8), card(1, 3)]) {
+      expected[getInstance(ctx.state, id).objectId] = {
+        power: getPower(ctx.state, id),
+        soul: getSoul(ctx.state, id),
+        level: getCardLevel(ctx.state, id),
+      };
+    }
+    for (const viewer of [0, 1] as const) {
+      expect(getPlayerView(ctx.state, viewer).stats).toEqual(expected);
     }
   });
 });

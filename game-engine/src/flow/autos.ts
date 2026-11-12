@@ -16,6 +16,7 @@ import { payStock } from '../play';
 import { getInstance } from '../state';
 import type { CardInstance, GameState, PlayerId, SlotId, WaitingAuto } from '../types';
 import { ENCORE_COST, opponentOf } from '../types';
+import { canSee } from '../visibility';
 import { stageSlot } from '../zones';
 import { attackerInstance, defenderInstance } from './attack-state';
 import { ask, popFrame, pushFrame, takeAnswer, topOf } from './core';
@@ -224,13 +225,20 @@ export function describeWaiting(state: GameState, ability: WaitingAuto): Ability
   if (ability.kind === 'ENCORE') {
     const inst = getInstance(state, ability.instanceId);
     const stillThere = inst.objectId === ability.objectId && inst.location.zone === 'waitingRoom';
-    return { id: ability.id, type: 'ENCORE', ...(stillThere ? { card: ability.objectId } : {}) };
+    return { id: ability.id, type: 'ENCORE', ...(stillThere ? { card: ability.objectId } : {}), ...knownCardId(ability.master, inst) };
   }
   if (ability.kind === 'CARD') {
     const inst = getInstance(state, ability.instanceId);
     // The card is named only while it is still the public object that triggered.
     const visible = inst.objectId === ability.objectId && isPublicZone(inst.location.zone);
-    return { id: ability.id, type: 'CARD', ability: ability.ability, ...(ability.granted ? { granted: true } : {}), ...(visible ? { card: ability.objectId } : {}) };
+    return {
+      id: ability.id,
+      type: 'CARD',
+      ability: ability.ability,
+      ...(ability.granted ? { granted: true } : {}),
+      ...(visible ? { card: ability.objectId } : {}),
+      ...knownCardId(ability.master, inst),
+    };
   }
   return { id: ability.id, type: 'SHOT' };
 }
@@ -275,7 +283,7 @@ export function stepAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>): voi
       return;
     }
     frame.asked = true;
-    ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'ENCORE', ...(stillThere ? { card: ability.objectId } : {}) });
+    ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'ENCORE', ...(stillThere ? { card: ability.objectId } : {}), ...knownCardId(master, inst) });
     return;
   }
 
@@ -356,9 +364,23 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
 }
 
 /** The card of a waiting ability for display, while it is still the public object that triggered. */
-function cardRef(state: GameState, waiting: Extract<WaitingAuto, { kind: 'CARD' }>): { card?: number } {
+function cardRef(state: GameState, waiting: Extract<WaitingAuto, { kind: 'CARD' }>): { card?: number; cardId?: string } {
   const inst = getInstance(state, waiting.instanceId);
-  return inst.objectId === waiting.objectId && isPublicZone(inst.location.zone) ? { card: waiting.objectId } : {};
+  return {
+    ...(inst.objectId === waiting.objectId && isPublicZone(inst.location.zone) ? { card: waiting.objectId } : {}),
+    ...knownCardId(waiting.master, inst),
+  };
+}
+
+/**
+ * The card id of the card an ability belongs to, for its master's question,
+ * when the master can see that card where it is now. A client needs it to
+ * show which ability is meant after the card has moved (it then has a new
+ * object id). Only the deciding player receives a decision, so nothing hidden
+ * from them is revealed.
+ */
+function knownCardId(master: PlayerId, inst: CardInstance): { cardId?: string } {
+  return canSee(master, inst) ? { cardId: inst.cardId } : {};
 }
 
 /** Zones where the card of a waiting ability can be named without revealing anything (CR-3). */

@@ -1,0 +1,22 @@
+{
+  "name": "@wso/web-client",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Browser client: battle interface, card viewer and glossary. Talks to a game host and only ever sees player views.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "vite": "^7.0.0"
+  }
+}

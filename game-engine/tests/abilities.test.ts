@@ -361,8 +361,8 @@ describe('T-ABL-010: automatic abilities of cards (CR-8.7)', () => {
     }).state;
     const decision = pending(start, 'CHOOSE_ABILITY');
     expect(decision.abilities).toEqual([
-      { id: decision.abilities[0]!.id, type: 'CARD', ability: 0, card: oid(start, card(0, 0)) },
-      { id: decision.abilities[1]!.id, type: 'CARD', ability: 0, card: oid(start, card(0, 1)) },
+      { id: decision.abilities[0]!.id, type: 'CARD', ability: 0, card: oid(start, card(0, 0)), cardId: testCardId(0, 0) },
+      { id: decision.abilities[1]!.id, type: 'CARD', ability: 0, card: oid(start, card(0, 1)), cardId: testCardId(0, 1) },
     ]);
     const { state, events } = answer(start, { kind: 'CHOOSE_ABILITY', id: decision.abilities[1]!.id });
     expect(events.flatMap((e) => (e.type === 'ABILITY_PLAYED' ? [e.cardId] : []))).toEqual([testCardId(0, 1), testCardId(0, 0)]);
