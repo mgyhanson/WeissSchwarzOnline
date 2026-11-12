@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { Choice, PileZone, PlayerId, SlotId } from '@wso/game-engine';
+import { AI_LEVEL_ZH } from '@wso/ai';
 import type { GameHost } from '../host/local';
 import { term } from '../model/glossary';
 import { decisionUi, waitingText } from '../model/options';
@@ -81,6 +82,7 @@ export function Game({ host, onLeave, onNewGame }: { host: GameHost; onLeave: ()
           )}
         </div>
         <div className="bar-buttons">
+          <span className="chip opponent-level">對手：{AI_LEVEL_ZH[host.setup.level ?? 'NORMAL']} AI</span>
           <button type="button" className="button small mobile-only" onClick={() => setSheet({ type: 'log' })}>
             紀錄
           </button>

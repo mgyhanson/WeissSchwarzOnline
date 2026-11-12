@@ -1108,3 +1108,44 @@ select,
 .term dd {
   margin: 2px 0 0;
 }
+
+/* ---------- Difficulty choice ---------- */
+
+.level-choice {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.level-choice legend {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0 4px;
+}
+
+.level-option {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.level-option.current {
+  background: var(--panel-2);
+  outline: 1px solid var(--accent);
+}
+
+.level-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.opponent-level {
+  cursor: default;
+}

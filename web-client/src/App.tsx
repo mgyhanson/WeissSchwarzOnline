@@ -50,7 +50,7 @@ export function App() {
         {screen === 'home' && (
           <Home
             hasSaved={hasSaved}
-            onStart={(decks) => start({ seed: randomSeed(), decks })}
+            onStart={(decks, level) => start({ seed: randomSeed(), decks, level })}
             onContinue={() => {
               if (host) return setScreen('game');
               const saved = loadSaved(storage());
@@ -58,7 +58,7 @@ export function App() {
             }}
           />
         )}
-        {screen === 'game' && host && <Game host={host} onLeave={() => setScreen('home')} onNewGame={() => start({ seed: randomSeed(), decks: host.setup.decks })} />}
+        {screen === 'game' && host && <Game host={host} onLeave={() => setScreen('home')} onNewGame={() => start({ seed: randomSeed(), decks: host.setup.decks, level: host.setup.level ?? 'NORMAL' })} />}
         {screen === 'cards' && <CardList />}
         {screen === 'glossary' && <Glossary />}
       </main>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AI_LEVELS, AI_LEVEL_ZH, type AiLevel } from '@wso/ai';
 import { TEST_DECKS } from '@wso/card-database';
 import { allCardIds, cardInfo } from '../model/cards';
 import { GLOSSARY, type Term } from '../model/glossary';
@@ -6,24 +7,30 @@ import { COLOR_ZH, KIND_ZH } from '../model/text';
 import { CardFace } from './CardFace';
 import { CardDetail, Modal } from './Sheets';
 
+const LEVEL_TEXT: Record<AiLevel, string> = {
+  BEGINNER: '能出就出、能攻就攻，隨機選目標。',
+  NORMAL: '比較 Power 決定攻擊方式，安全時才放 Clock。',
+  ADVANCED: '再考慮 Climax Combo、Cancel 機率、保留 Stock，對手接近落敗時全力進攻。',
+  EXPERT: '在多個按公開資訊推測的局面中模擬每個選項，選平均結果最好的。每步思考通常不到 0.3 秒。',
+};
+
 export function Home({
   hasSaved,
   onStart,
   onContinue,
 }: {
   hasSaved: boolean;
-  onStart: (decks: [string, string]) => void;
+  onStart: (decks: [string, string], level: AiLevel) => void;
   onContinue: () => void;
 }) {
   const [mine, setMine] = useState(TEST_DECKS[0]!.id);
   const [theirs, setTheirs] = useState(TEST_DECKS[1]!.id);
+  const [level, setLevel] = useState<AiLevel>('NORMAL');
   return (
     <div className="home">
       <section className="panel">
-        <h2>單機練習對局</h2>
-        <p>
-          與「練習對手」對戰。練習對手只按簡單規則行動，用來試玩介面及規則；正式的四種難度 AI 會在下一步（STEP 8）加入。練習對手只能看到它自己座位可以看到的資訊。
-        </p>
+        <h2>單機對戰電腦</h2>
+        <p>電腦對手不會作弊：它只看到自己座位可以看到的資訊，和真人玩家一樣。</p>
         <div className="form-row">
           <label>
             你的卡組
@@ -46,8 +53,18 @@ export function Home({
             </select>
           </label>
         </div>
+        <fieldset className="level-choice">
+          <legend>電腦難度</legend>
+          {AI_LEVELS.map((l) => (
+            <label key={l} className={`level-option ${level === l ? 'current' : ''}`}>
+              <input type="radio" name="level" value={l} checked={level === l} onChange={() => setLevel(l)} />
+              <span className="level-name">{AI_LEVEL_ZH[l]}</span>
+              <span className="muted">{LEVEL_TEXT[l]}</span>
+            </label>
+          ))}
+        </fieldset>
         <div className="decision-buttons">
-          <button type="button" className="button primary" onClick={() => onStart([mine, theirs])}>
+          <button type="button" className="button primary" onClick={() => onStart([mine, theirs], level)}>
             開始新對局
           </button>
           {hasSaved && (

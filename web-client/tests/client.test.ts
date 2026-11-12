@@ -32,7 +32,7 @@ describe('playing through the interface', () => {
     }
   });
 
-  it('the practice opponent plays complete games against itself', () => {
+  it('computer players play complete games against each other', () => {
     for (let i = 0; i < 8; i++) {
       const game = playThroughUi(PAIRINGS[i % 4]!, `bot-${i}`, null);
       expect(game.problems, `game ${i}`).toEqual([]);
@@ -165,6 +165,15 @@ describe('local host', () => {
     expect(host.getSnapshot().error).toBeNull();
     host.dispose();
   });
+
+  it('an Expert opponent plays a whole game through the host', () => {
+    const host = new LocalHost({ seed: 'host-expert', decks: [ICHIKA, HARUHI], level: 'EXPERT' }, { botDelay: 1 });
+    host.setAutoPlay(true);
+    for (let i = 0; i < 20000 && !host.getSnapshot().view.result; i++) vi.advanceTimersByTime(5);
+    expect(host.getSnapshot().view.result).not.toBeNull();
+    expect(host.getSnapshot().error).toBeNull();
+    host.dispose();
+  }, 120_000);
 
   it('ignores answers when it is not the human seat’s decision, and accepts a resignation', () => {
     const host = new LocalHost({ seed: 'host-resign', decks: [HARUHI, ICHIKA] }, { botDelay: 10 });

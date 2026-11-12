@@ -1,8 +1,10 @@
 /**
- * A game host that runs in the browser: one human seat against the practice
- * opponent. It holds the game state and hands the interface only the
- * player view and redacted events of the human seat, exactly as the server
- * of STEP 9 will. The opponent likewise decides from its own view only.
+ * A game host that runs in the browser: one human seat against a computer
+ * player of the chosen level. It holds the game state and hands the
+ * interface only the player view and redacted events of the human seat,
+ * exactly as the server of STEP 9 will. The computer player likewise gets
+ * its own view only; an Expert also gets worlds sampled from what it is
+ * allowed to know (ai/src/sampler.ts).
  *
  * The game is saved as its seed plus the list of answers, so a page reload
  * replays it to the same position (the engine is deterministic).
@@ -20,14 +22,19 @@ import {
   resign,
   submitChoice,
 } from '@wso/game-engine';
-import { TEST_DECKS, deckList, defsFor } from '@wso/card-database';
-import { type PracticeBot, createPracticeBot } from '../bot/practice';
+import { TEST_DECKS, deckList, defsFor, getCard } from '@wso/card-database';
+import { type Ai, type AiLevel, createAi, createWorldSampler } from '@wso/ai';
 
 export interface GameSetup {
   seed: string;
   /** Test deck ids for seat 0 and seat 1. */
   decks: [string, string];
+  /** Level of the computer opponent. Saves from before STEP 8 have none and get NORMAL. */
+  level?: AiLevel;
 }
+
+/** Level used for 自動代打 (the computer answering for the human seat). */
+const AUTO_PLAY_LEVEL: AiLevel = 'ADVANCED';
 
 type Entry = { player: PlayerId; choice: Choice } | { player: PlayerId; resign: true };
 
@@ -90,7 +97,8 @@ export class LocalHost implements GameHost {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private autoPlay = false;
   private error: string | null = null;
-  private readonly bots: [PracticeBot, PracticeBot] = [createPracticeBot(), createPracticeBot()];
+  private readonly ais: [Ai, Ai];
+  private readonly lists: [string[], string[]];
   private readonly botDelay: number;
   private readonly storage: LocalHostOptions['storage'];
 
@@ -101,6 +109,10 @@ export class LocalHost implements GameHost {
     this.botDelay = options.botDelay ?? 600;
     this.storage = options.storage ?? null;
     const decks: [string[], string[]] = [deck(setup.decks[0]), deck(setup.decks[1])];
+    this.lists = decks;
+    const card = (id: string) => getCard(id).def;
+    const levels: [AiLevel, AiLevel] = [AUTO_PLAY_LEVEL, setup.level ?? 'NORMAL'];
+    this.ais = [0, 1].map((p) => createAi({ level: levels[p]!, card, deck: decks[p]!, seed: `${setup.seed}-ai-${p}` })) as [Ai, Ai];
     const created = createGame({ defs: defsFor(new Set([...decks[0], ...decks[1]])), decks }, setup.seed);
     this.state = created.state;
     this.record(created.events);
@@ -183,10 +195,12 @@ export class LocalHost implements GameHost {
       this.timer = null;
       if (!this.botTurn()) return;
       const player = this.state.pending!.player;
-      // The opponent sees what its seat is allowed to see, nothing more.
+      // The computer player sees what its seat is allowed to see, nothing more.
       const view = getPlayerView(this.state, player);
       if (!view.decision?.mine) return;
-      this.apply({ player, choice: this.bots[player].choose(view, view.decision.decision) });
+      const ai = this.ais[player];
+      const sample = ai.level === 'EXPERT' ? createWorldSampler(this.state, player, this.lists[player]) : undefined;
+      this.apply({ player, choice: ai.choose(view, view.decision.decision, sample) });
       this.changed();
     }, delay);
   }

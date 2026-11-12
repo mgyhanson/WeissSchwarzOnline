@@ -1,7 +1,7 @@
 /**
  * Plays whole games in which one seat answers only through what the
  * interface offers (decisionUi), the way a person clicking would, and the
- * other seat is the practice opponent. Shared by the client tests.
+ * other seat is the Normal computer player. Shared by the client tests.
  */
 
 import {
@@ -19,8 +19,8 @@ import {
   submitChoice,
   validateChoice,
 } from '@wso/game-engine';
-import { TEST_DECKS, deckList, defsFor } from '@wso/card-database';
-import { createPracticeBot } from '../src/bot/practice';
+import { TEST_DECKS, deckList, defsFor, getCard } from '@wso/card-database';
+import { createAi } from '@wso/ai';
 import { type DecisionUi, decisionUi } from '../src/model/options';
 
 /** Every choice the interface can produce for a decision. Picks: the given selection sizes. */
@@ -144,8 +144,8 @@ export interface UiGame {
 
 /**
  * Plays a game: seat `uiSeat` picks at random among the interface's offers,
- * the other seat is the practice opponent. With `uiSeat` null both seats are
- * practice opponents (the log is then seat 0's).
+ * the other seat is the Normal computer player. With `uiSeat` null both
+ * seats are computer players (the log is then seat 0's).
  */
 export function playThroughUi(decks: [string, string], seed: string, uiSeat: PlayerId | null = 0, maxDecisions = 6000): UiGame {
   const logSeat: PlayerId = uiSeat ?? 0;
@@ -154,7 +154,7 @@ export function playThroughUi(decks: [string, string], seed: string, uiSeat: Pla
   let state = created.state;
   const events: GameEventView[] = created.events.map((e) => redactEvent(e, logSeat));
   const rng = seedRng(`ui-${seed}`);
-  const bots = [createPracticeBot(), createPracticeBot()] as const;
+  const bots = ([0, 1] as const).map((p) => createAi({ level: 'NORMAL', card: (id) => getCard(id).def, deck: lists[p], seed: `ui-${seed}-${p}` }));
   const problems: string[] = [];
   const kinds = new Set<Decision['kind']>();
   let decisions = 0;
@@ -173,7 +173,7 @@ export function playThroughUi(decks: [string, string], seed: string, uiSeat: Pla
       const passes = offers.filter((c) => c.kind === 'MAIN' && c.action.type === 'PASS');
       choice = passes.length > 0 && nextInt(rng, 3) === 0 ? passes[0]! : offers[nextInt(rng, offers.length)]!;
     } else {
-      choice = bots[decision.player].choose(view, view.decision.decision);
+      choice = bots[decision.player]!.choose(view, view.decision.decision);
     }
     const result = submitChoice(state, { player: decision.player, decisionId: decision.id, choice });
     if (!result.ok) {

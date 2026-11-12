@@ -1,0 +1,9 @@
+{
+  "name": "@wso/ai",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Computer players. They decide from their own player view only; the Expert level also uses game states sampled from what it is allowed to know.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}
