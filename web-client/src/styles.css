@@ -2124,3 +2124,432 @@ input[type='text'] {
 .replay-summary {
   margin-top: var(--space-3);
 }
+
+/* ---------- Deck builder ---------- */
+
+.deck-list-screen,
+.deck-editor {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.deck-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.deck-item {
+  background: var(--panel-2);
+  border-radius: var(--radius-m);
+  padding: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.deck-item-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.deck-item-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.deck-status {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.deck-status.ok,
+.chip.ok {
+  background: color-mix(in srgb, var(--good) 22%, var(--panel));
+  color: var(--good);
+}
+
+.deck-status.warn {
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  color: var(--accent);
+}
+
+.deck-status.bad,
+.chip.bad {
+  background: color-mix(in srgb, var(--bad) 22%, var(--panel));
+  color: var(--bad);
+}
+
+.deck-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.deck-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 220px;
+}
+
+.deck-stats {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.deck-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.deck-problems {
+  margin: var(--space-2) 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.deck-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.deck-pane-deck {
+  position: sticky;
+  top: var(--space-2);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+.deck-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.deck-card {
+  --u: 124px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.deck-card.in-deck .card {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.deck-card-count {
+  position: absolute;
+  top: -6px;
+  right: 2px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 8px;
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
+}
+
+.deck-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.deck-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  background: var(--panel-2);
+  border-radius: var(--radius-s);
+  padding: 4px var(--space-2);
+  border-left: 3px solid transparent;
+}
+
+.deck-row.problem {
+  border-left-color: var(--bad);
+}
+
+.deck-row-card {
+  --u: 44px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.deck-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.deck-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stepper input {
+  width: 3.2em;
+  text-align: center;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  padding: 6px 2px;
+  font: inherit;
+}
+
+.stepper .button {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.import-text {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  padding: var(--space-2);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.85rem;
+  margin: var(--space-2) 0;
+}
+
+.deck-tabs {
+  display: none;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+@media (max-width: 979px) {
+  .deck-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .deck-pane-deck {
+    position: static;
+    max-height: none;
+  }
+  .pane-hidden {
+    display: none;
+  }
+  .deck-tabs {
+    display: flex;
+  }
+  .deck-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+  .deck-card {
+    --u: 100px;
+  }
+}
+
+/* ---------- Narration, step-by-step controls and the battle log ---------- */
+
+.narration-title {
+  color: var(--accent);
+}
+
+.narration-line {
+  white-space: normal;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.narration-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-2);
+}
+
+.phase-guide,
+.event-log {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+  white-space: normal;
+}
+
+.phase-guide summary,
+.event-log summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.battle-log {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.battle-entry {
+  border-left: 3px solid var(--line);
+  background: var(--panel-2);
+  border-radius: var(--radius-s);
+}
+
+.battle-entry.mine {
+  border-left-color: var(--mine);
+}
+
+.battle-entry.theirs {
+  border-left-color: var(--theirs);
+}
+
+.battle-entry-head {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 6px var(--space-2);
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.battle-entry-title {
+  font-weight: 600;
+  white-space: normal;
+}
+
+.battle-entry-meta {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.battle-entry-body {
+  padding: 0 var(--space-2) var(--space-2);
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.battle-entry-cards {
+  --u: 52px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* ---------- Complete card images (player-provided, local only) ---------- */
+
+/* A whole-card picture replaces the drawn card face: shown uncropped, in its own proportions. */
+.card:has(.c-img.is-full) {
+  border-width: 0;
+  background: #000;
+}
+
+.card:has(.c-img.is-full) .c-art {
+  inset: 0;
+}
+
+.c-img.is-full {
+  object-fit: contain;
+}
+
+.card:has(.c-img.is-full) .c-band,
+.card:has(.c-img.is-full) .c-kind-badge,
+.card:has(.c-img.is-full) .c-icons,
+.card:has(.c-img.is-full) .card-art {
+  display: none;
+}
+
+/* The printed numbers are on the picture; the drawn ones appear only when an effect changed them. */
+.card:has(.c-img.is-full) .c-cost-badge:not(:has(.up, .down)),
+.card:has(.c-img.is-full) .c-stats:not(:has(.up, .down)) {
+  display: none;
+}
+
+.card:has(.c-img.is-full) .c-stats {
+  background: #000c;
+  border-radius: 0;
+}
+
+/* The detail view enlarges a complete card image so its text can be read. */
+.card-large:has(.c-img.is-full) {
+  --card-w: min(320px, 78vw);
+}
+
+/* A landscape (climax) card picture: turned a quarter to fill the upright card, never cropped. */
+.c-img.is-full.is-landscape {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 140%;
+  height: 71.43%;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+/* In the detail view it is shown the way it reads: landscape. */
+.card-large:has(.c-img.is-landscape) {
+  --card-w: min(240px, 56vw);
+  width: calc(var(--card-w) * 1.4);
+  height: var(--card-w);
+}
+
+.card-large .c-img.is-full.is-landscape {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+
+/* Seven destinations: on a narrow screen the navigation stays on one line and scrolls sideways. */
+.app-header nav {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-button {
+  white-space: nowrap;
+  flex: none;
+  min-height: 36px;
+}

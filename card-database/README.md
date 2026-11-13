@@ -26,7 +26,16 @@ card-database/
 - **支援狀態**：`verified`（已對照官方原文、エラッタ及 Q&A，並有通過的測試）、`pending`（只限測試模式）、`unsupported`（未確認 — 暫不支援自動執行，不能用於對戰）。測試會檢查每張 `verified` 的卡都有測試，以及測試卡組只用 `verified` 的卡。
 - **卡圖**：不下載、不保存任何官方卡圖。`official.json` 只記錄官方圖片的路徑。
 
-## 目前收錄
+## 2026-11-14 更新：完整補充包及自動紀錄
+
+資料庫現有 609 張卡：下表的精選卡，加上由 `npm run cards:import` 匯入的五個完整補充包（BDY/W135、GUP/W141、STS/W140、ANM/W138、NIK/S135 的全部基本卡）。沒有人手紀錄的卡會自動得到紀錄：
+
+- 卡的每一行文字都符合已知句式（`src/patterns.ts`，逐張在引擎測試）→ `verified`，`origin: 'PATTERN'`；
+- 否則 → `unsupported`，`origin: 'NONE'`，不能用於對戰。
+
+賽制、Title 區分及限制表在 `src/formats.ts`（卡組驗證引擎）。最新數字及說明見 `reports/CARD_DATABASE_REPORT.md`；下面的表格是完整匯入之前的精選卡紀錄（GUP 的 19 張人手紀錄仍然有效）。
+
+## 目前收錄（精選卡）
 
 | 系列 | 卡數 | 狀態 | エラッタ | Neo-Standard 限制 |
 |---|---|---|---|---|

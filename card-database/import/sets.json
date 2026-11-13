@@ -1,0 +1,11 @@
+{
+  "note": "The five newest Japanese booster packs released on or before 2026-11-13, by release date (https://ws-tcg.com/products/, checked 2026-11-13). Expansion numbers are those of the official card list (ws-tcg.com/cardlist).",
+  "checkedOn": "2026-11-13",
+  "sets": [
+    { "folder": "BDY_W135", "code": "BDY/W135", "expansion": 571, "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]", "released": "2026-11-13", "productUrl": "https://ws-tcg.com/products/bdy_bp/" },
+    { "folder": "GUP_W141", "code": "GUP/W141", "expansion": 568, "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）", "released": "2026-10-30", "productUrl": "https://ws-tcg.com/products/gup_bp/" },
+    { "folder": "STS_W140", "code": "STS/W140", "expansion": 566, "product": "ブースターパック ステラソラ", "released": "2026-10-16", "productUrl": "https://ws-tcg.com/products/sts_bp/" },
+    { "folder": "ANM_W138", "code": "ANM/W138", "expansion": 565, "product": "ブースターパック anemoi", "released": "2026-10-02", "productUrl": "https://ws-tcg.com/products/anm_bp/" },
+    { "folder": "NIK_S135", "code": "NIK/S135", "expansion": 564, "product": "ブースターパック 勝利の女神：NIKKE Vol.2", "released": "2026-09-19", "productUrl": "https://ws-tcg.com/products/nik_bp2/" }
+  ]
+}

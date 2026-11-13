@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { PlayerId } from '@wso/game-engine';
 import type { Replay } from '@wso/server/shared';
 import { Game } from './components/Game';
 import { OnlineScreen } from './components/Online';
 import { ReplayScreen } from './components/ReplayScreen';
+import { DeckBuilder } from './components/DeckBuilder';
 import { CardList, Glossary, Home } from './components/Screens';
 import { type GameSetup, LocalHost, type SavedGame, loadSaved, randomSeed } from './host/local';
 import { OnlineClient, loadOnlineSession } from './host/remote';
 import { ReplayHost } from './host/replay';
+import { defaultDeckId, loadDecks, playableDecks } from './model/decks';
 
-type Screen = 'home' | 'game' | 'online' | 'online-game' | 'replay' | 'cards' | 'glossary';
+type Screen = 'home' | 'game' | 'online' | 'online-game' | 'replay' | 'decks' | 'cards' | 'glossary';
 
 function storage(): Storage | null {
   try {
@@ -37,6 +39,10 @@ export function App() {
   const [hasSaved, setHasSaved] = useState(() => loadSaved(storage()) !== null);
   const [replayHost, setReplayHost] = useState<ReplayHost | null>(null);
   const [replayBack, setReplayBack] = useState<Screen>('replay');
+  // The decks a game can use; re-read when the deck builder changes them.
+  const [deckVersion, setDeckVersion] = useState(0);
+  const deckStore = useMemo(() => loadDecks(storage()), [deckVersion]);
+  const decks = useMemo(() => playableDecks(deckStore), [deckStore]);
 
   const onlineSnap = useSyncExternalStore(online.subscribe, online.getSnapshot);
   const onlineGame = onlineSnap.game;
@@ -105,6 +111,7 @@ export function App() {
           {nav('home', '主頁')}
           {host && nav('game', '對局')}
           {nav(onlineGame && lobby?.status === 'PLAYING' ? 'online-game' : 'online', '網上對戰', screen === 'online' || screen === 'online-game')}
+          {nav('decks', '卡組')}
           {nav('replay', '重播')}
           {nav('cards', '卡牌')}
           {nav('glossary', '術語')}
@@ -114,7 +121,13 @@ export function App() {
         {screen === 'home' && (
           <Home
             hasSaved={hasSaved}
-            onStart={(decks, level) => start({ seed: randomSeed(), decks, level })}
+            decks={decks}
+            defaultDeck={defaultDeckId(deckStore, decks)}
+            onDecks={() => setScreen('decks')}
+            onStart={(ids, level) => {
+              const chosen = ids.map((id) => decks.find((d) => d.id === id)!) as [(typeof decks)[number], (typeof decks)[number]];
+              start({ seed: randomSeed(), decks: ids, level, lists: [chosen[0].cards, chosen[1].cards], deckNames: [chosen[0].name, chosen[1].name] });
+            }}
             onContinue={() => {
               if (host) return setScreen('game');
               const saved = loadSaved(storage());
@@ -128,11 +141,11 @@ export function App() {
             key={host.setup.seed}
             host={host}
             onLeave={() => setScreen('home')}
-            onNewGame={() => start({ seed: randomSeed(), decks: host.setup.decks, level: host.setup.level ?? 'NORMAL' })}
+            onNewGame={() => start({ ...host.setup, seed: randomSeed(), level: host.setup.level ?? 'NORMAL' })}
             onWatchReplay={(replay) => watch(replay, 0, 'game')}
           />
         )}
-        {screen === 'online' && <OnlineScreen client={online} initialCode={invite} onOpenGame={() => setScreen('online-game')} />}
+        {screen === 'online' && <OnlineScreen client={online} initialCode={invite} onOpenGame={() => setScreen('online-game')} decks={decks} defaultDeck={defaultDeckId(deckStore, decks)} />}
         {screen === 'online-game' && onlineGame && (
           <Game
             key={`online-${onlineGame.gameNo}`}
@@ -161,6 +174,7 @@ export function App() {
           ) : (
             <ReplayScreen onOpen={(replay, seat) => watch(replay, seat, 'replay')} />
           ))}
+        {screen === 'decks' && <DeckBuilder onDecksChanged={() => setDeckVersion((v) => v + 1)} />}
         {screen === 'cards' && <CardList />}
         {screen === 'glossary' && <Glossary />}
       </main>

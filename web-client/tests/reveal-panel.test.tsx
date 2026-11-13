@@ -7,7 +7,7 @@ import type { Presentation } from '../src/presentation/queue';
 
 const list = deckList(TEST_DECKS[0]!);
 const view = getPlayerView(createGame({ defs: defsFor(new Set(list)), decks: [list, list] }, 'reveal-panel').state, 0);
-const base: Presentation = { view, step: null, shown: 0, phase: 'reveal', busy: true, speed: 'NORMAL', history: [], shownSeq: 0 };
+const base: Presentation = { view, step: null, shown: 0, phase: 'reveal', busy: true, speed: 'NORMAL', history: [], caption: null, log: [], paused: false, stepMode: false, awaitingNext: false, phaseNow: null, shownSeq: 0 };
 
 describe('reveal panel', () => {
   it('a trigger check of a climax with the same icon twice renders both lines without React key warnings', () => {

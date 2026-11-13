@@ -9,7 +9,7 @@
  * terms.
  */
 
-import type { AttackType, CardMovedView, GameEventView, MoveReason, Orientation, Phase, PlayerId, SlotId, TriggerIcon, ZoneRef } from '@wso/game-engine';
+import type { AttackStepName, AttackType, CardMovedView, GameEventView, MoveReason, Orientation, Phase, PlayerId, SlotId, TriggerIcon, ZoneRef } from '@wso/game-engine';
 
 export type RevealKind = 'PRIVATE_DRAW' | 'TRIGGER_REVEAL' | 'DAMAGE_REVEAL' | 'PUBLIC_REVEAL';
 
@@ -51,6 +51,8 @@ export type Step = Base &
     | { kind: 'REFRESH'; player: PlayerId; cards: number; penalty: StepCard | null }
     | { kind: 'TURN'; player: PlayerId; turn: number }
     | { kind: 'PHASE'; player: PlayerId; phase: Phase }
+    /** A step of the attack phase began (declaration, trigger, counter, damage, battle, encore). */
+    | { kind: 'STEP'; player: PlayerId; step: AttackStepName }
     | { kind: 'END' }
   );
 
@@ -185,6 +187,9 @@ export function toSteps(events: readonly GameEventView[], seat: PlayerId): Step[
         break;
       case 'PHASE_STARTED':
         steps.push({ seq: event.seq, kind: 'PHASE', player: event.player, phase: event.phase });
+        break;
+      case 'STEP_STARTED':
+        steps.push({ seq: event.seq, kind: 'STEP', player: event.player, step: event.step });
         break;
       case 'GAME_ENDED':
         steps.push({ seq: event.seq, kind: 'END' });

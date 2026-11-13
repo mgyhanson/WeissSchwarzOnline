@@ -85,9 +85,11 @@ export function CardDetail({ cardId, stats }: { cardId: string; stats?: StageSta
         中文說明 <span className="badge-unofficial">{info.explanationLabel}</span>
       </h3>
       <div className="explanation">
-        {info.explanation.split('\n').map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
+        {info.explanation.trim() === '' ? (
+          <p className="muted">這張卡的效果尚未由引擎支援，暫時未有中文說明。請參考上面的官方原文。</p>
+        ) : (
+          info.explanation.split('\n').map((line, i) => <p key={i}>{line}</p>)
+        )}
       </div>
       {info.support !== 'verified' && <p className="warning">未確認 — 暫不支援自動執行</p>}
       {info.faqs.length > 0 && (

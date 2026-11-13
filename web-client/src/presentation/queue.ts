@@ -10,13 +10,23 @@
  * the host keeps computer players waiting.
  */
 
-import type { PlayerId, PlayerView } from '@wso/game-engine';
+import type { Phase, PlayerId, PlayerView } from '@wso/game-engine';
 import type { HostUpdate } from '../host/types';
+import { type Caption, explainStep } from './explain';
 import { type Step, type StepCard, toSteps } from './steps';
 
-export type Speed = 'NORMAL' | 'FAST' | 'OFF';
+export type Speed = 'SLOW' | 'NORMAL' | 'FAST' | 'OFF';
 
-export const SPEED_ZH: Record<Speed, string> = { NORMAL: '一般', FAST: '快速', OFF: '關閉' };
+export const SPEEDS: readonly Speed[] = ['SLOW', 'NORMAL', 'FAST', 'OFF'];
+export const SPEED_ZH: Record<Speed, string> = { SLOW: '慢速', NORMAL: '正常', FAST: '快速', OFF: '關閉' };
+
+/** One line of the battle log: a step that was shown, with its explanation. */
+export interface BattleLogEntry extends Caption {
+  seq: number;
+  /** Clock time it was shown, HH:MM:SS. */
+  time: string;
+  turn: number | null;
+}
 
 /** A reveal kept for the log. */
 export interface RevealRecord {
@@ -42,6 +52,21 @@ export interface Presentation {
   history: RevealRecord[];
   /** Events up to this sequence number may be shown in the log (later ones would spoil what is still playing). */
   shownSeq: number;
+  /** The explanation of the step on screen (kept after it until the next one). */
+  caption: Caption | null;
+  /** Explained steps so far, newest last. */
+  log: BattleLogEntry[];
+  /** Playing is held until resume(). */
+  paused: boolean;
+  /** Step-by-step mode: after every step the queue waits for next(). */
+  stepMode: boolean;
+  /** In step-by-step mode: the step is done and next() is awaited. */
+  awaitingNext: boolean;
+  /**
+   * The phase and turn player being narrated, while the board still shows the
+   * state from before the update: the phase indicator follows the narration.
+   */
+  phaseNow: { player: PlayerId; phase: Phase } | null;
 }
 
 /** Waits `ms`, or less if aborted. Replaced in tests. */
@@ -64,42 +89,54 @@ export const realWait: Wait = (ms, signal) =>
     );
   });
 
-/** Base durations at NORMAL speed, in milliseconds. */
+/**
+ * Base durations at NORMAL speed, in milliseconds. Different things take
+ * different times: a card move 600 to 900, a card turned over 500 to 800
+ * each, an attack about 1000, an ability 1200, a phase change 650.
+ */
 export function durations(step: Step, seat: PlayerId): { reveal: number; perCard: number; result: number } {
   switch (step.kind) {
     case 'DRAW':
-      return step.player === seat ? { reveal: 650, perCard: 120, result: 0 } : { reveal: 300, perCard: 0, result: 0 };
+      return step.player === seat ? { reveal: 800, perCard: 300, result: 0 } : { reveal: 700, perCard: 0, result: 0 };
     case 'TRIGGER':
-      return { reveal: 900, perCard: 0, result: 700 };
+      return { reveal: 1100, perCard: 0, result: 1000 };
     case 'DAMAGE':
-      return { reveal: 250, perCard: 550, result: 900 };
+      return { reveal: 500, perCard: 700, result: 1200 };
     case 'REVEAL':
-      return { reveal: 900, perCard: 250, result: 300 };
+      return { reveal: 1000, perCard: 400, result: 500 };
     case 'MOVE':
-      return { reveal: 280, perCard: 0, result: 0 };
+      return { reveal: 700, perCard: 0, result: 0 };
     case 'ORIENT':
-      return { reveal: 220, perCard: 0, result: 0 };
+      return step.to === 'REVERSE' ? { reveal: 900, perCard: 0, result: 0 } : { reveal: 500, perCard: 0, result: 0 };
     case 'ATTACK':
-      return { reveal: 700, perCard: 0, result: 0 };
+      return { reveal: 1100, perCard: 0, result: 0 };
     case 'PLAY':
-      return step.player === seat ? { reveal: 250, perCard: 0, result: 0 } : { reveal: 900, perCard: 0, result: 0 };
+      return step.player === seat ? { reveal: 700, perCard: 0, result: 0 } : { reveal: 1100, perCard: 0, result: 0 };
     case 'ABILITY':
-      return { reveal: 800, perCard: 0, result: 0 };
+      return { reveal: 1300, perCard: 0, result: 0 };
     case 'LEVEL_UP':
-      return { reveal: 1100, perCard: 0, result: 0 };
+      return { reveal: 1400, perCard: 0, result: 0 };
     case 'REFRESH':
-      return { reveal: 1100, perCard: 0, result: 0 };
+      return { reveal: 1400, perCard: 0, result: 0 };
     case 'TURN':
-      return { reveal: 700, perCard: 0, result: 0 };
+      return { reveal: 900, perCard: 0, result: 0 };
     case 'PHASE':
-      return { reveal: 200, perCard: 0, result: 0 };
+      return { reveal: 700, perCard: 0, result: 0 };
+    case 'STEP':
+      return { reveal: 600, perCard: 0, result: 0 };
     case 'END':
       return { reveal: 0, perCard: 0, result: 0 };
   }
 }
 
-const FACTOR: Record<Speed, number> = { NORMAL: 1, FAST: 0.35, OFF: 0 };
+export const FACTOR: Record<Speed, number> = { SLOW: 1.7, NORMAL: 1, FAST: 0.35, OFF: 0 };
 const HISTORY = 60;
+const LOG = 400;
+
+function clock(): string {
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+}
 
 function recordOf(step: Step, seat: PlayerId): RevealRecord | null {
   switch (step.kind) {
@@ -134,6 +171,10 @@ export class PresentationQueue {
   private latestSeq: number;
   private running = false;
   private abort = new AbortController();
+  /** Resolves the wait of pause or step-by-step mode. */
+  private release: (() => void) | null = null;
+  /** Updates skipped while another was playing; logged once that one has been logged. */
+  private skipped: HostUpdate[] = [];
 
   constructor(
     private readonly seat: PlayerId,
@@ -143,7 +184,22 @@ export class PresentationQueue {
     this.lastQueued = start.updateId;
     this.latest = start.view;
     this.latestSeq = start.seq;
-    this.state = { view: start.view, step: null, shown: 0, phase: 'reveal', busy: false, speed: options.speed ?? 'NORMAL', history: [], shownSeq: start.seq };
+    this.state = {
+      view: start.view,
+      step: null,
+      shown: 0,
+      phase: 'reveal',
+      busy: false,
+      speed: options.speed ?? 'NORMAL',
+      history: [],
+      shownSeq: start.seq,
+      caption: null,
+      log: [],
+      paused: false,
+      stepMode: false,
+      awaitingNext: false,
+      phaseNow: null,
+    };
   }
 
   getSnapshot = (): Presentation => this.state;
@@ -176,12 +232,59 @@ export class PresentationQueue {
     if (speed === 'OFF') this.skip();
   }
 
-  /** Stops the current animation and shows the latest view. */
+  /** Stops the current animation and shows the latest view. Everything skipped still goes into the log. */
   skip(): void {
     this.abort.abort();
-    for (const update of this.pending) this.addHistory(toSteps(update.events, this.seat));
-    this.pending.length = 0;
-    this.set({ view: this.latest, step: null, shown: 0, phase: 'reveal', shownSeq: this.latestSeq });
+    // Logged after the rest of the update now playing, so the battle log stays in order.
+    this.skipped.push(...this.pending.splice(0));
+    this.set({ view: this.latest, step: null, shown: 0, phase: 'reveal', shownSeq: this.latestSeq, awaitingNext: false, phaseNow: null });
+    this.letGo();
+    if (!this.running) this.flushSkipped();
+  }
+
+  private flushSkipped(): void {
+    for (const update of this.skipped.splice(0)) this.addHistory(toSteps(update.events, this.seat));
+  }
+
+  /** Holds playing after the step now on screen. The game itself is never held: only what is shown. */
+  pause(): void {
+    this.set({ paused: true });
+  }
+
+  resume(): void {
+    this.set({ paused: false });
+    this.letGo();
+  }
+
+  /** Step-by-step mode: every step waits for next(). */
+  setStepMode(on: boolean): void {
+    this.set({ stepMode: on });
+    if (!on) this.letGo();
+  }
+
+  /** In step-by-step mode or while paused: show the next step. */
+  next(): void {
+    this.letGo();
+  }
+
+  private letGo(): void {
+    const release = this.release;
+    this.release = null;
+    // At once, so a second press of "next" before the next step is shown does nothing.
+    if (release && this.state.awaitingNext) this.set({ awaitingNext: false });
+    release?.();
+  }
+
+  /** Waits while paused, or (when `afterStep`) for next() in step-by-step mode. A skip ends the wait. */
+  private async gate(signal: AbortSignal, afterStep: boolean): Promise<void> {
+    const mustWait = () => !signal.aborted && this.state.speed !== 'OFF' && (this.state.paused || (afterStep && this.state.stepMode));
+    if (!mustWait()) return;
+    if (afterStep && this.state.stepMode) this.set({ awaitingNext: true });
+    await new Promise<void>((resolve) => {
+      this.release = resolve;
+      signal.addEventListener('abort', () => resolve(), { once: true });
+    });
+    if (this.state.awaitingNext) this.set({ awaitingNext: false });
   }
 
   private set(patch: Partial<Presentation>): void {
@@ -190,9 +293,14 @@ export class PresentationQueue {
   }
 
   private addHistory(steps: readonly Step[]): void {
+    if (steps.length === 0) return;
     const records = steps.map((s) => recordOf(s, this.seat)).filter((r): r is RevealRecord => r !== null);
-    if (records.length === 0) return;
-    this.state = { ...this.state, history: [...this.state.history, ...records].slice(-HISTORY) };
+    // Every explained step goes into the battle log, whether it was animated or skipped.
+    const view = this.state.view;
+    const entries: BattleLogEntry[] = steps
+      .map((s) => ({ ...explainStep(s, this.seat, view), seq: s.seq, time: clock(), turn: view.turn?.number ?? null }))
+      .filter((entry) => entry.major);
+    this.state = { ...this.state, history: [...this.state.history, ...records].slice(-HISTORY), log: [...this.state.log, ...entries].slice(-LOG) };
   }
 
   private setBusy(busy: boolean): void {
@@ -211,8 +319,9 @@ export class PresentationQueue {
       if (this.abort.signal.aborted) this.abort = new AbortController();
       const signal = this.abort.signal;
       const steps = toSteps(update.events, this.seat);
-      const factor = FACTOR[this.state.speed];
       for (const [index, step] of steps.entries()) {
+        // Read each time: the speed may be changed while an update plays.
+        const factor = FACTOR[this.state.speed];
         if (signal.aborted) {
           // Skipped: the steps not shown still go into the history.
           this.addHistory(steps.slice(index));
@@ -222,8 +331,20 @@ export class PresentationQueue {
           this.addHistory([step]);
           continue;
         }
+        await this.gate(signal, false);
+        if (signal.aborted) {
+          this.addHistory(steps.slice(index));
+          break;
+        }
         const time = durations(step, this.seat);
-        this.set({ step, shown: 0, phase: 'reveal', shownSeq: Math.max(this.state.shownSeq, step.seq) });
+        this.set({
+          step,
+          shown: 0,
+          phase: 'reveal',
+          shownSeq: Math.max(this.state.shownSeq, step.seq),
+          caption: explainStep(step, this.seat, this.state.view),
+          ...(step.kind === 'PHASE' ? { phaseNow: { player: step.player, phase: step.phase } } : {}),
+        });
         const animation = this.options.animator?.(step, this.state.view, this.state.speed, signal);
         await wait(time.reveal * factor, signal);
         const cards = step.kind === 'DAMAGE' ? step.cards.length : step.kind === 'DRAW' || step.kind === 'REVEAL' ? step.cards.length : 0;
@@ -237,12 +358,14 @@ export class PresentationQueue {
         }
         await animation;
         this.addHistory([step]);
+        await this.gate(signal, true);
       }
+      if (signal.aborted) this.flushSkipped();
       // The update is fully shown: the board now shows its result (unless a skip already did).
       if (!signal.aborted) {
         // Also past events that were not animated (a restored update), so the log shows them.
         const lastSeq = Math.max(this.state.shownSeq, update.lastSeq);
-        this.set({ view: update.view, step: null, shown: 0, phase: 'reveal', shownSeq: lastSeq });
+        this.set({ view: update.view, step: null, shown: 0, phase: 'reveal', shownSeq: lastSeq, phaseNow: null });
       }
     }
     this.running = false;

@@ -99,7 +99,7 @@ function watchFrames(page, name, leaks) {
 
 async function setFastAutoPlay(page) {
   await page.locator('.speed-select select').selectOption('FAST');
-  const box = page.locator('.toggle input');
+  const box = page.locator('.bar-buttons .toggle input');
   if (!(await box.isChecked())) await box.check();
 }
 

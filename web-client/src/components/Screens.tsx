@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AI_LEVELS, AI_LEVEL_ZH, type AiLevel } from '@wso/ai';
-import { TEST_DECKS } from '@wso/card-database';
+import type { PlayableDeck } from '../model/decks';
 import { type CardFilter, NO_FILTER, matches } from '../model/cardFilter';
 import { allCardIds, cardInfo, setSummaries } from '../model/cards';
 import { GLOSSARY, type Term } from '../model/glossary';
@@ -20,14 +20,21 @@ export function Home({
   onStart,
   onContinue,
   onOnline,
+  onDecks,
+  decks,
+  defaultDeck,
 }: {
   hasSaved: boolean;
   onStart: (decks: [string, string], level: AiLevel) => void;
   onContinue: () => void;
   onOnline: () => void;
+  onDecks: () => void;
+  /** Decks a game can use: the player's own legal decks first, then the test decks. */
+  decks: readonly PlayableDeck[];
+  defaultDeck: string;
 }) {
-  const [mine, setMine] = useState(TEST_DECKS[0]!.id);
-  const [theirs, setTheirs] = useState(TEST_DECKS[1]!.id);
+  const [mine, setMine] = useState(defaultDeck);
+  const [theirs, setTheirs] = useState(() => decks.find((d) => !d.own && d.id !== defaultDeck)?.id ?? decks[0]!.id);
   const [level, setLevel] = useState<AiLevel>('NORMAL');
   return (
     <div className="home">
@@ -37,8 +44,8 @@ export function Home({
         <div className="form-row">
           <label>
             你的卡組
-            <select value={mine} onChange={(e) => setMine(e.target.value)}>
-              {TEST_DECKS.map((deck) => (
+            <select value={decks.some((d) => d.id === mine) ? mine : decks[0]!.id} onChange={(e) => setMine(e.target.value)}>
+              {decks.map((deck) => (
                 <option key={deck.id} value={deck.id}>
                   {deck.name}
                 </option>
@@ -47,8 +54,8 @@ export function Home({
           </label>
           <label>
             對手的卡組
-            <select value={theirs} onChange={(e) => setTheirs(e.target.value)}>
-              {TEST_DECKS.map((deck) => (
+            <select value={decks.some((d) => d.id === theirs) ? theirs : decks[0]!.id} onChange={(e) => setTheirs(e.target.value)}>
+              {decks.map((deck) => (
                 <option key={deck.id} value={deck.id}>
                   {deck.name}
                 </option>
@@ -67,7 +74,11 @@ export function Home({
           ))}
         </fieldset>
         <div className="decision-buttons">
-          <button type="button" className="button primary" onClick={() => onStart([mine, theirs], level)}>
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => onStart([decks.some((d) => d.id === mine) ? mine : decks[0]!.id, decks.some((d) => d.id === theirs) ? theirs : decks[0]!.id], level)}
+          >
             開始新對局
           </button>
           {hasSaved && (
@@ -77,8 +88,13 @@ export function Home({
           )}
         </div>
         <p className="muted">
-          兩副都是本專案用 Trial Deck 的卡自行組成的測試卡組，不是官方的固定卡表。先後攻由系統隨機決定。對局會保存在這個瀏覽器，重新整理頁面後可以繼續。
+          可以選擇自己在「卡組」頁面組成的合法卡組（標示「自製」），或本專案的測試卡組（不是官方的固定卡表）。先後攻由系統隨機決定。對局會保存在這個瀏覽器，重新整理頁面後可以繼續。
         </p>
+        <div className="decision-buttons">
+          <button type="button" className="button" onClick={onDecks}>
+            自製卡組
+          </button>
+        </div>
       </section>
       <section className="panel">
         <h2>網上對戰（雙人）</h2>
@@ -121,11 +137,16 @@ function Select({ label, value, onChange, options }: { label: string; value: str
 export function CardList() {
   const [open, setOpen] = useState<string | null>(null);
   const [filter, setFilter] = useState<CardFilter>(NO_FILTER);
+  // The database holds several hundred cards: they are shown a page at a time.
+  const [limit, setLimit] = useState(60);
   const ids = useMemo(() => allCardIds(), []);
   const infos = useMemo(() => ids.map(cardInfo), [ids]);
   const summaries = useMemo(() => setSummaries(), []);
   const shown = infos.filter((info) => matches(info, filter));
-  const set = (patch: Partial<CardFilter>) => setFilter((f) => ({ ...f, ...patch }));
+  const set = (patch: Partial<CardFilter>) => {
+    setFilter((f) => ({ ...f, ...patch }));
+    setLimit(60);
+  };
   const distinct = (pick: (i: (typeof infos)[number]) => number | null) =>
     [...new Set(infos.map(pick).filter((v): v is number => v !== null))].sort((a, b) => a - b).map((v): [string, string] => [String(v), String(v)]);
   return (
@@ -174,7 +195,7 @@ export function CardList() {
           </button>
         </div>
         <div className="card-grid-browser">
-          {shown.map((info) => (
+          {shown.slice(0, limit).map((info) => (
             <div key={info.cardId} className="browser-card">
               <CardFace cardId={info.cardId} onClick={() => setOpen(info.cardId)} />
               <span className="browser-name">{info.name}</span>
@@ -186,6 +207,11 @@ export function CardList() {
           ))}
           {shown.length === 0 && <p className="muted">沒有符合條件的卡。</p>}
         </div>
+        {shown.length > limit && (
+          <button type="button" className="button" onClick={() => setLimit(limit + 120)}>
+            顯示更多（還有 {shown.length - limit} 張）
+          </button>
+        )}
       </section>
       {open && (
         <Modal title={cardInfo(open).name} onClose={() => setOpen(null)}>

@@ -22,6 +22,7 @@ const COLORS = new Set(['yellow', 'green', 'red', 'blue', 'purple']);
  *  - treasure.gif: SAO/S20-045, GUP/W141-052 「…あなたはこのカードを手札に戻す。あなたは自分の山札の上から1枚を、ストック置場に置いてよい」 = CR-4.14.2.8 トレジャー
  *  - choice.gif: GUP/W141-025 「…自分の控え室のトリガーアイコンに[soul]があるキャラを1枚選び、手札に戻すかストック置場に置いてよい」 = CR-4.14.2.11 チョイス
  *  - gate.gif: GUP/W141-111 「…自分の控え室のCXを1枚選び、手札に戻してよい」 = CR-4.14.2.9 ゲート
+ *  - standby.gif: STS/W140-064, NIK/S135-081 「…自分の控え室の自分のレベル＋1以下のレベルのキャラを1枚選び、舞台の好きな枠に【レスト】して置いてよい」 = CR-4.14.2.10 スタンバイ
  * Other icons must be added here, with their evidence, when a set needs them.
  */
 const TRIGGER_ICONS: Record<string, TriggerIcon> = {
@@ -33,6 +34,7 @@ const TRIGGER_ICONS: Record<string, TriggerIcon> = {
   'treasure.gif': 'TREASURE',
   'choice.gif': 'CHOICE',
   'gate.gif': 'GATE',
+  'standby.gif': 'STANDBY',
 };
 
 function icons(field: string): string[] {
@@ -55,7 +57,17 @@ export function plainText(card: OfficialCard): string {
   return card.text === '-' ? '' : card.text.replace(/<br\s*\/?>/g, '\n');
 }
 
-export function toCardDef(card: OfficialCard): CardDef {
+/** Trigger icon images on a card whose meaning has not been verified yet. */
+export function unverifiedTriggerIcons(card: OfficialCard): string[] {
+  return card.trigger === '-' ? [] : icons(card.trigger).filter((icon) => !TRIGGER_ICONS[icon]);
+}
+
+/**
+ * `lenient`: leave out trigger icons that are not verified instead of
+ * failing. Only for cards that are then marked unsupported (they cannot be
+ * used in a game), so the rest of the database still loads.
+ */
+export function toCardDef(card: OfficialCard, lenient = false): CardDef {
   const kind = KINDS[card.kind];
   if (!kind) throw new Error(`${card.no}: unknown card kind "${card.kind}"`);
 
@@ -67,11 +79,13 @@ export function toCardDef(card: OfficialCard): CardDef {
   const soulIcons = icons(card.soul);
   if (soulIcons.some((icon) => icon !== 'soul.gif')) throw new Error(`${card.no}: unreadable soul "${card.soul}"`);
 
-  const triggers = card.trigger === '-' ? [] : icons(card.trigger).map((icon) => {
-    const mapped = TRIGGER_ICONS[icon];
-    if (!mapped) throw new Error(`${card.no}: trigger icon "${icon}" has not been verified yet (see TRIGGER_ICONS)`);
-    return mapped;
-  });
+  const triggers = (card.trigger === '-' ? [] : icons(card.trigger))
+    .filter((icon) => !lenient || TRIGGER_ICONS[icon])
+    .map((icon) => {
+      const mapped = TRIGGER_ICONS[icon];
+      if (!mapped) throw new Error(`${card.no}: trigger icon "${icon}" has not been verified yet (see TRIGGER_ICONS)`);
+      return mapped;
+    });
 
   const isCharacter = kind === 'CHARACTER';
   return {

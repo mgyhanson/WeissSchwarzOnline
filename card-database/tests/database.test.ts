@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { NEO_STANDARD_BANNED, SETS, TEST_DECKS, allCards, deckList, getCard, toCardDef } from '../src/index';
+import { NEO_STANDARD_BANNED, SETS, TEST_DECKS, allCards, deckList, getCard, toCardDef, unverifiedTriggerIcons } from '../src/index';
 
 const testsDir = fileURLToPath(new URL('.', import.meta.url));
 
@@ -15,9 +15,35 @@ describe('official data', () => {
     }
   });
 
-  it('every record belongs to an official card, and every official card has exactly one record', () => {
+  it('every hand-written record belongs to an official card of its set, and every official card is in the database exactly once', () => {
     for (const set of SETS) {
-      expect(set.records.map((r) => r.cardId).sort(), set.id).toEqual(set.official.cards.map((c) => c.no).sort());
+      const official = new Set(set.official.cards.map((c) => c.no));
+      expect(set.records.filter((r) => !official.has(r.cardId)), set.id).toEqual([]);
+      expect(new Set(set.records.map((r) => r.cardId)).size, set.id).toBe(set.records.length);
+      expect(official.size, set.id).toBe(set.official.cards.length);
+    }
+    const all = SETS.flatMap((set) => set.official.cards.map((c) => c.no));
+    expect(new Set(all).size).toBe(all.length);
+    expect(allCards().map((c) => c.record.cardId).sort()).toEqual([...all].sort());
+  });
+
+  it('a card nobody wrote by hand is either compiled from tested sentence patterns or marked unsupported, never in between', () => {
+    for (const card of allCards()) {
+      const { origin, support, abilities, effect } = card.record;
+      if (origin === 'NONE') {
+        expect([support, abilities, effect], card.record.cardId).toEqual(['unsupported', undefined, undefined]);
+        expect(card.def.abilities, card.record.cardId).toBeUndefined();
+      } else if (origin === 'PATTERN') {
+        expect(support, card.record.cardId).toBe('verified');
+        expect(card.record.explanation.zh.length, card.record.cardId).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('every card number starts with the code of its imported set', () => {
+    for (const set of SETS) {
+      const code = set.official.source.expansion ? set.official.cards[0]!.no.split('-')[0] : null;
+      if (code) expect(set.official.cards.filter((c) => !c.no.startsWith(`${code}-`)), set.id).toEqual([]);
     }
   });
 
@@ -30,10 +56,18 @@ describe('official data', () => {
     expect(getCard('5HY/W83-T10').def).toMatchObject({ level: 3, cost: 2, power: 10000, soul: 2 });
   });
 
+  it('a character printed without a soul icon has soul 0 (the card list shows "－"), e.g. STS/W140-008', () => {
+    expect(getCard('STS/W140-008').official.soul).toBe('－');
+    expect(getCard('STS/W140-008').def).toMatchObject({ kind: 'CHARACTER', soul: 0, power: 2000 });
+  });
+
   it('refuses data it cannot read rather than guessing', () => {
     const card = getCard('SY/W08-T01').official;
     expect(() => toCardDef({ ...card, kind: '9' })).toThrow(/unknown card kind/);
-    expect(() => toCardDef({ ...card, trigger: '[[standby.gif]]' })).toThrow(/not been verified/);
+    expect(() => toCardDef({ ...card, trigger: '[[mystery.gif]]' })).toThrow(/not been verified/);
+    // Lenient reading is only for cards that are then unsupported: the unknown icon is left out and reported.
+    expect(toCardDef({ ...card, trigger: '[[soul.gif]][[mystery.gif]]' }, true).triggers).toEqual(['SOUL']);
+    expect(unverifiedTriggerIcons({ ...card, trigger: '[[soul.gif]][[mystery.gif]]' })).toEqual(['mystery.gif']);
     expect(() => toCardDef({ ...card, color: '[[pink.gif]]' })).toThrow(/colour/);
     expect(() => toCardDef({ ...card, power: '3,000' })).toThrow(/power/);
   });
@@ -42,17 +76,20 @@ describe('official data', () => {
 describe('records', () => {
   it('every card has a Chinese explanation marked as AI-assisted and unverified, kept apart from the official text', () => {
     for (const card of allCards()) {
-      expect(card.record.explanation.zh.length, card.record.cardId).toBeGreaterThan(0);
+      // A card that is not supported yet has no explanation yet either (the interface says so); every playable card has one.
+      if (card.record.support === 'verified') expect(card.record.explanation.zh.length, card.record.cardId).toBeGreaterThan(0);
       expect(card.record.explanation).toMatchObject({ source: 'AI_ASSISTED', status: '待核實' });
     }
   });
 
   it('a card with text has ability data, a card without text has none', () => {
-    for (const card of allCards()) {
+    for (const card of allCards().filter((c) => c.record.support === 'verified')) {
       const hasText = card.official.text !== '-';
       const hasData = (card.record.abilities?.length ?? 0) > 0 || (card.record.effect?.length ?? 0) > 0;
       expect(hasData, card.record.cardId).toBe(hasText);
     }
+    // A card with text that is not written yet is unsupported, never treated as a card without text.
+    for (const card of allCards().filter((c) => c.record.origin === 'NONE')) expect(card.official.text, card.record.cardId).not.toBe('-');
   });
 
   it('every card marked verified is named in at least one card test', () => {
@@ -60,8 +97,9 @@ describe('records', () => {
       .filter((file) => file.startsWith('cards-') && file.endsWith('.test.ts'))
       .map((file) => readFileSync(join(testsDir, file), 'utf8'))
       .join('\n');
+    // Cards compiled from sentence patterns are tested card by card in patterns.test.ts.
     const missing = allCards()
-      .filter((card) => card.record.support === 'verified')
+      .filter((card) => card.record.support === 'verified' && !card.record.origin)
       .map((card) => card.record.cardId)
       .filter((id) => !new RegExp(`(?:it|describe)\\(\\s*'[^']*${id.replace('/', '\\/')}(?!\\d)`).test(titles));
     expect(missing).toEqual([]);

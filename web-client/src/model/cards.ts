@@ -8,7 +8,7 @@
  */
 
 import { type CardKind, type TriggerIcon } from '@wso/game-engine';
-import { type DatabaseCard, SETS, getCard, plainText } from '@wso/card-database';
+import { type DatabaseCard, SETS, allCards, getCard, plainText } from '@wso/card-database';
 
 export interface CardInfo {
   cardId: string;
@@ -113,8 +113,9 @@ export function abilityText(cardId: string, index: number | undefined): string {
   return info.text.join('\n');
 }
 
+/** Every card of the database: hand-written, compiled from sentence patterns, and not yet supported. */
 export function allCardIds(): string[] {
-  return SETS.flatMap((set) => set.records.map((record) => record.cardId));
+  return allCards().map((card) => card.record.cardId);
 }
 
 export interface SetSummary {
@@ -130,13 +131,17 @@ export interface SetSummary {
 
 /** Per set: how many cards were imported and how far each is supported. */
 export function setSummaries(): SetSummary[] {
-  return SETS.map((set) => ({
-    id: set.id,
-    product: set.official.source.product,
-    title: set.records[0]?.cardId.split('/')[0] ?? '',
-    total: set.records.length,
-    verified: set.records.filter((r) => r.support === 'verified').length,
-    pending: set.records.filter((r) => r.support === 'pending').length,
-    unsupported: set.records.filter((r) => r.support === 'unsupported').length,
-  }));
+  const cards = allCards();
+  return SETS.map((set) => {
+    const records = cards.filter((card) => card.set === set.id).map((card) => card.record);
+    return {
+      id: set.id,
+      product: set.official.source.product,
+      title: records[0]?.cardId.split('/')[0] ?? '',
+      total: records.length,
+      verified: records.filter((r) => r.support === 'verified').length,
+      pending: records.filter((r) => r.support === 'pending').length,
+      unsupported: records.filter((r) => r.support === 'unsupported').length,
+    };
+  });
 }

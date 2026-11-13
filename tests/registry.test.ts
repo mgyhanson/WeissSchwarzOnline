@@ -24,7 +24,7 @@ describe('rule registry', () => {
   });
 
   it('every rule marked as tested is covered, and every test ID used by a test is registered', () => {
-    const report = checkCoverage(registry, collectTestTitles(root, ['game-engine/tests', 'tests']));
+    const report = checkCoverage(registry, collectTestTitles(root, ['game-engine/tests', 'card-database/tests', 'tests']));
     expect(report.problems).toEqual([]);
   });
 });

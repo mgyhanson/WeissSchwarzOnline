@@ -1,0 +1,123 @@
+{
+  "totals": {
+    "cards": 609,
+    "playable": 156,
+    "handWritten": 102,
+    "fromPatterns": 54,
+    "unsupported": 453,
+    "abilitiesRun": 193
+  },
+  "sets": [
+    {
+      "id": "SY_W08_TD",
+      "product": "2009年度トライアルデッキ【W】（涼宮ハルヒの憂鬱）",
+      "cards": 17,
+      "handWritten": 17,
+      "fromPatterns": 0,
+      "unsupported": 0,
+      "pending": 0,
+      "withoutText": 5
+    },
+    {
+      "id": "5HY_W83_TD_ICHIKA",
+      "product": "トライアルデッキ＋ 五等分の花嫁　一花",
+      "cards": 18,
+      "handWritten": 18,
+      "fromPatterns": 0,
+      "unsupported": 0,
+      "pending": 0,
+      "withoutText": 1
+    },
+    {
+      "id": "SAO_S20",
+      "product": "ブースターパック ソードアート・オンライン（SAO/S20）",
+      "cards": 30,
+      "handWritten": 30,
+      "fromPatterns": 0,
+      "unsupported": 0,
+      "pending": 0,
+      "withoutText": 1
+    },
+    {
+      "id": "GUP_W141",
+      "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
+      "cards": 114,
+      "handWritten": 19,
+      "fromPatterns": 9,
+      "unsupported": 86,
+      "pending": 0,
+      "withoutText": 0
+    },
+    {
+      "id": "SAO_OTHERS",
+      "product": "ソードアート・オンライン 各商品精選（SAO/S51・S65・S71・S80・S100）",
+      "cards": 18,
+      "handWritten": 18,
+      "fromPatterns": 0,
+      "unsupported": 0,
+      "pending": 0,
+      "withoutText": 0
+    },
+    {
+      "id": "BDY_W135",
+      "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
+      "cards": 100,
+      "handWritten": 0,
+      "fromPatterns": 12,
+      "unsupported": 88,
+      "pending": 0,
+      "withoutText": 0
+    },
+    {
+      "id": "STS_W140",
+      "product": "ブースターパック ステラソラ",
+      "cards": 100,
+      "handWritten": 0,
+      "fromPatterns": 9,
+      "unsupported": 91,
+      "pending": 0,
+      "withoutText": 0
+    },
+    {
+      "id": "ANM_W138",
+      "product": "ブースターパック anemoi",
+      "cards": 100,
+      "handWritten": 0,
+      "fromPatterns": 12,
+      "unsupported": 88,
+      "pending": 0,
+      "withoutText": 0
+    },
+    {
+      "id": "NIK_S135",
+      "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
+      "cards": 112,
+      "handWritten": 0,
+      "fromPatterns": 12,
+      "unsupported": 100,
+      "pending": 0,
+      "withoutText": 0
+    }
+  ],
+  "patterns": {
+    "CLIMAX_POWER_SOUL": 43,
+    "CLIMAX_SOUL": 2,
+    "ASSIST": 0,
+    "YOUR_TURN_POWER": 0,
+    "OPPONENT_TURN_POWER": 0,
+    "EXPERIENCE_POWER": 0,
+    "ENCORE_DISCARD_CHARACTER": 0,
+    "BACKUP": 0,
+    "POWER_WITH_OTHER_TRAIT": 0,
+    "POWER_ALL_TRAIT": 0,
+    "POWER_PER_OTHER_TRAIT": 0,
+    "YOUR_TURN_OTHERS_TRAIT_POWER": 0,
+    "CX_PHASE_TRAIT_BOOST": 0,
+    "PLACED_SELF_POWER": 0,
+    "ATTACK_SELF_POWER_WITH_OTHER_TRAIT": 0,
+    "PLACED_TRAIT_COUNT_TO_STOCK": 0,
+    "CX_DRAW_UP_TO_ONE_CHOOSE_SOUL": 3,
+    "CX_WAITING_ROOM_TO_STOCK_ALL_SOUL": 3,
+    "CX_SOUL_TRIGGER_TO_HAND_CHOOSE_SOUL": 3
+  }
+}

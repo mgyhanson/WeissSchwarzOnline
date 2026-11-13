@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from 'react';
-import { TEST_DECKS } from '@wso/card-database';
-import { CODE_PATTERN, type LobbySeat, NAME_MAX } from '@wso/server/shared';
+import { CODE_PATTERN, type DeckChoice, type LobbySeat, NAME_MAX } from '@wso/server/shared';
 import type { OnlineClient } from '../host/remote';
+import type { PlayableDeck } from '../model/decks';
 
 const NAME_KEY = 'wso.playerName';
 
@@ -21,12 +21,18 @@ function saveName(name: string): void {
   }
 }
 
-function DeckSelect({ value, onChange, disabled = false }: { value: string; onChange: (deck: string) => void; disabled?: boolean }) {
+/** What is sent to the server for a deck: a test deck by id, an own deck as its card list. */
+function choiceOf(deck: PlayableDeck): DeckChoice {
+  return deck.own ? { id: deck.id, name: deck.name.replace(/（自製）$/, ''), cards: deck.cards } : deck.id;
+}
+
+function DeckSelect({ decks, value, onChange, disabled = false }: { decks: readonly PlayableDeck[]; value: string; onChange: (deck: PlayableDeck) => void; disabled?: boolean }) {
   return (
     <label>
       你的卡組
-      <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
-        {TEST_DECKS.map((deck) => (
+      <select value={decks.some((d) => d.id === value) ? value : ''} onChange={(e) => onChange(decks.find((d) => d.id === e.target.value)!)} disabled={disabled}>
+        {!decks.some((d) => d.id === value) && <option value="">（已選的卡組不在這個瀏覽器）</option>}
+        {decks.map((deck) => (
           <option key={deck.id} value={deck.id}>
             {deck.name}
           </option>
@@ -59,10 +65,23 @@ function seatText(seat: LobbySeat | null, mine: boolean): string {
   return parts.join('・');
 }
 
-export function OnlineScreen({ client, initialCode, onOpenGame }: { client: OnlineClient; initialCode: string; onOpenGame: () => void }) {
+export function OnlineScreen({
+  client,
+  initialCode,
+  onOpenGame,
+  decks,
+  defaultDeck,
+}: {
+  client: OnlineClient;
+  initialCode: string;
+  onOpenGame: () => void;
+  decks: readonly PlayableDeck[];
+  defaultDeck: string;
+}) {
   const snap = useSyncExternalStore(client.subscribe, client.getSnapshot);
   const [name, setName] = useState(savedName);
-  const [deck, setDeck] = useState(TEST_DECKS[0]!.id);
+  const [deckId, setDeckId] = useState(defaultDeck);
+  const deck = decks.find((d) => d.id === deckId) ?? decks[0]!;
   const [code, setCode] = useState(initialCode);
   const [copied, setCopied] = useState(false);
   const lobby = snap.lobby;
@@ -83,7 +102,7 @@ export function OnlineScreen({ client, initialCode, onOpenGame }: { client: Onli
               你的名稱
               <input type="text" value={name} maxLength={NAME_MAX} placeholder="玩家" onChange={(e) => setName(e.target.value)} />
             </label>
-            <DeckSelect value={deck} onChange={setDeck} />
+            <DeckSelect decks={decks} value={deck.id} onChange={(d) => setDeckId(d.id)} />
           </div>
           <div className="online-choices">
             <div>
@@ -95,7 +114,7 @@ export function OnlineScreen({ client, initialCode, onOpenGame }: { client: Onli
                 disabled={snap.connection === 'connecting'}
                 onClick={() => {
                   saveName(name);
-                  client.create(name, deck);
+                  client.create(name, choiceOf(deck));
                 }}
               >
                 建立房間
@@ -121,7 +140,7 @@ export function OnlineScreen({ client, initialCode, onOpenGame }: { client: Onli
                 disabled={!codeOk || snap.connection === 'connecting'}
                 onClick={() => {
                   saveName(name);
-                  client.join(code, name, deck);
+                  client.join(code, name, choiceOf(deck));
                 }}
               >
                 加入房間
@@ -186,7 +205,7 @@ export function OnlineScreen({ client, initialCode, onOpenGame }: { client: Onli
         {lobby.status === 'LOBBY' && (
           <>
             <div className="form-row">
-              <DeckSelect value={lobby.you.deck} onChange={(d) => client.setDeck(d)} disabled={!!mine?.ready} />
+              <DeckSelect decks={decks} value={lobby.you.deck} onChange={(d) => client.setDeck(choiceOf(d))} disabled={!!mine?.ready} />
             </div>
             <div className="decision-buttons">
               <button type="button" className={`button ${mine?.ready ? '' : 'primary'}`} onClick={() => client.setReady(!mine?.ready)}>
@@ -205,7 +224,7 @@ export function OnlineScreen({ client, initialCode, onOpenGame }: { client: Onli
             <p>{lobby.status === 'PLAYING' ? `第 ${lobby.game} 局進行中。` : `第 ${lobby.game} 局已結束。`}</p>
             {lobby.status === 'FINISHED' && (
               <div className="form-row">
-                <DeckSelect value={lobby.you.deck} onChange={(d) => client.setDeck(d)} disabled={!!mine?.rematch} />
+                <DeckSelect decks={decks} value={lobby.you.deck} onChange={(d) => client.setDeck(choiceOf(d))} disabled={!!mine?.rematch} />
               </div>
             )}
             <div className="decision-buttons">
