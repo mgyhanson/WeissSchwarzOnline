@@ -26,6 +26,8 @@ export interface CardFilter {
   nameIncludesAny?: string[];
   /** 「A」か「B」: the card name is exactly one of these. */
   names?: string[];
+  /** …か…: the card matches at least one of these (e.g. 《A》のキャラか「カード名」). */
+  anyOf?: CardFilter[];
   /** レベルが相手のレベルより高い: the card's level is higher than the level of the player whose card it is. */
   levelAboveMasterLevel?: boolean;
   levelMax?: number;
@@ -64,6 +66,8 @@ export type Condition =
   | { if: 'FACING'; filter: CardFilter }
   /** それらのカードに…があるなら: the cards moved by the most recent DECK_TOP of this resolution (inside IF only). */
   | { if: 'LAST_MOVED'; min: number; filter?: CardFilter }
+  /** …してよい。そうしたら、…: the instruction just before (a MOVE or CLOCK_TOP of this resolution) moved at least one card (inside IF only). */
+  | { if: 'DID' }
   | { if: 'ALL'; of: Condition[] }
   | { if: 'NOT'; of: Condition };
 
@@ -90,7 +94,9 @@ export type Cost =
   /** 手札を(の…を)N枚クロック置場に置く: the player chooses hand cards. */
   | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
   /** このカードを山札の下に置く */
-  | { pay: 'SELF_TO_DECK_BOTTOM' };
+  | { pay: 'SELF_TO_DECK_BOTTOM' }
+  /** (他の)あなたの舞台の…のキャラをN枚控え室に置く: the player chooses characters on their stage. */
+  | { pay: 'CHARACTERS_TO_WAITING_ROOM'; count: number; filter?: CardFilter; other?: boolean };
 
 /** Which cards an effect applies to. */
 export type Target =
@@ -129,6 +135,8 @@ export type Destination =
   | 'HAND'
   | 'WAITING_ROOM'
   | 'STOCK'
+  /** ストック置場の下に置く */
+  | 'STOCK_BOTTOM'
   | 'CLOCK'
   | 'MEMORY'
   | 'DECK_TOP'
@@ -166,8 +174,11 @@ export type Effect =
   | { do: 'ORIENT'; target: Target; to: Orientation }
   /** 相手にNダメージを与える */
   | { do: 'DAMAGE'; amount: number }
-  /** 自分の山札の上からN枚を…に置く */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK' }
+  /**
+   * 自分の山札の上からN枚を…に置く.
+   * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
+   */
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -184,8 +195,8 @@ export type Effect =
    * (EMPTY_BACK). Skipped when the previous CHOOSE chose nothing.
    */
   | { do: 'CHOOSE_SLOT'; which: 'ANY' | 'EMPTY_BACK' }
-  /** 自分のクロックの上から1枚を、控え室に置く */
-  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' }
+  /** 自分のクロックの上から1枚を、控え室に置く; `whose: 'OPPONENT'`: 相手のクロックの上から1枚を… */
+  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM'; whose?: 'OPPONENT' }
   /**
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
@@ -380,4 +391,6 @@ export interface EffectContext {
   slot?: SlotId | null;
   /** Instance ids moved by the most recent DECK_TOP (for それらのカードに…があるなら). */
   moved?: number[];
+  /** Whether the most recent MOVE or CLOCK_TOP moved a card (for そうしたら). */
+  did?: boolean;
 }

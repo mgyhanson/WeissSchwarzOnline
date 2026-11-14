@@ -6,46 +6,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  type Ability,
-  type CardDef,
-  type Ctx,
-  type Effect,
-  type GameEvent,
-  type GameState,
-  type PlayerId,
-  assertInvariants,
-  getPower,
-  moveCards,
-  stageSlot,
-} from '../src/index';
-import { type DefOverride, answer, card, oid, pending, put, scenario, testCardId } from './helpers';
-
-/** Ability lists and other changes for single cards: `${player}:${index}`. */
-function cards(map: Record<string, Partial<CardDef>>): DefOverride {
-  return (p, i) => map[`${p}:${i}`];
-}
-
-function noClimaxes(ctx: Ctx, player: PlayerId): void {
-  moveCards(ctx, [42, 43, 44, 45, 46, 47, 48, 49].map((i) => card(player, i)), { player, zone: 'memory' });
-}
-
-const moves = (events: GameEvent[]): string[] =>
-  events.flatMap((e) => (e.type === 'CARD_MOVED' ? [`${e.reason}:${e.from.zone}>${e.to.zone}`] : []));
-
-const activate = (state: GameState, instanceId: number, ability = 0) =>
-  answer(state, { kind: 'MAIN', action: { type: 'ACTIVATE', card: oid(state, instanceId), ability } });
-
-const canActivate = (state: GameState): boolean => pending(state, 'MAIN').actions.some((a) => a.type === 'ACTIVATE');
-
-const attack = (state: GameState, instanceId: number, type: 'FRONT' | 'SIDE' | 'DIRECT' = 'FRONT') =>
-  answer(state, { kind: 'ATTACK', attack: { attacker: oid(state, instanceId), type } });
-
-const DRAW_ONE: Effect[] = [{ do: 'DRAW', count: 1 }];
-
-/** How many abilities of this card were played in these events. */
-const played = (events: GameEvent[], instanceId: number): number =>
-  events.filter((e) => e.type === 'ABILITY_PLAYED' && e.instanceId === instanceId).length;
+import { type Ability, type Ctx, assertInvariants, getPower, stageSlot } from '../src/index';
+import { DRAW_ONE, activate, attack, canActivate, cards, moves, noClimaxes, played } from './ability-helpers';
+import { answer, card, oid, pending, put, scenario, testCardId } from './helpers';
 
 describe('costs added for batch 3 (CR-8.4)', () => {
   it('［手札を1枚クロック置場に置く］: the player chooses the hand card; it is a cost, not damage', () => {

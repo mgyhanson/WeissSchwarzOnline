@@ -140,7 +140,70 @@ export const BDY_TEST_DECK: TestDeck = {
   ],
 };
 
-export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK, SAO_TEST_DECK, GUP_TEST_DECK, SAO_MEMORY_TEST_DECK, BDY_TEST_DECK];
+const entriesOf = (prefix: string, list: Record<string, number>): DeckEntry[] => Object.entries(list).map(([n, count]) => ({ cardId: `${prefix}-${n}`, count }));
+
+export const STS_TEST_DECK: TestDeck = {
+  id: 'test-sts',
+  name: 'ステラソラ 三色測試卡組',
+  title: 'STS',
+  note: 'Made by this project from the STS/W140 cards the engine supports (green, red and blue): 13 characters, three written by hand and ten read by the sentence grammar, and two of the booster\'s climaxes; not an official or tournament list.',
+  entries: entriesOf('STS/W140', {
+    // Level 0 (18)
+    '025': 4, '045': 4, '054': 4, '073': 3, '086': 3,
+    // Level 1 (16)
+    '011': 3, '018': 2, '041': 4, '043': 4, '048': 3,
+    // Level 2 (8)
+    '022': 3, '023': 2, '052': 3,
+    // Climaxes: 黎明告げる凱旋歌 (green), その願い、たしかに届けたよ (red)
+    '031': 4, '067': 4,
+  }),
+};
+
+export const ANM_TEST_DECK: TestDeck = {
+  id: 'test-anm',
+  name: 'anemoi 四色測試卡組',
+  title: 'ANM',
+  note: 'Made by this project from the ANM/W138 cards the engine supports: 12 characters, one event and two climaxes. Only three level 0 characters are supported so far, so the deck starts slowly; not an official or tournament list.',
+  entries: entriesOf('ANM/W138', {
+    // Level 0 (12)
+    '004': 4, '016': 4, '028': 4,
+    // Level 1 (16)
+    '020': 4, '041': 4, '057': 4, '068': 4,
+    // Level 2 (13) and the level 3 event
+    '042': 3, '064': 3, '094': 2, '095': 3, '096': 2, '074': 1,
+    // Climaxes: 見つけた、大切な場所 (yellow), 好きの数だけ金平糖 (red)
+    '024': 4, '075': 4,
+  }),
+};
+
+export const NIK_TEST_DECK: TestDeck = {
+  id: 'test-nik',
+  name: '勝利の女神：NIKKE 四色測試卡組',
+  title: 'NIK',
+  note: 'Made by this project from the NIK/S135 cards the engine supports: 17 characters, two written by hand and fifteen read by the sentence grammar, and two climaxes; not an official or tournament list.',
+  entries: entriesOf('NIK/S135', {
+    // Level 0 (18)
+    '011': 3, '029': 3, '031': 3, '043': 2, '059': 2, '083': 2, '087': 2, '093': 1,
+    // Level 1 (12)
+    '008': 4, '072': 4, '073': 4,
+    // Level 2 (12)
+    '014': 2, '020': 2, '041': 2, '042': 2, '097': 2, '105': 2,
+    // Climaxes: yellow and green
+    '024': 4, '053': 4,
+  }),
+};
+
+export const TEST_DECKS: readonly TestDeck[] = [
+  HARUHI_TEST_DECK,
+  ICHIKA_TEST_DECK,
+  SAO_TEST_DECK,
+  GUP_TEST_DECK,
+  SAO_MEMORY_TEST_DECK,
+  BDY_TEST_DECK,
+  STS_TEST_DECK,
+  ANM_TEST_DECK,
+  NIK_TEST_DECK,
+];
 
 /** The deck as a list of 50 card ids, in the order listed. */
 export function deckList(deck: TestDeck): string[] {

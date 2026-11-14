@@ -50,6 +50,10 @@ export type PromptId =
   /** Choose the characters to rest as a cost. */
   | 'COST_REST'
   | 'COST_HAND_TO_CLOCK'
+  /** Choose the characters on your stage to put into the waiting room as a cost. */
+  | 'COST_CHARACTERS'
+  /** 自分か相手の…: choose whose cards an effect applies to (options YOU, OPPONENT). */
+  | 'EFFECT_PLAYER'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
   | 'LOOK_NEXT'
   /** Choose a slot for a card ability. */

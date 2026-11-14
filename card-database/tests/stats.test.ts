@@ -53,7 +53,8 @@ describe('support statistics', () => {
       expect(classes, card.cardId).toContain(card.class);
       // A reason is given whenever something new is needed; a card with nothing open would not be unsupported (events aside).
       if (card.class === 'C' || card.class === 'D' || card.class === 'E') expect(card.needs.length, card.cardId).toBeGreaterThan(0);
-      if (card.kind !== 'EVENT') expect(card.openLines, card.cardId).toBeGreaterThan(0);
+      // Events are read as a whole; a card held back for unread errata (class E) may have nothing open.
+      if (card.kind !== 'EVENT' && card.class !== 'E') expect(card.openLines, card.cardId).toBeGreaterThan(0);
     }
     if (process.env.CARD_REPORT) {
       const count = (pred: (c: (typeof sorted)[number]) => boolean) => sorted.filter(pred).length;

@@ -76,6 +76,7 @@ export function matchesFilter(
   const def = getDef(state, instanceId);
   if (filter.kind && def.kind !== filter.kind) return false;
   if (filter.traits && !filter.traits.some((trait) => def.traits.includes(trait))) return false;
+  if (filter.anyOf && !filter.anyOf.some((part) => matchesFilter(state, instanceId, part, levelOf))) return false;
   if (filter.name !== undefined && def.name !== filter.name) return false;
   if (filter.nameIncludes !== undefined && !def.name.includes(filter.nameIncludes)) return false;
   if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => def.name.includes(part))) return false;
@@ -127,6 +128,7 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
       return total >= condition.min;
     }
     case 'LAST_MOVED':
+    case 'DID':
       // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).
       return false;
     case 'BATTLE_OPPONENT': {

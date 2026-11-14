@@ -24,7 +24,7 @@ describe('card browser', () => {
     expect(find({ set: '5HY_W83_TD_ICHIKA' }).every((id) => id.startsWith('5HY/'))).toBe(true);
     expect(find({ kind: 'CLIMAX' }).every((id) => cardInfo(id).kind === 'CLIMAX')).toBe(true);
     expect(find({ kind: 'EVENT' }).every((id) => cardInfo(id).kind === 'EVENT')).toBe(true);
-    expect(find({ kind: 'EVENT', support: 'verified' })).toEqual(['SY/W08-T16', '5HY/W83-T11', 'SAO/S20-022']);
+    expect(find({ kind: 'EVENT', support: 'verified' })).toEqual(['SY/W08-T16', '5HY/W83-T11', 'SAO/S20-022', 'ANM/W138-074']); // the last one is read by the sentence grammar
     expect(find({ color: 'blue', set: 'SY_W08_TD' }).every((id) => cardInfo(id).color === 'blue')).toBe(true);
     expect(find({ level: '3' }).every((id) => cardInfo(id).level === 3)).toBe(true);
     expect(find({ cost: '2' }).every((id) => cardInfo(id).cost === 2)).toBe(true);

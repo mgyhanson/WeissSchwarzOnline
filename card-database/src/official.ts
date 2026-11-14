@@ -25,7 +25,7 @@ const COLORS = new Set(['yellow', 'green', 'red', 'blue', 'purple']);
  *  - standby.gif: STS/W140-064, NIK/S135-081 「…自分の控え室の自分のレベル＋1以下のレベルのキャラを1枚選び、舞台の好きな枠に【レスト】して置いてよい」 = CR-4.14.2.10 スタンバイ
  * Other icons must be added here, with their evidence, when a set needs them.
  */
-const TRIGGER_ICONS: Record<string, TriggerIcon> = {
+export const TRIGGER_ICONS: Record<string, TriggerIcon> = {
   'soul.gif': 'SOUL',
   'salvage.gif': 'COMEBACK',
   'bounce.gif': 'RETURN',

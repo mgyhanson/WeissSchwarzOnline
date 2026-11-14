@@ -31,6 +31,14 @@ function restable(state: GameState, context: EffectContext, cost: Extract<Cost, 
   );
 }
 
+/** Characters on the master's stage that may be put into the waiting room for a CHARACTERS_TO_WAITING_ROOM cost. */
+function sacrificable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'CHARACTERS_TO_WAITING_ROOM' }>): number[] {
+  const stage = state.zones[context.master].stage;
+  return SLOTS.flatMap((slot) => stage[slot]).filter(
+    (id) => getDef(state, id).kind === 'CHARACTER' && !(cost.other && id === context.source) && matchesFilter(state, id, cost.filter),
+  );
+}
+
 /** Hand cards that may be discarded for a DISCARD cost: matching ones other than the card itself. */
 function discardable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'DISCARD' }>): number[] {
   return state.zones[context.master].hand.filter((id) => id !== context.source && matchesFilter(state, id, cost.filter));
@@ -76,6 +84,12 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
       case 'STOCK_TO_CLOCK':
         stockNeeded += cost.count;
         break;
+      case 'CHARACTERS_TO_WAITING_ROOM': {
+        // A cost that also moves this card away cannot use it here too.
+        const leaves = costs.some((c) => c.pay === 'SELF_TO_WAITING_ROOM' || c.pay === 'SELF_TO_CLOCK' || c.pay === 'SELF_TO_MEMORY' || c.pay === 'SELF_TO_DECK_BOTTOM');
+        if (sacrificable(state, context, cost).filter((id) => !(leaves && id === context.source)).length < cost.count) return false;
+        break;
+      }
       case 'REST_CHARACTERS': {
         // A REST_SELF of the same cost rests the card first, so it cannot count here too.
         const others = restable(state, context, cost).filter((id) => !(costs.some((c) => c.pay === 'REST_SELF') && id === context.source));
@@ -180,6 +194,19 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       moveCards(ctx, fromTop, { player: master, zone: 'clock' }, { reason: 'COST' });
       return;
     }
+    case 'CHARACTERS_TO_WAITING_ROOM': {
+      if (!frame.asked) {
+        frame.asked = true;
+        const cards = sacrificable(state, context, cost).map((id) => getInstance(state, id).objectId);
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'COST_CHARACTERS', cards, min: cost.count, max: cost.count });
+        return;
+      }
+      frame.asked = false;
+      frame.index++;
+      const chosen = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+      moveBatch(ctx, chosen.map((instanceId) => ({ instanceId, to: { player: getInstance(state, instanceId).owner, zone: 'waitingRoom' as const }, opts: { reason: 'COST' as const } })));
+      return;
+    }
     case 'REST_CHARACTERS': {
       if (!frame.asked) {
         frame.asked = true;
@@ -218,6 +245,8 @@ function destinationZone(state: GameState, context: EffectContext, instanceId: n
       return { zone: { player, zone: 'waitingRoom' }, bottom: false };
     case 'STOCK':
       return { zone: { player, zone: 'stock' }, bottom: false };
+    case 'STOCK_BOTTOM':
+      return { zone: { player, zone: 'stock' }, bottom: true };
     case 'CLOCK':
       return { zone: { player, zone: 'clock' }, bottom: false };
     case 'MEMORY':
@@ -324,6 +353,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           },
         }];
       });
+      context.did = moves.length > 0;
       moveBatch(ctx, moves);
       return;
     }
@@ -354,9 +384,20 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'DECK_TOP': {
       // One card per step (CR-3.2.3), so a refresh in between happens in place.
+      // 自分か相手の: the player says whose deck first.
+      if (effect.whose === 'EITHER' && frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_PLAYER', options: ['YOU', 'OPPONENT'] });
+        return;
+      }
+      if (effect.whose === 'EITHER' && frame.step === 1) {
+        frame.step = 2;
+        frame.scratch[1] = takeAnswer(ctx, 'SELECT_OPTION').option === 'OPPONENT' ? 1 : 0;
+      }
+      const whose = frame.scratch[1] === 1 ? opponentOf(master) : master;
       const done = frame.scratch[0] ?? 0;
       if (done === 0) context.moved = [];
-      const top = topOf(state.zones[master].deck);
+      const top = topOf(state.zones[whose].deck);
       if (done >= effect.count || top === undefined) {
         next();
         return;
@@ -364,7 +405,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       frame.scratch[0] = done + 1;
       context.moved = [...(context.moved ?? []), top];
       const zone = effect.to === 'STOCK' ? 'stock' : effect.to === 'CLOCK' ? 'clock' : 'waitingRoom';
-      moveCard(ctx, top, { player: master, zone }, { reason: 'EFFECT' });
+      moveCard(ctx, top, { player: whose, zone }, { reason: 'EFFECT' });
       return;
     }
 
@@ -412,6 +453,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const holds =
         condition.if === 'LAST_MOVED'
           ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
+          : condition.if === 'DID'
+            ? context.did === true
           : evalCondition(state, master, context.source, condition, context.battleOpponent);
       next();
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
@@ -438,7 +481,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'CLOCK_TOP': {
-      const top = topOf(state.zones[master].clock);
+      const top = topOf(state.zones[effect.whose === 'OPPONENT' ? opponentOf(master) : master].clock);
+      context.did = top !== undefined;
       next();
       if (top !== undefined) moveCard(ctx, top, { player: getInstance(state, top).owner, zone: 'waitingRoom' }, { reason: 'EFFECT' });
       return;

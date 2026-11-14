@@ -30,7 +30,10 @@ export * from './types';
 export { hasCounterIcon, plainText, toCardDef, unverifiedTriggerIcons } from './official';
 export * from './decks';
 export * from './formats';
-export { PATTERN_IDS, compileText, ruleLines } from './patterns';
+export { GRAMMAR, PATTERN_IDS, compileText, ruleLines } from './patterns';
+export { readLine } from './grammar';
+export type { Unknown } from './grammar';
+export { shape, splitLine } from './fragments';
 
 export const SETS: readonly CardSet[] = [
   { id: 'SY_W08_TD', official: syOfficial as OfficialSet, records: sy },
@@ -57,6 +60,13 @@ export interface DatabaseCard {
 const AI_NOTE = { source: 'AI_ASSISTED', status: '待核實' } as const;
 
 /**
+ * Cards with an entry on the official errata page that nobody has compared
+ * with the stored text yet (parallel versions count for their base card).
+ * They are never compiled automatically.
+ */
+export const ERRATA_UNCHECKED: readonly string[] = ['GUP/W141-008', 'GUP/W141-062', 'GUP/W141-070', 'STS/W140-030'];
+
+/**
  * The record of a card nobody has written by hand: from sentence patterns
  * when every line of its text is a known one, otherwise unsupported.
  */
@@ -68,6 +78,15 @@ function autoRecord(card: OfficialCard): CardRecord {
       origin: 'NONE',
       support: 'unsupported',
       notes: [`Trigger icon not verified yet: ${unknownIcons.join(', ')} (card-database/src/official.ts).`],
+      explanation: { zh: '', ...AI_NOTE },
+    };
+  }
+  if (ERRATA_UNCHECKED.includes(card.no)) {
+    return {
+      cardId: card.no,
+      origin: 'NONE',
+      support: 'unsupported',
+      notes: ['The official errata page has an entry for this card; it stays unsupported until that entry has been read and compared with the stored text.'],
       explanation: { zh: '', ...AI_NOTE },
     };
   }
@@ -87,6 +106,7 @@ function autoRecord(card: OfficialCard): CardRecord {
     patterns: compiled.patterns,
     support: 'verified',
     ...(compiled.abilities && compiled.abilities.length > 0 ? { abilities: compiled.abilities } : {}),
+    ...(compiled.effect ? { effect: compiled.effect } : {}),
     notes: ['Ability data generated from the official text: every line is a known sentence pattern (card-database/src/patterns.ts), each tested on this card.'],
     explanation: { zh: compiled.zh.join('\n'), ...AI_NOTE },
   };
