@@ -382,7 +382,7 @@ export class HeuristicPlayer {
         return { kind: 'CONFIRM', accept: true };
       }
       case 'SELECT_CARDS': {
-        if (decision.prompt === 'COST_DISCARD' || decision.prompt === 'COST_REST' || decision.prompt === 'TRIGGER_CHANCE_STOCK') {
+        if (decision.prompt === 'COST_DISCARD' || decision.prompt === 'COST_REST' || decision.prompt === 'COST_HAND_TO_CLOCK' || decision.prompt === 'TRIGGER_CHANCE_STOCK') {
           return { kind: 'SELECT_CARDS', cards: this.cheapest(view, decision.cards, decision.min) };
         }
         const count = Math.min(decision.max, decision.cards.length);

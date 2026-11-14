@@ -302,7 +302,7 @@ function writeSources(index: Record<string, ImageEntry>): void {
   for (const entry of Object.values(index)) {
     sources[entry.file] ??= {
       source: entry.source === 'user-zip' ? '官方卡表圖片（使用者提供的 102 張整合包）' : '官方卡表圖片（ws-tcg.com）',
-      licence: '使用者表示已取得使用許可；只在本機使用',
+      licence: '使用者表示已取得使用許可；由本專案的伺服器提供給連線的玩家，不放入 Git',
       note: entry.url ?? '',
     };
   }

@@ -31,7 +31,7 @@ function swapIn(entries: DeckCount[], cardId: string, count: number): DeckCount[
 }
 
 describe('deck validation: basic rules (デッキ構築ルール ① to ③)', () => {
-  it('DR-001: the five test decks are legal Neo-Standard decks and playable', () => {
+  it('DR-001: the six test decks are legal Neo-Standard decks and playable', () => {
     for (const deck of TEST_DECKS) {
       const check = validateDeck(deck.entries);
       expect(check.problems, deck.id).toEqual([]);

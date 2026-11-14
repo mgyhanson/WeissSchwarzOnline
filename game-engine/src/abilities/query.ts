@@ -7,7 +7,7 @@
 import { getDef, getInstance } from '../state';
 import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
 import { SLOTS, opponentOf } from '../types';
-import { FRONT_SLOTS, isBackSlot, slotsInFrontOf } from '../zones';
+import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
 import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, EffectContext, PerCharacter, Target } from './types';
 
 type Stat = 'POWER' | 'SOUL' | 'LEVEL';
@@ -79,6 +79,12 @@ export function matchesFilter(
   if (filter.name !== undefined && def.name !== filter.name) return false;
   if (filter.nameIncludes !== undefined && !def.name.includes(filter.nameIncludes)) return false;
   if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => def.name.includes(part))) return false;
+  if (filter.names !== undefined && !filter.names.includes(def.name)) return false;
+  if (filter.levelAboveMasterLevel) {
+    // The player whose card it is: where it is now (CR-4.3.2), i.e. the side of the stage it is on.
+    const location = getInstance(state, instanceId).location;
+    if (levelOf(state, instanceId) <= state.zones[location.player].level.length) return false;
+  }
   if (filter.color !== undefined && def.color !== filter.color) return false;
   if (filter.hasTrigger && !def.triggers.includes(filter.hasTrigger)) return false;
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
@@ -90,7 +96,11 @@ export function matchesFilter(
   return true;
 }
 
-export function evalCondition(state: GameState, master: PlayerId, source: number, condition: Condition | undefined): boolean {
+/**
+ * `battleOpponent`: object id of the battle opponent the ability remembers
+ * (EffectContext.battleOpponent), for the BATTLE_OPPONENT condition.
+ */
+export function evalCondition(state: GameState, master: PlayerId, source: number, condition: Condition | undefined, battleOpponent: number | null = null): boolean {
   if (!condition) return true;
   const zones = state.zones[master];
   switch (condition.if) {
@@ -119,6 +129,20 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
     case 'LAST_MOVED':
       // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).
       return false;
+    case 'BATTLE_OPPONENT': {
+      if (battleOpponent === null) return false;
+      // A card that leaves the stage is a new card (CR-3.1.4), so an object found here is still that character on the stage.
+      const opponent = state.instances.find((inst) => inst.objectId === battleOpponent);
+      return !!opponent && matchesFilter(state, opponent.instanceId, condition.filter);
+    }
+    case 'FACING': {
+      const location = getInstance(state, source).location;
+      if (location.zone !== 'stage') return false;
+      const facing = facingSlot(location.slot);
+      if (!facing) return false;
+      const other = state.zones[opponentOf(location.player)].stage[facing].find((id) => getDef(state, id).kind === 'CHARACTER');
+      return other !== undefined && matchesFilter(state, other, condition.filter);
+    }
     case 'MEMORY': {
       // CR-10.9; a face-down memory card is a blank card (CR-3.12.2.2.1).
       const count = zones.memory.filter(
@@ -139,9 +163,9 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
     case 'STOCK':
       return zones.stock.length <= condition.max;
     case 'ALL':
-      return condition.of.every((part) => evalCondition(state, master, source, part));
+      return condition.of.every((part) => evalCondition(state, master, source, part, battleOpponent));
     case 'NOT':
-      return !evalCondition(state, master, source, condition.of);
+      return !evalCondition(state, master, source, condition.of, battleOpponent);
   }
 }
 
@@ -167,6 +191,10 @@ function continuousTargets(
         .flatMap((slot) => zones.stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && matchesFilter(state, id, target.filter, levelOf));
     }
+    case 'YOUR_SLOT':
+      return target.slots
+        .flatMap((slot) => state.zones[source.master].stage[slot])
+        .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === source.instanceId));
   }
 }
 
@@ -307,6 +335,10 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
         .flatMap((slot) => zones.stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && matchesFilter(state, id, target.filter));
     }
+    case 'YOUR_SLOT':
+      return target.slots
+        .flatMap((slot) => state.zones[context.master].stage[slot])
+        .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source));
     case 'CHOSEN':
       return context.chosen.flatMap((objectId) => {
         const inst = byObjectId(state, objectId);
@@ -363,6 +395,11 @@ export function chooseCandidates(
     case 'OPPONENT_FRONT_ROW': {
       const opponent = state.zones[opponentOf(master)];
       pool = FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]).filter((id) => getDef(state, id).kind === 'CHARACTER');
+      break;
+    }
+    case 'OPPONENT_BACK_ROW': {
+      const opponent = state.zones[opponentOf(master)];
+      pool = BACK_SLOTS.flatMap((slot) => opponent.stage[slot]).filter((id) => getDef(state, id).kind === 'CHARACTER');
       break;
     }
     case 'OPPONENT_CLIMAX':

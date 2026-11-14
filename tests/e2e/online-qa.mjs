@@ -22,15 +22,21 @@
  *  6. The replay downloads, and the replay viewer plays it to the same result.
  *  7. Rematch; Bob then closes his browser for good: after the hold
  *     (GRACE_MINUTES, short here) the server concedes for him.
+ *  8. Card pictures: the server listens like `npm run server:lan` and Bob
+ *     reaches it by this computer's network address, as another device on
+ *     the Wi-Fi would. Both players see real pictures (card browser, deck
+ *     builder, hand, stage, climax); no picture fails to load; and neither
+ *     browser ever asks for the picture of a card it was not told about.
  * Screenshots go to QA_OUT (default data.nosync/qa-online).
  */
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { networkInterfaces, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
+import { cardIdOfFile, checkBrowserAndBuilder, picturesIn, watchPictures } from './pictures.mjs';
 
 const OUT = process.env.QA_OUT ?? 'data.nosync/qa-online';
 mkdirSync(OUT, { recursive: true });
@@ -52,8 +58,13 @@ function freePort() {
   });
 }
 
+/** This computer's address on the local network, if it has one. */
+const lanAddress = Object.values(networkInterfaces())
+  .flat()
+  .find((net) => net && net.family === 'IPv4' && !net.internal)?.address;
+
 async function startServer(port, db) {
-  const child = spawn(process.execPath, ['backend/dist.nosync/server.mjs'], {
+  const child = spawn(process.execPath, ['backend/dist.nosync/server.mjs', ...(lanAddress ? ['--lan'] : [])], {
     env: { ...process.env, PORT: String(port), DB: db, GRACE_MINUTES: String(GRACE_SECONDS / 60), HEARTBEAT_SECONDS: '2' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -72,8 +83,8 @@ async function startServer(port, db) {
   throw new Error(`server did not start:\n${log}`);
 }
 
-/** Records hidden-information problems in every WebSocket message a page receives. */
-function watchFrames(page, name, leaks) {
+/** Records hidden-information problems in every WebSocket message a page receives, and every card id the page is told. */
+function watchFrames(page, name, leaks, told = new Set()) {
   page.on('websocket', (ws) => {
     ws.on('framereceived', ({ payload }) => {
       let m;
@@ -83,6 +94,7 @@ function watchFrames(page, name, leaks) {
         return;
       }
       if (m.t === 'replay') return; // Only sent after the game, on request.
+      for (const found of String(payload).matchAll(/"cardId":"([^"]+)"/g)) told.add(found[1]);
       if (String(payload).includes('"seed"')) leaks.push(`${name}: a message contains a seed`);
       const views = m.t === 'game' ? m.updates.map((u) => u.view) : m.t === 'update' ? [m.update.view] : [];
       for (const view of views) {
@@ -109,9 +121,12 @@ const port = await freePort();
 const dir = mkdtempSync(join(tmpdir(), 'wso-online-qa-'));
 const server = await startServer(port, join(dir, 'server.sqlite'));
 const URL = `http://127.0.0.1:${port}`;
+// Bob plays from "another device": the same server by its network address.
+const BOB_URL = lanAddress ? `http://${lanAddress}:${port}` : URL;
 const browser = await chromium.launch();
 const leaks = [];
 const errors = [];
+const told = { Alice: new Set(), Bob: new Set() };
 
 try {
   const alice = await browser.newContext({ viewport: { width: 1366, height: 850 }, acceptDownloads: true });
@@ -122,9 +137,18 @@ try {
     [a, 'Alice'],
     [b, 'Bob'],
   ]) {
-    watchFrames(page, name, leaks);
+    watchFrames(page, name, leaks, told[name]);
     page.on('pageerror', (e) => errors.push(`${name}: ${String(e).slice(0, 160)}`));
   }
+  let pa = await watchPictures(a);
+  const pb = await watchPictures(b);
+
+  // 8a. Pictures outside a game, on the built client served by the game server.
+  check(Boolean(lanAddress), `Bob connects by the network address ${BOB_URL} (server started with --lan)`);
+  await b.goto(BOB_URL);
+  await checkBrowserAndBuilder(b, check, 'Bob (phone, network address)');
+  await b.screenshot({ path: `${OUT}/bob-pictures.png` });
+  pb.requests.clear();
 
   // 1. Room, invite link, ready.
   await a.goto(URL);
@@ -137,7 +161,7 @@ try {
   const invite = await a.locator('.invite-link').textContent();
   check(invite.endsWith(`/?room=${code}`), 'invite link shown');
 
-  await b.goto(`${URL}/?room=${code}`);
+  await b.goto(`${BOB_URL}/?room=${code}`);
   check((await b.getByLabel('房間代碼').inputValue()) === code, 'the invite link fills in the room code');
   await b.getByLabel('你的名稱').fill('Bob');
   await b.getByLabel('你的卡組').selectOption('test-gup');
@@ -149,6 +173,12 @@ try {
   await Promise.all([a.locator('.game').waitFor(), b.locator('.game').waitFor()]);
   check(true, 'the game starts on both screens');
   check((await a.locator('.player-bar').first().textContent()).includes('Bob'), 'Alice’s board names her opponent Bob');
+  // 8b. The opening hands: real pictures on both screens, and nothing asked about the other player's cards.
+  const [handA, handB] = [await picturesIn(a, '.hand .card'), await picturesIn(b, '.hand .card')];
+  check(handA.cards === 5 && handA.shown === 5, `Alice’s opening hand shows real pictures (${handA.shown}/${handA.cards})`);
+  check(handB.cards === 5 && handB.shown === 5, `Bob’s opening hand shows real pictures, served to the network address (${handB.shown}/${handB.cards})`);
+  const foreign = [...[...pa.requests.keys()].filter((f) => !f.startsWith('SAO_')), ...[...pb.requests.keys()].filter((f) => !f.startsWith('GUP_'))];
+  check(pa.requests.size > 0 && pb.requests.size > 0 && foreign.length === 0, `before anything is played, each browser has asked only for pictures of its own cards (${foreign.slice(0, 3).join(', ')})`);
   await a.screenshot({ path: `${OUT}/alice-start.png` });
   await b.screenshot({ path: `${OUT}/bob-start.png` });
   await setFastAutoPlay(a);
@@ -189,9 +219,15 @@ try {
   );
   check(bobSees, 'Alice closed her tab: Bob is told the game is held for her and for how long');
   await b.screenshot({ path: `${OUT}/bob-waiting.png` });
+  const before = pa;
   a = await alice.newPage();
-  watchFrames(a, 'Alice', leaks);
+  watchFrames(a, 'Alice', leaks, told.Alice);
   a.on('pageerror', (e) => errors.push(`Alice: ${String(e).slice(0, 160)}`));
+  pa = await watchPictures(a);
+  for (const [file, status] of before.requests) pa.requests.set(file, status);
+  for (const area of before.seen) pa.seen.add(area);
+  pa.landscapeClimax ||= before.landscapeClimax;
+  pa.backWithPicture ||= before.backWithPicture;
   await a.goto(URL);
   await a.locator('.game').waitFor({ timeout: 20_000 });
   check((await turnNumber(a)) >= turnClosed, 'Alice opens the site again and is put straight back into the game');
@@ -209,6 +245,20 @@ try {
   check(opposite, `both see the end: Alice “${ra}”, Bob “${rb}”`);
   await a.screenshot({ path: `${OUT}/alice-end.png` });
   await b.screenshot({ path: `${OUT}/bob-end.png` });
+
+  // 8c. Pictures during the game (checked before the replay, which shows everything).
+  for (const [name, pictures] of [
+    ['Alice', pa],
+    ['Bob', pb],
+  ]) {
+    const areas = ['hand', 'stage', 'climax'].filter((area) => !pictures.seen.has(area));
+    check(areas.length === 0 && pictures.landscapeClimax, `${name}: real pictures were shown in hand, on stage and in the climax zone (missing: ${areas.join(', ') || 'none'})`);
+    const failed = [...pictures.requests].filter(([, status]) => status !== 200 && status !== 304);
+    check(pictures.requests.size > 20 && failed.length === 0, `${name}: ${pictures.requests.size} pictures requested during the game, none failed (${failed.slice(0, 3).join('; ')})`);
+    check(!pictures.backWithPicture, `${name}: the back of a card never carried a picture`);
+    const untold = [...pictures.requests.keys()].map(cardIdOfFile).filter((cardId) => !told[name].has(cardId));
+    check(untold.length === 0, `${name}: every picture asked for belongs to a card the server had shown this player (${untold.slice(0, 3).join(', ')})`);
+  }
 
   // 6. Replay: download, then watch.
   const [download] = await Promise.all([a.waitForEvent('download'), a.getByRole('button', { name: '下載重播檔' }).click()]);

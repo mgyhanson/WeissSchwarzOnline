@@ -36,6 +36,7 @@
     "qa:online": "npm run build && npm run server:build && node tests/e2e/online-qa.mjs",
     "cards:import": "node scripts/import-card-sets.ts",
     "cards:images": "node scripts/import-image-pack.ts",
+    "cards:images:index": "node scripts/index-user-images.ts",
     "cards:validate": "node scripts/validate-card-database.ts",
     "cards:report": "CARD_REPORT=1 vitest run card-database/tests/stats.test.ts"
   },

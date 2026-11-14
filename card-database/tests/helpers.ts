@@ -24,10 +24,17 @@ import {
 } from '@wso/game-engine';
 import { SETS, defsFor } from '../src/index';
 
+/**
+ * The cards of a set for test decks: those with a hand-written record, in
+ * record order. "<set>:ALL" takes every card of the set's official data
+ * instead (whole imported boosters, where cards without a record still
+ * serve as plain characters: the engine gets no abilities for them).
+ */
 function setCards(setId: string): string[] {
-  const set = SETS.find((s) => s.id === setId);
+  const [id, all] = setId.split(':');
+  const set = SETS.find((s) => s.id === id);
   if (!set) throw new Error(`Unknown set ${setId}`);
-  return set.records.map((record) => record.cardId);
+  return all === 'ALL' ? set.official.cards.map((card) => card.no) : set.records.map((record) => record.cardId);
 }
 
 export const HARUHI = 'SY_W08_TD';
@@ -35,6 +42,8 @@ export const ICHIKA = '5HY_W83_TD_ICHIKA';
 export const SAO = 'SAO_S20';
 export const SAO_OTHERS = 'SAO_OTHERS';
 export const GUP = 'GUP_W141';
+/** Every card of the BanG Dream! booster (BDY/W135), three copies each. */
+export const BDY = 'BDY_W135:ALL';
 
 export interface RealScenario {
   step: TurnStep;

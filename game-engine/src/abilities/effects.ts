@@ -62,7 +62,13 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
       case 'SELF_TO_WAITING_ROOM':
       case 'SELF_TO_CLOCK':
       case 'SELF_TO_MEMORY':
+      case 'SELF_TO_DECK_BOTTOM':
         if (!sourceIfUnchanged(state, context)) return false;
+        break;
+      case 'HAND_TO_CLOCK':
+        // Hand cards other than the card itself, like a discard; each hand card can pay only one of them.
+        if (zones.hand.filter((id) => id !== context.source && matchesFilter(state, id, cost.filter)).length < cost.count) return false;
+        discardsNeeded += cost.count;
         break;
       case 'DECK_TOP_TO_CLOCK':
         deckNeeded++;
@@ -150,6 +156,23 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'memory' }, { reason: 'COST' });
       return;
+    case 'SELF_TO_DECK_BOTTOM':
+      frame.index++;
+      moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'deck' }, { reason: 'COST', position: 'BOTTOM' });
+      return;
+    case 'HAND_TO_CLOCK': {
+      if (!frame.asked) {
+        frame.asked = true;
+        const cards = zones.hand.filter((id) => id !== context.source && matchesFilter(state, id, cost.filter)).map((id) => getInstance(state, id).objectId);
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'COST_HAND_TO_CLOCK', cards, min: cost.count, max: cost.count });
+        return;
+      }
+      frame.asked = false;
+      frame.index++;
+      const chosen = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+      moveCards(ctx, chosen, { player: master, zone: 'clock' }, { reason: 'COST' });
+      return;
+    }
     case 'STOCK_TO_CLOCK': {
       // From the top of the stock (CR-3.10.2).
       const fromTop = zones.stock.slice(zones.stock.length - cost.count).reverse();
@@ -245,7 +268,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         if (effect.levelMaxX) candidates = candidates.filter((id) => (getDef(state, id).level ?? 0) <= (context.x ?? 0));
         if (candidates.length === 0) {
           // CR-8.6.3.1.3: nothing can be chosen; whatever refers to the choice does nothing.
-          context.chosen = [];
+          if (!effect.add) context.chosen = [];
           next();
           return;
         }
@@ -273,7 +296,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         });
         return;
       }
-      context.chosen = takeAnswer(ctx, 'SELECT_CARDS').cards;
+      {
+        const picked = takeAnswer(ctx, 'SELECT_CARDS').cards;
+        context.chosen = effect.add ? [...context.chosen, ...picked] : picked;
+      }
       next();
       return;
     }
@@ -347,6 +373,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       shuffleDeck(ctx, master);
       return;
 
+    case 'WAITING_ROOM_TO_DECK':
+      next();
+      moveCards(ctx, [...state.zones[master].waitingRoom], { player: master, zone: 'deck' }, { reason: 'EFFECT' });
+      return;
+
     case 'BRAINSTORM': {
       // CR-10.7.3: the cards are turned over one at a time into the
       // resolution zone, then all go to the waiting room together.
@@ -381,7 +412,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const holds =
         condition.if === 'LAST_MOVED'
           ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
-          : evalCondition(state, master, context.source, condition);
+          : evalCondition(state, master, context.source, condition, context.battleOpponent);
       next();
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
       return;

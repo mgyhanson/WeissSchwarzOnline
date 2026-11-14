@@ -5,24 +5,24 @@
  *    browsers on the same host name as the server, or on localhost, may
  *    connect (a check against other web pages opening a connection).
  *  - /health: "ok", for checks.
- *  - /user-art/: the owner's own card pictures (card-assets/local.nosync),
- *    ONLY for a browser on this computer: the connection must come from
- *    the loopback address and be addressed to localhost. Other devices and
- *    anything arriving through a tunnel or proxy get nothing, so the
- *    pictures are never passed on to online opponents.
+ *  - /user-art/: the card pictures of the server's picture folder, for the
+ *    game clients this server is set to serve (user-art.ts): by default
+ *    every browser that reaches it, so players on the network and in online
+ *    rooms see the same pictures.
  *  - everything else: the built web client (web-client/dist.nosync), when
  *    a folder is given; unknown paths get index.html.
  *
  * Dead connections are found with WebSocket pings every 15 seconds.
  */
 
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { type IncomingMessage, type Server, createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 import { RoomManager, type RoomManagerOptions } from './rooms';
 import { WS_PATH } from './shared';
+import { type UserArtMode, type UserArtService, createUserArt } from './user-art';
 
 export interface GameServerOptions extends RoomManagerOptions {
   port?: number;
@@ -34,14 +34,17 @@ export interface GameServerOptions extends RoomManagerOptions {
   heartbeatMs?: number;
   /** Extra allowed browser origins, e.g. "https://example.org". */
   allowedOrigins?: string[];
-  /** Folder of the owner's own card pictures, served to this computer only; none: not served. */
+  /** Folder of card pictures with its image-index.json; none: no pictures. */
   userArtDir?: string | null;
+  /** Who gets the pictures: every client (default), this computer only, or nobody. */
+  userArtMode?: UserArtMode;
 }
 
 export interface GameServer {
   readonly port: number;
   readonly manager: RoomManager;
   readonly http: Server;
+  readonly userArt: UserArtService;
   close(): Promise<void>;
 }
 
@@ -73,45 +76,6 @@ export function originAllowed(origin: string | undefined, host: string | undefin
   return originHost === hostName || LOCAL_HOSTS.has(originHost === '::1' ? '[::1]' : originHost);
 }
 
-const PICTURE = /^[A-Za-z0-9_\-+.]+\.(png|jpe?g|webp)$/i;
-const PICTURE_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
-
-/** A request from a browser on this computer, addressed to localhost (not relayed by a tunnel or proxy under another name). */
-export function isLocalRequest(req: IncomingMessage): boolean {
-  const address = req.socket.remoteAddress ?? '';
-  const loopback = address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
-  const host = (req.headers.host ?? '').replace(/:\d+$/, '');
-  const forwarded = req.headers['x-forwarded-for'] !== undefined || req.headers['x-forwarded-host'] !== undefined || req.headers.forwarded !== undefined;
-  return loopback && LOCAL_HOSTS.has(host) && !forwarded;
-}
-
-function serveUserArt(dir: string | null, req: IncomingMessage, res: import('node:http').ServerResponse): void {
-  const name = decodeURIComponent((req.url ?? '').slice('/user-art/'.length).split('?')[0] ?? '');
-  const allowed = dir !== null && existsSync(dir) && isLocalRequest(req);
-  if (name === 'manifest.json') {
-    const files: Record<string, string> = {};
-    let sources: Record<string, unknown> = {};
-    if (allowed) {
-      // Card id from the file name: the first "_" stands for the "/" of the card number.
-      for (const file of readdirSync(dir)) if (PICTURE.test(file)) files[file.replace(/\.[^.]+$/, '').replace('_', '/')] = file;
-      try {
-        sources = JSON.parse(readFileSync(join(dir, 'sources.json'), 'utf8')) as Record<string, unknown>;
-      } catch {
-        // sources.json is optional.
-      }
-    }
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ files, sources }));
-    return;
-  }
-  const file = allowed ? resolve(dir, name) : '';
-  if (!allowed || !PICTURE.test(name) || !file.startsWith(resolve(dir) + sep) || !existsSync(file)) {
-    res.writeHead(404).end();
-    return;
-  }
-  res.writeHead(200, { 'Content-Type': PICTURE_TYPES[name.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
-  createReadStream(file).pipe(res);
-}
-
 function serveStatic(root: string, req: IncomingMessage, res: import('node:http').ServerResponse): void {
   let path: string;
   try {
@@ -141,7 +105,7 @@ export function startGameServer(options: GameServerOptions = {}): Promise<GameSe
   const manager = new RoomManager(options);
   const staticDir = options.staticDir ? resolve(options.staticDir) : null;
   const allowed = options.allowedOrigins ?? [];
-  const userArtDir = options.userArtDir ? resolve(options.userArtDir) : null;
+  const userArt = createUserArt(options.userArtDir ?? null, options.userArtDir ? (options.userArtMode ?? 'clients') : 'off');
 
   const http = createServer((req, res) => {
     if (req.url === '/health') {
@@ -152,10 +116,7 @@ export function startGameServer(options: GameServerOptions = {}): Promise<GameSe
       res.writeHead(405).end();
       return;
     }
-    if (req.url?.startsWith('/user-art/')) {
-      serveUserArt(userArtDir, req, res);
-      return;
-    }
+    if (userArt.handle(req, res)) return;
     if (staticDir) serveStatic(staticDir, req, res);
     else res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('This server only runs games. Start the web client with npm run dev, or build it first.');
   });
@@ -210,6 +171,7 @@ export function startGameServer(options: GameServerOptions = {}): Promise<GameSe
         port,
         manager,
         http,
+        userArt,
         close: () =>
           new Promise<void>((done) => {
             clearInterval(heartbeat);

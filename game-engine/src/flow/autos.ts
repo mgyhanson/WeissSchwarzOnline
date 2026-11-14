@@ -69,11 +69,13 @@ function autosOf(
   grants: readonly AutoAbility[] = grantedAutos(state, card.instanceId),
 ): FoundAuto[] {
   const found: FoundAuto[] = [];
+  // …した時か…した時: the ability triggers (once) when any of its trigger conditions is met.
+  const met = (trigger: Trigger): boolean => (trigger.on === 'EITHER' ? trigger.of.some(met) : match(trigger));
   (state.defs[card.cardId]?.abilities ?? []).forEach((ability, index) => {
-    if (ability.type === 'AUTO' && match(ability.trigger)) found.push({ index, ability });
+    if (ability.type === 'AUTO' && met(ability.trigger)) found.push({ index, ability });
   });
   for (const ability of grants) {
-    if (match(ability.trigger)) found.push({ index: -1, ability, granted: ability });
+    if (met(ability.trigger)) found.push({ index: -1, ability, granted: ability });
   }
   return found;
 }
@@ -154,6 +156,14 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const defender = defenderInstance(state);
       for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS')) {
         wait(state, event.player, attacker, found, defender ? defender.objectId : null);
+      }
+      // 他のあなたの…のキャラがアタックした時: abilities of the attacking player's other cards in force.
+      for (const source of activeSources(state)) {
+        if (source.master !== event.player || source.instanceId === attacker.instanceId) continue;
+        const sourceCard = state.instances[source.instanceId] as CardInstance;
+        for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_ATTACKS' && matchesFilter(state, attacker.instanceId, t.filter))) {
+          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
+        }
       }
       return;
     }
@@ -334,7 +344,7 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
       return;
     }
     // "... なら": the condition is checked when the ability resolves.
-    if (!evalCondition(state, master, waiting.instanceId, ability.condition)) {
+    if (!evalCondition(state, master, waiting.instanceId, ability.condition, waiting.battleOpponent)) {
       popFrame(ctx, frame);
       return;
     }

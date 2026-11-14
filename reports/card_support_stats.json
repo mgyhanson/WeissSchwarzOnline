@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 156,
-    "handWritten": 102,
+    "playable": 182,
+    "handWritten": 128,
     "fromPatterns": 54,
-    "unsupported": 453,
-    "abilitiesRun": 193
+    "unsupported": 427,
+    "abilitiesRun": 238
   },
   "sets": [
     {
@@ -42,9 +42,9 @@
       "id": "GUP_W141",
       "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
       "cards": 114,
-      "handWritten": 19,
+      "handWritten": 21,
       "fromPatterns": 9,
-      "unsupported": 86,
+      "unsupported": 84,
       "pending": 0,
       "withoutText": 0
     },
@@ -62,9 +62,9 @@
       "id": "BDY_W135",
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
-      "handWritten": 0,
+      "handWritten": 16,
       "fromPatterns": 12,
-      "unsupported": 88,
+      "unsupported": 72,
       "pending": 0,
       "withoutText": 0
     },
@@ -72,9 +72,9 @@
       "id": "STS_W140",
       "product": "ブースターパック ステラソラ",
       "cards": 100,
-      "handWritten": 0,
+      "handWritten": 3,
       "fromPatterns": 9,
-      "unsupported": 91,
+      "unsupported": 88,
       "pending": 0,
       "withoutText": 0
     },
@@ -82,9 +82,9 @@
       "id": "ANM_W138",
       "product": "ブースターパック anemoi",
       "cards": 100,
-      "handWritten": 0,
+      "handWritten": 3,
       "fromPatterns": 12,
-      "unsupported": 88,
+      "unsupported": 85,
       "pending": 0,
       "withoutText": 0
     },
@@ -92,9 +92,9 @@
       "id": "NIK_S135",
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
-      "handWritten": 0,
+      "handWritten": 2,
       "fromPatterns": 12,
-      "unsupported": 100,
+      "unsupported": 98,
       "pending": 0,
       "withoutText": 0
     }
