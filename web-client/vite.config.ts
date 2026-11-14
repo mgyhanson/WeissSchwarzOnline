@@ -30,6 +30,14 @@ function manifest(): { files: Record<string, string>; sources: Record<string, un
 function userArt(): Plugin {
   const handle = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     if (!req.url?.startsWith('/user-art/')) return next();
+    // Only for a browser on this computer (npm run dev:lan must not hand the pictures to other devices).
+    const address = req.socket.remoteAddress ?? '';
+    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address) && ['localhost', '127.0.0.1', '[::1]'].includes((req.headers.host ?? '').replace(/:\d+$/, ''));
+    if (!local) {
+      res.statusCode = 404;
+      res.end();
+      return;
+    }
     const name = decodeURIComponent(req.url.slice('/user-art/'.length).split('?')[0] ?? '');
     if (name === 'manifest.json') {
       res.setHeader('Content-Type', 'application/json');

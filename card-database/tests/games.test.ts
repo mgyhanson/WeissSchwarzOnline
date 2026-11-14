@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { serializeState } from '@wso/game-engine';
 import { type Played, playGameWith, randomPolicy, resultProblems } from '../../game-engine/tests/random-play';
+import { GUP_TEST_DECK, TEST_DECKS, allCards, deckList, defsFor, expandDeck, getCard, validateDeck } from '../src/index';
 import { abilitiesPlayed, realDeckConfig } from './real-decks';
 
 describe('complete games with the real test decks', () => {
@@ -28,6 +29,31 @@ describe('complete games with the real test decks', () => {
     // The second SAO batch: its own sets' abilities and the three new SAO/S20 cards.
     expect([...used].filter((u) => /^SAO\/S(51|65|71|80)-/.test(u)).length).toBeGreaterThan(5);
     expect([...used].filter((u) => /^SAO\/S20-0(18|76|80)#/.test(u)).length).toBeGreaterThan(1);
+  });
+
+  it('a deck built with newly imported cards (GUP climaxes compiled from sentence patterns) is legal and plays whole games', () => {
+    const imported = allCards().filter((c) => c.set === 'GUP_W141' && c.record.origin === 'PATTERN' && c.def.kind === 'CLIMAX');
+    expect(imported.length).toBeGreaterThanOrEqual(4);
+    // The test deck's characters, with its climaxes replaced by imported ones (two copies each of four kinds, one with an ability when placed).
+    const withAbility = imported.filter((c) => c.def.abilities?.some((a) => a.type === 'AUTO'));
+    const chosen = [...withAbility.slice(0, 1), ...imported.filter((c) => !withAbility.includes(c))].slice(0, 4);
+    const entries = [...GUP_TEST_DECK.entries.filter((e) => getCard(e.cardId).def.kind !== 'CLIMAX'), ...chosen.map((c) => ({ cardId: c.record.cardId, count: 2 }))];
+    const check = validateDeck(entries);
+    expect(check.problems).toEqual([]);
+    expect(check.playable).toBe(true);
+    const mine = expandDeck(entries);
+    const games: Played[] = [];
+    for (let i = 0; i < 12; i++) {
+      const other = deckList(TEST_DECKS[i % TEST_DECKS.length]!);
+      const decks: [string[], string[]] = i % 2 === 0 ? [mine, other] : [other, mine];
+      const game = playGameWith({ defs: defsFor(new Set([...decks[0], ...decks[1]])), decks }, `imported-${i}`, randomPolicy, 30_000);
+      expect(game.problems, `imported-${i}`).toEqual([]);
+      expect(resultProblems(game), `imported-${i}`).toEqual([]);
+      games.push(game);
+    }
+    const used = abilitiesPlayed(games);
+    // The imported climax with an ability was placed and its ability played.
+    if (withAbility[0]) expect([...used].some((u) => u.startsWith(`${withAbility[0]!.record.cardId}#`))).toBe(true);
   });
 
   it('INV-07: a game with the real decks replays exactly', () => {

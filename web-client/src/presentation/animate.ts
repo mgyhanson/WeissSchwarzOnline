@@ -17,7 +17,7 @@ import { CardFace } from '../components/CardFace';
 import type { Animator, Speed } from './queue';
 import type { Step, StepCard } from './steps';
 
-const BASE: Record<Speed, number> = { NORMAL: 1, FAST: 0.4, OFF: 0 };
+const BASE: Record<Speed, number> = { SLOW: 1.7, NORMAL: 1, FAST: 0.4, OFF: 0 };
 /** Most cards flown for one step; a refresh of 30 cards is shown as a few. */
 const MAX_FLYERS = 6;
 const EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
@@ -148,8 +148,8 @@ export function createAnimator(seat: PlayerId): Animator {
     const jobs: Promise<void>[] = [];
     if (flight) {
       const cards = flight.cards.slice(0, MAX_FLYERS);
-      const ms = 420 * k;
-      const stagger = (step.kind === 'DAMAGE' ? 550 : 90) * k;
+      const ms = 650 * k;
+      const stagger = (step.kind === 'DAMAGE' ? 700 : 160) * k;
       cards.forEach((card, i) => jobs.push(fly(card, flight.from, flight.to, ms, i * stagger, signal)));
     }
     switch (step.kind) {
@@ -159,7 +159,7 @@ export function createAnimator(seat: PlayerId): Animator {
           pulse(
             `p${step.player}-stage-${step.slot}`,
             [{ transform: 'translateY(0)' }, { transform: `translateY(${dir * 18}px) scale(1.06)`, offset: 0.4 }, { transform: 'translateY(0)' }],
-            520 * k,
+            900 * k,
             signal,
           ),
         );

@@ -14,9 +14,9 @@
  */
 
 import type { Choice, GameEventView, PlayerId, PlayerView } from '@wso/game-engine';
-import { TEST_DECKS, deckList, getCard } from '@wso/card-database';
+import { getCard } from '@wso/card-database';
 import { type Ai, createAi } from '@wso/ai';
-import { type ClientMessage, ERROR_ZH, type LobbyState, type Replay, type ServerMessage, WS_PATH } from '@wso/server/shared';
+import { type ClientMessage, type DeckChoice, ERROR_ZH, type LobbyState, type Replay, type ServerMessage, WS_PATH } from '@wso/server/shared';
 import type { GameHost, HostSnapshot, HostUpdate } from './types';
 
 export const ONLINE_KEY = 'wso.online.v1';
@@ -107,11 +107,11 @@ export class OnlineClient {
 
   // ----- Actions -------------------------------------------------------------
 
-  create(name: string, deck: string): void {
+  create(name: string, deck: DeckChoice): void {
     this.intro({ t: 'create', name, deck });
   }
 
-  join(code: string, name: string, deck: string): void {
+  join(code: string, name: string, deck: DeckChoice): void {
     this.intro({ t: 'join', code: code.trim().toUpperCase(), name, deck });
   }
 
@@ -122,7 +122,7 @@ export class OnlineClient {
     this.open();
   }
 
-  setDeck(deck: string): void {
+  setDeck(deck: DeckChoice): void {
     this.send({ t: 'deck', deck });
   }
 
@@ -318,7 +318,7 @@ export class OnlineClient {
           return;
         }
         current?.dispose();
-        const game = new RemoteGame(this, message.game, message.seat, message.deck, message.opponent, message.events, message.updates, message.restoredUpTo);
+        const game = new RemoteGame(this, message.game, message.seat, message.cards, message.opponent, message.events, message.updates, message.restoredUpTo);
         if (this.snapshot.lobby) game.setLobby(this.snapshot.lobby);
         this.set({ game });
         return;
@@ -343,8 +343,10 @@ export class OnlineClient {
             return;
           }
         }
-        this.set({ error: ERROR_ZH[message.code] ?? message.message });
-        this.snapshot.game?.setError(ERROR_ZH[message.code] ?? message.message);
+        // A refused deck comes with the validation engine's reason.
+        const text = message.code === 'BAD_DECK' && message.message ? `${ERROR_ZH.BAD_DECK}${message.message}` : (ERROR_ZH[message.code] ?? message.message);
+        this.set({ error: text });
+        this.snapshot.game?.setError(text);
         return;
       }
     }
@@ -372,7 +374,8 @@ export class RemoteGame implements GameHost {
     private readonly client: OnlineClient,
     readonly gameNo: number,
     readonly seat: PlayerId,
-    readonly deck: string,
+    /** This seat's own 50 card ids (for 自動代打). */
+    readonly deckCards: string[],
     readonly opponentName: string,
     events: GameEventView[],
     updates: HostUpdate[],
@@ -526,7 +529,7 @@ export class RemoteGame implements GameHost {
       this.timer = null;
       const current = this.view.decision;
       if (this.disposed || this.hold || !this.autoPlay || !current?.mine || this.view.result || this.answered === current.decision.id) return;
-      this.ai ??= createAi({ level: 'ADVANCED', card: (id) => getCard(id).def, deck: deckList(TEST_DECKS.find((d) => d.id === this.deck)!), seed: `auto-${this.gameNo}-${this.seat}` });
+      this.ai ??= createAi({ level: 'ADVANCED', card: (id) => getCard(id).def, deck: this.deckCards, seed: `auto-${this.gameNo}-${this.seat}` });
       // Only this seat's own view: the same information the player has.
       this.submit(this.ai.choose(this.view, current.decision));
     }, this.client.autoPlayDelay);

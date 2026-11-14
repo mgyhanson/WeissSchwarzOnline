@@ -16,10 +16,11 @@
 
 import { createHash, randomBytes } from 'node:crypto';
 import { type PlayerId, RULES_VERSION } from '@wso/game-engine';
-import { TEST_DECKS, deckList } from '@wso/card-database';
+import { NEO_STANDARD, TEST_DECKS, countDeck, deckList, validateDeck } from '@wso/card-database';
 import {
   CODE_ALPHABET,
   type ClientMessage,
+  type DeckChoice,
   type Entry,
   type ErrorCode,
   type LobbyState,
@@ -63,10 +64,33 @@ const SEAT_NAMES = ['玩家 1', '玩家 2'] as const;
 const other = (seat: PlayerId): PlayerId => (seat === 0 ? 1 : 0);
 const hash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
-function deckOf(id: string): { id: string; name: string; cards: string[] } {
-  const deck = TEST_DECKS.find((d) => d.id === id);
-  if (!deck) throw new Error(`Unknown deck ${id}`);
-  return { id: deck.id, name: deck.name, cards: deckList(deck) };
+interface ResolvedDeck {
+  id: string;
+  name: string;
+  cards: string[];
+}
+
+/**
+ * The deck a player chose, checked by the server: a test deck by id, or an
+ * own deck that must be legal in Neo-Standard and made only of cards the
+ * engine supports. Returns the reason when it is refused.
+ */
+export function resolveDeck(choice: DeckChoice): { ok: true; deck: ResolvedDeck } | { ok: false; message: string } {
+  if (typeof choice === 'string') {
+    const deck = TEST_DECKS.find((d) => d.id === choice);
+    return deck ? { ok: true, deck: { id: deck.id, name: deck.name, cards: deckList(deck) } } : { ok: false, message: `Unknown deck ${choice}` };
+  }
+  const check = validateDeck(countDeck(choice.cards), NEO_STANDARD);
+  if (!check.playable) return { ok: false, message: [...check.problems, ...check.unsupported][0]?.message ?? '卡組不合法。' };
+  return { ok: true, deck: { id: choice.id, name: choice.name, cards: [...choice.cards] } };
+}
+
+/** The deck stored with a seat (records from before own decks only have a test deck id). */
+function seatDeck(seat: SeatRecord): ResolvedDeck {
+  if (seat.deckCards) return { id: seat.deck, name: seat.deckName ?? seat.deck, cards: seat.deckCards };
+  const resolved = resolveDeck(seat.deck);
+  if (!resolved.ok) throw new Error(resolved.message);
+  return resolved.deck;
 }
 
 /** One browser connection. */
@@ -248,8 +272,10 @@ class Room {
     const [a, b] = [r.seats[0]!, r.seats[1]!];
     r.game += 1;
     r.seed = this.manager.randomHex(16);
-    r.deckIds = [a.deck, b.deck];
-    r.deckLists = [deckOf(a.deck).cards, deckOf(b.deck).cards];
+    const [deckA, deckB] = [seatDeck(a), seatDeck(b)];
+    r.deckIds = [deckA.id, deckB.id];
+    r.deckNames = [deckA.name, deckB.name];
+    r.deckLists = [deckA.cards, deckB.cards];
     r.status = 'PLAYING';
     r.forfeit = null;
     for (const seat of [a, b]) {
@@ -283,6 +309,7 @@ class Room {
       game: this.record.game,
       seat,
       deck: this.record.deckIds[seat],
+      cards: this.record.deckLists![seat],
       opponent: this.record.seats[other(seat)]?.name ?? '',
       events: [...feed.events],
       updates,
@@ -328,7 +355,6 @@ class Room {
   replay(): Replay | null {
     const r = this.record;
     if (r.status !== 'FINISHED' || !this.match || !r.seed || !r.deckIds) return null;
-    const [a, b] = r.deckIds.map(deckOf) as [ReturnType<typeof deckOf>, ReturnType<typeof deckOf>];
     return {
       format: 'wso-replay',
       version: 1,
@@ -338,8 +364,8 @@ class Room {
       players: [r.seats[0]?.name ?? SEAT_NAMES[0], r.seats[1]?.name ?? SEAT_NAMES[1]],
       seed: r.seed,
       decks: [
-        { id: a.id, name: a.name, cards: r.deckLists![0] },
-        { id: b.id, name: b.name, cards: r.deckLists![1] },
+        { id: r.deckIds[0], name: r.deckNames?.[0] ?? r.deckIds[0], cards: r.deckLists![0] },
+        { id: r.deckIds[1], name: r.deckNames?.[1] ?? r.deckIds[1], cards: r.deckLists![1] },
       ],
       entries: [...this.match.entries],
       result: this.match.state.result,
@@ -414,9 +440,9 @@ export class RoomManager {
     }
   }
 
-  private newSeat(name: string, deck: string, seat: PlayerId): { record: SeatRecord; token: string } {
+  private newSeat(name: string, deck: ResolvedDeck, seat: PlayerId): { record: SeatRecord; token: string } {
     const token = this.randomHex(16);
-    return { token, record: { tokenHash: hash(token), name: name || SEAT_NAMES[seat], deck, ready: false, rematch: false, left: false } };
+    return { token, record: { tokenHash: hash(token), name: name || SEAT_NAMES[seat], deck: deck.id, deckName: deck.name, deckCards: deck.cards, ready: false, rematch: false, left: false } };
   }
 
   private welcome(session: Session, room: Room, seat: PlayerId, token: string): void {
@@ -435,8 +461,10 @@ export class RoomManager {
           this.sweep();
           if (this.rooms.size >= this.maxRooms) return session.error('SERVER_FULL');
         }
+        const chosen = resolveDeck(message.deck);
+        if (!chosen.ok) return session.error('BAD_DECK', chosen.message);
         const now = this.now();
-        const { record: seat, token } = this.newSeat(message.name, message.deck, 0);
+        const { record: seat, token } = this.newSeat(message.name, chosen.deck, 0);
         const room = new Room(
           { code: this.newCode(), createdAt: now, lastActivity: now, status: 'LOBBY', seats: [seat, null], game: 0, seed: null, deckIds: null, deckLists: null, forfeit: null },
           this,
@@ -453,7 +481,9 @@ export class RoomManager {
         if (!room) return session.error('NOT_FOUND');
         const free = ([0, 1] as const).find((s) => room.record.seats[s] === null);
         if (room.record.status !== 'LOBBY' || free === undefined) return session.error('ROOM_FULL');
-        const { record: seat, token } = this.newSeat(message.name, message.deck, free);
+        const chosen = resolveDeck(message.deck);
+        if (!chosen.ok) return session.error('BAD_DECK', chosen.message);
+        const { record: seat, token } = this.newSeat(message.name, chosen.deck, free);
         room.record.seats[free] = seat;
         room.touch();
         room.save();
@@ -486,7 +516,13 @@ export class RoomManager {
     switch (message.t) {
       case 'deck':
         if (r.status === 'PLAYING' || mine.ready || mine.rematch) return session.error('WRONG_STATE');
-        mine.deck = message.deck;
+        {
+          const chosen = resolveDeck(message.deck);
+          if (!chosen.ok) return session.error('BAD_DECK', chosen.message);
+          mine.deck = chosen.deck.id;
+          mine.deckName = chosen.deck.name;
+          mine.deckCards = chosen.deck.cards;
+        }
         room.save();
         return room.broadcastLobby();
 

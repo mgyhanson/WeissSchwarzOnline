@@ -23,14 +23,20 @@ describe('card browser', () => {
   it('filters by series, kind, colour, level, cost, soul, power, trigger and support', () => {
     expect(find({ set: '5HY_W83_TD_ICHIKA' }).every((id) => id.startsWith('5HY/'))).toBe(true);
     expect(find({ kind: 'CLIMAX' }).every((id) => cardInfo(id).kind === 'CLIMAX')).toBe(true);
-    expect(find({ kind: 'EVENT' })).toEqual(['SY/W08-T16', '5HY/W83-T11', 'SAO/S20-022']);
+    expect(find({ kind: 'EVENT' }).every((id) => cardInfo(id).kind === 'EVENT')).toBe(true);
+    expect(find({ kind: 'EVENT', support: 'verified' })).toEqual(['SY/W08-T16', '5HY/W83-T11', 'SAO/S20-022']);
     expect(find({ color: 'blue', set: 'SY_W08_TD' }).every((id) => cardInfo(id).color === 'blue')).toBe(true);
     expect(find({ level: '3' }).every((id) => cardInfo(id).level === 3)).toBe(true);
     expect(find({ cost: '2' }).every((id) => cardInfo(id).cost === 2)).toBe(true);
     expect(find({ soul: '2' }).every((id) => cardInfo(id).soul === 2)).toBe(true);
     expect(find({ powerMin: '9000' }).every((id) => (cardInfo(id).power ?? 0) >= 9000)).toBe(true);
-    expect(find({ trigger: 'RETURN' })).toEqual(['5HY/W83-T12', 'SAO/S20-024']);
-    expect(find({ trigger: 'GATE' })).toEqual(['GUP/W141-111', 'SAO/S80-097']);
+    expect(find({ trigger: 'RETURN', set: 'SAO_S20' })).toEqual(['SAO/S20-024']);
+    expect(find({ trigger: 'GATE', set: 'SAO_OTHERS' })).toEqual(['SAO/S80-097']);
+    expect(find({ trigger: 'STANDBY' }).length).toBeGreaterThan(0);
+    expect(find({ trigger: 'STANDBY' }).every((id) => cardInfo(id).triggers.includes('STANDBY'))).toBe(true);
+    // Whole imported boosters can be searched and filtered like the earlier sets.
+    expect(find({ set: 'NIK_S135' })).toHaveLength(112);
+    expect(find({ set: 'BDY_W135', kind: 'CLIMAX' })).toHaveLength(12);
     expect(find({ trigger: 'NONE' }).every((id) => cardInfo(id).triggers.length === 0)).toBe(true);
     expect(find({ support: 'unsupported' })).toEqual(allCards().filter((c) => c.record.support === 'unsupported').map((c) => c.record.cardId));
   });
@@ -39,8 +45,7 @@ describe('card browser', () => {
     const summaries = setSummaries();
     expect(summaries.map((s) => s.id)).toEqual(SETS.map((s) => s.id));
     for (const s of summaries) {
-      const records = SETS.find((x) => x.id === s.id)!.records;
-      expect(s.total).toBe(records.length);
+      expect(s.total).toBe(SETS.find((x) => x.id === s.id)!.official.cards.length);
       expect(s.verified + s.pending + s.unsupported).toBe(s.total);
     }
   });

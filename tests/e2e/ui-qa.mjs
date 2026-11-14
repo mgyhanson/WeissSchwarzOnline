@@ -39,7 +39,7 @@ async function startGame(page, speed) {
   }
   await page.getByRole('button', { name: '開始新對局' }).click();
   await page.locator('.speed-select select').selectOption(speed);
-  await page.locator('.toggle input').check();
+  await page.locator('.bar-buttons .toggle input').check();
 }
 
 /** Frame intervals measured with requestAnimationFrame while the game plays itself. */

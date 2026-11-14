@@ -1,0 +1,225 @@
+{
+  "checkedAt": "2026-11-13T21:57:38.292Z",
+  "totals": {
+    "sets": 9,
+    "cards": 609,
+    "imagesPresent": 609,
+    "imagesVerified": 609,
+    "imagesMissing": 0,
+    "imageProblems": 0,
+    "orphanFiles": [],
+    "orphanIndex": [],
+    "charactersWithoutSoulIcon": [
+      "STS/W140-008",
+      "STS/W140-027",
+      "STS/W140-058",
+      "STS/W140-062",
+      "STS/W140-088",
+      "STS/W140-091"
+    ]
+  },
+  "problems": [],
+  "sets": [
+    {
+      "folder": "5HY_W83_TD_ICHIKA",
+      "product": "トライアルデッキ＋ 五等分の花嫁　一花",
+      "released": null,
+      "cards": 18,
+      "officialListed": null,
+      "parallels": null,
+      "codes": [
+        "5HY/W83"
+      ],
+      "kinds": {
+        "CHARACTER": 15,
+        "EVENT": 1,
+        "CLIMAX": 2
+      },
+      "images": {
+        "present": 18,
+        "verified": 18,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "ANM_W138",
+      "product": "ブースターパック anemoi",
+      "released": "2026-10-02",
+      "cards": 100,
+      "officialListed": 216,
+      "parallels": 116,
+      "codes": [
+        "ANM/W138"
+      ],
+      "kinds": {
+        "CHARACTER": 81,
+        "EVENT": 7,
+        "CLIMAX": 12
+      },
+      "images": {
+        "present": 100,
+        "verified": 100,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "BDY_W135",
+      "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
+      "released": "2026-11-13",
+      "cards": 100,
+      "officialListed": 221,
+      "parallels": 121,
+      "codes": [
+        "BDY/W135"
+      ],
+      "kinds": {
+        "CHARACTER": 85,
+        "EVENT": 3,
+        "CLIMAX": 12
+      },
+      "images": {
+        "present": 100,
+        "verified": 100,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "GUP_W141",
+      "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
+      "released": "2026-10-30",
+      "cards": 114,
+      "officialListed": 246,
+      "parallels": 132,
+      "codes": [
+        "GUP/W141"
+      ],
+      "kinds": {
+        "CHARACTER": 95,
+        "EVENT": 4,
+        "CLIMAX": 15
+      },
+      "images": {
+        "present": 114,
+        "verified": 114,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "NIK_S135",
+      "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
+      "released": "2026-09-19",
+      "cards": 112,
+      "officialListed": 270,
+      "parallels": 158,
+      "codes": [
+        "NIK/S135"
+      ],
+      "kinds": {
+        "CHARACTER": 90,
+        "EVENT": 9,
+        "CLIMAX": 13
+      },
+      "images": {
+        "present": 112,
+        "verified": 112,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "SAO_OTHERS",
+      "product": "ソードアート・オンライン 各商品精選（SAO/S51・S65・S71・S80・S100）",
+      "released": null,
+      "cards": 18,
+      "officialListed": null,
+      "parallels": null,
+      "codes": [
+        "SAO/S100",
+        "SAO/S51",
+        "SAO/S65",
+        "SAO/S71",
+        "SAO/S80"
+      ],
+      "kinds": {
+        "CHARACTER": 17,
+        "CLIMAX": 1
+      },
+      "images": {
+        "present": 18,
+        "verified": 18,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "SAO_S20",
+      "product": "ブースターパック ソードアート・オンライン（SAO/S20）",
+      "released": null,
+      "cards": 30,
+      "officialListed": null,
+      "parallels": null,
+      "codes": [
+        "SAO/S20"
+      ],
+      "kinds": {
+        "CHARACTER": 21,
+        "EVENT": 1,
+        "CLIMAX": 8
+      },
+      "images": {
+        "present": 30,
+        "verified": 30,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "STS_W140",
+      "product": "ブースターパック ステラソラ",
+      "released": "2026-10-16",
+      "cards": 100,
+      "officialListed": 218,
+      "parallels": 118,
+      "codes": [
+        "STS/W140"
+      ],
+      "kinds": {
+        "CHARACTER": 84,
+        "EVENT": 4,
+        "CLIMAX": 12
+      },
+      "images": {
+        "present": 100,
+        "verified": 100,
+        "missing": [],
+        "problems": []
+      }
+    },
+    {
+      "folder": "SY_W08_TD",
+      "product": "2009年度トライアルデッキ【W】（涼宮ハルヒの憂鬱）",
+      "released": null,
+      "cards": 17,
+      "officialListed": null,
+      "parallels": null,
+      "codes": [
+        "SY/W08"
+      ],
+      "kinds": {
+        "CHARACTER": 13,
+        "CLIMAX": 3,
+        "EVENT": 1
+      },
+      "images": {
+        "present": 17,
+        "verified": 17,
+        "missing": [],
+        "problems": []
+      }
+    }
+  ]
+}

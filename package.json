@@ -33,7 +33,11 @@
     "server": "npm run build && npm run server:build && node backend/dist.nosync/server.mjs",
     "server:lan": "npm run build && npm run server:build && node backend/dist.nosync/server.mjs --lan",
     "server:dev": "npm run server:build && node backend/dist.nosync/server.mjs",
-    "qa:online": "npm run build && npm run server:build && node tests/e2e/online-qa.mjs"
+    "qa:online": "npm run build && npm run server:build && node tests/e2e/online-qa.mjs",
+    "cards:import": "node scripts/import-card-sets.ts",
+    "cards:images": "node scripts/import-image-pack.ts",
+    "cards:validate": "node scripts/validate-card-database.ts",
+    "cards:report": "CARD_REPORT=1 vitest run card-database/tests/stats.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

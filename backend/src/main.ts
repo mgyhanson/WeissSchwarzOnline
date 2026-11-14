@@ -12,6 +12,7 @@
  *   STATIC          folder of the built client, default web-client/dist.nosync
  *   ALLOWED_ORIGINS extra browser origins, comma separated
  *   HEARTBEAT_SECONDS how often dead connections are looked for, default 15
+ *   USER_ART        "off": do not serve card-assets/local.nosync even to this computer
  */
 
 import { existsSync, mkdirSync } from 'node:fs';
@@ -36,6 +37,7 @@ const server = await startGameServer({
   staticDir: existsSync(staticDir) ? staticDir : null,
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean),
   heartbeatMs: Number(process.env.HEARTBEAT_SECONDS ?? 15) * 1000,
+  userArtDir: process.env.USER_ART === 'off' ? null : resolve('card-assets/local.nosync'),
 });
 
 console.log(`WS 社群模擬器伺服器已啟動（非官方）`);

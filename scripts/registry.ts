@@ -15,7 +15,7 @@ const checkOnly = process.argv.includes('--check');
 
 const registry = parseRegistry(readFileSync(markdownPath, 'utf8'));
 const json = registryJson(registry);
-const report = checkCoverage(registry, collectTestTitles(root, ['game-engine/tests', 'tests']));
+const report = checkCoverage(registry, collectTestTitles(root, ['game-engine/tests', 'card-database/tests', 'tests']));
 
 let current = '';
 try {

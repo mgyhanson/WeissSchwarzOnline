@@ -49,6 +49,13 @@ export interface OfficialSet {
     method: string;
     sha256OfCompactCards: string;
     copyright: string;
+    /** Sets imported whole by scripts/import-card-sets.ts also record these. */
+    expansion?: number;
+    released?: string;
+    productUrl?: string;
+    /** Entries the official list shows for the product, parallel variants included. */
+    listedEntries?: number;
+    parallelEntries?: number;
   };
   cards: OfficialCard[];
 }
@@ -71,6 +78,14 @@ export type ExplanationSource = 'OFFICIAL_TEXT' | 'OFFICIAL_RULES' | 'OFFICIAL_Q
 export interface CardRecord {
   /** Official card number, the key into official.json. */
   cardId: string;
+  /**
+   * Where the record comes from. Absent: written by hand (cards.ts).
+   * PATTERN: every line of the official text is a known, tested sentence
+   * (patterns.ts). NONE: nothing written yet, so the card is unsupported.
+   */
+  origin?: 'PATTERN' | 'NONE';
+  /** For origin PATTERN: the sentence patterns used. */
+  patterns?: string[];
   /** Abilities of a character or climax, in printed order. Absent for a card without text. */
   abilities?: Ability[];
   /** Effect of an event card. */

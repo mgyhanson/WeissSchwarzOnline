@@ -31,8 +31,16 @@ export type { GameHost, HostSnapshot, HostUpdate } from './types';
 
 export interface GameSetup {
   seed: string;
-  /** Test deck ids for seat 0 and seat 1. */
+  /** Deck ids for seat 0 and seat 1: a test deck id or the id of one of the player's own decks. */
   decks: [string, string];
+  /**
+   * The 50 card ids of each deck as they were when the game started, and
+   * their names. Kept with the game so that editing or deleting a deck
+   * later does not change a saved game. Absent in saves from before the
+   * deck builder (test decks only).
+   */
+  lists?: [string[], string[]];
+  deckNames?: [string, string];
   /** Level of the computer opponent. Saves from before STEP 8 have none and get NORMAL. */
   level?: AiLevel;
 }
@@ -99,7 +107,7 @@ export class LocalHost implements GameHost {
   ) {
     this.botDelay = options.botDelay ?? 600;
     this.storage = options.storage ?? null;
-    const decks: [string[], string[]] = [deck(setup.decks[0]), deck(setup.decks[1])];
+    const decks: [string[], string[]] = setup.lists ?? [deck(setup.decks[0]), deck(setup.decks[1])];
     this.lists = decks;
     const card = (id: string) => getCard(id).def;
     const levels: [AiLevel, AiLevel] = [AUTO_PLAY_LEVEL, setup.level ?? 'NORMAL'];
@@ -123,7 +131,8 @@ export class LocalHost implements GameHost {
   /** The replay of this game once it is over (it contains the seed, so not before). */
   getReplay = async (): Promise<Replay> => {
     if (!this.state.result) throw new Error('The game is not over');
-    const deckOf = (id: string, cards: string[]) => ({ id, name: TEST_DECKS.find((d) => d.id === id)?.name ?? id, cards });
+    const names = this.setup.deckNames;
+    const deckOf = (id: string, cards: string[], seat: 0 | 1) => ({ id, name: names?.[seat] ?? TEST_DECKS.find((d) => d.id === id)?.name ?? id, cards });
     return {
       format: 'wso-replay',
       version: 1,
@@ -132,7 +141,7 @@ export class LocalHost implements GameHost {
       source: 'local',
       players: ['你', this.opponentLabel.replace('對手・', '')],
       seed: this.setup.seed,
-      decks: [deckOf(this.setup.decks[0], this.lists[0]), deckOf(this.setup.decks[1], this.lists[1])],
+      decks: [deckOf(this.setup.decks[0], this.lists[0], 0), deckOf(this.setup.decks[1], this.lists[1], 1)],
       entries: this.entries.map((entry) => ('resign' in entry ? { player: entry.player, resign: true } : { player: entry.player, choice: entry.choice })),
       result: this.state.result,
     };

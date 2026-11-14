@@ -15,7 +15,10 @@ export interface SeatRecord {
   /** SHA-256 of the seat's reconnection token; the token itself is never stored. */
   tokenHash: string;
   name: string;
+  /** Deck id (a test deck id or the player's own deck id), its name and its 50 card ids as checked when chosen. */
   deck: string;
+  deckName?: string;
+  deckCards?: string[];
   ready: boolean;
   rematch: boolean;
   left: boolean;
@@ -33,6 +36,7 @@ export interface RoomRecord {
   seed: string | null;
   /** Test deck ids and the 50 card ids of each seat's deck for the current game. */
   deckIds: [string, string] | null;
+  deckNames?: [string, string] | null;
   deckLists: [string[], string[]] | null;
   /** The seat the server made concede the last game because it stayed disconnected. */
   forfeit: PlayerId | null;

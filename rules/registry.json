@@ -1816,8 +1816,8 @@
     {
       "id": "DR-001",
       "section": "12. 卡組構築（Deck Rules）",
-      "description": "Neo-Standard：只用同一 Title 的卡，Title 由卡號前綴決定",
-      "status": "未實作",
+      "description": "Neo-Standard：只用同一 Title 的卡，Title 由作品番號決定",
+      "status": "已測試",
       "tests": [
         "T-DECK-010"
       ]
@@ -1825,8 +1825,8 @@
     {
       "id": "DR-002",
       "section": "12. 卡組構築（Deck Rules）",
-      "description": "Title 的特例對應（例如 `Ssy/` 與 `SY/`）",
-      "status": "未實作",
+      "description": "一個 Title 可有多個作品番號（例如 `SY`、`Ssy`）；一個作品番號可屬於多個 Title（例如 `BDY`）",
+      "status": "已測試",
       "tests": [
         "T-DECK-011"
       ]
@@ -1835,7 +1835,7 @@
       "id": "DR-003",
       "section": "12. 卡組構築（Deck Rules）",
       "description": "限制：使用不可",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-DECK-012"
       ]
@@ -1844,7 +1844,7 @@
       "id": "DR-004",
       "section": "12. 卡組構築（Deck Rules）",
       "description": "限制：○枚まで",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-DECK-013"
       ]
@@ -1853,7 +1853,7 @@
       "id": "DR-005",
       "section": "12. 卡組構築（Deck Rules）",
       "description": "限制：○種選抜",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-DECK-014"
       ]
@@ -1862,7 +1862,7 @@
       "id": "DR-006",
       "section": "12. 卡組構築（Deck Rules）",
       "description": "限制：附帶特殊條件的解禁",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-DECK-015"
       ]
@@ -1871,7 +1871,7 @@
       "id": "DR-007",
       "section": "12. 卡組構築（Deck Rules）",
       "description": "限制表帶生效日期，可按日期選用版本",
-      "status": "未實作",
+      "status": "部分",
       "tests": [
         "T-DECK-016"
       ]
@@ -1880,7 +1880,7 @@
       "id": "DR-008",
       "section": "12. 卡組構築（Deck Rules）",
       "description": "Standard 及 Side 限定構築",
-      "status": "未實作",
+      "status": "部分",
       "tests": [
         "T-DECK-017"
       ]
@@ -1950,11 +1950,13 @@
     "CR-8.7.6",
     "CR-8.7.7",
     "CR-8.9.1",
-    "CR-8.9.1.4"
+    "CR-8.9.1.4",
+    "DR-007",
+    "DR-008"
   ],
   "summary": {
-    "未實作": 56,
-    "部分": 23,
-    "已測試": 130
+    "未實作": 48,
+    "部分": 25,
+    "已測試": 136
   }
 }

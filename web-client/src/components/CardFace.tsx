@@ -30,18 +30,27 @@ function Picture({ cardId, color, kind }: { cardId: string; color: string; kind:
   useSyncExternalStore(catalog.subscribe, catalog.getVersion, catalog.getVersion);
   const image = catalog.imageFor(cardId);
   const [loaded, setLoaded] = useState<string | null>(null);
+  // A picture with the proportions of a whole card (5:7) is a complete card image: it is shown as the
+  // whole card, uncropped, instead of being cut to the artwork window (styles: .c-img.is-full).
+  // Climax cards are printed sideways: their pictures are landscape (7:5) and are turned to fit.
+  const [full, setFull] = useState<'' | 'is-full' | 'is-full is-landscape'>('');
   return (
     <span className="c-art">
       <CardArt cardId={cardId} color={color} kind={kind} />
       {image && (
         <img
-          className={`c-img ${loaded === image.url ? 'is-loaded' : ''}`}
+          className={`c-img ${loaded === image.url ? 'is-loaded' : ''} ${full}`}
           src={image.url}
           alt=""
           loading="lazy"
           decoding="async"
           draggable={false}
-          onLoad={() => setLoaded(image.url)}
+          onLoad={(e) => {
+            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+            const ratio = h > 0 ? w / h : 0;
+            setFull(ratio > 0.66 && ratio < 0.77 ? 'is-full' : ratio > 1.3 && ratio < 1.52 ? 'is-full is-landscape' : '');
+            setLoaded(image.url);
+          }}
           onError={() => catalog.markFailed(image.url)}
         />
       )}

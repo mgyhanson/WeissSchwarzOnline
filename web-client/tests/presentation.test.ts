@@ -193,6 +193,70 @@ describe('presentation queue', () => {
     expect(queue.getSnapshot().view).toEqual(part[49]!.view);
   });
 
+  it('pause holds what is shown until resume; the game state itself is never held', async () => {
+    const played: number[] = [];
+    const queue = new PresentationQueue(seat, start(), { wait: instant, animator: async (step) => void played.push(step.seq) });
+    queue.pause();
+    queue.sync(mine.slice(0, 20));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(played).toEqual([]);
+    expect(queue.getSnapshot()).toMatchObject({ busy: true, paused: true });
+    queue.resume();
+    await idle(queue);
+    expect(played).toEqual(mine.slice(1, 20).flatMap((u) => toSteps(u.events, seat).map((s) => s.seq)));
+    expect(queue.getSnapshot().view).toEqual(mine[19]!.view);
+  });
+
+  it('step-by-step mode shows one step per press of next, with its explanation, and never repeats or drops a step', async () => {
+    const played: number[] = [];
+    const queue = new PresentationQueue(seat, start(), { wait: instant, animator: async (step) => void played.push(step.seq) });
+    queue.setStepMode(true);
+    const part = mine.slice(0, 12);
+    const all = part.slice(1).flatMap((u) => toSteps(u.events, seat).map((s) => s.seq));
+    queue.sync(part);
+    for (let i = 1; i <= all.length; i++) {
+      for (let k = 0; k < 2000 && !queue.getSnapshot().awaitingNext; k++) await new Promise((r) => setTimeout(r, 0));
+      expect(queue.getSnapshot().awaitingNext).toBe(true);
+      expect(played).toEqual(all.slice(0, i));
+      expect(queue.getSnapshot().caption?.title.length).toBeGreaterThan(0);
+      // Pressing twice quickly must not skip a step.
+      queue.next();
+      queue.next();
+    }
+    await idle(queue);
+    expect(played).toEqual(all);
+    expect(queue.getSnapshot().view).toEqual(part[part.length - 1]!.view);
+  });
+
+  it('skip ends a pause or a step wait and shows the latest view; the skipped steps are still in the battle log', async () => {
+    const queue = new PresentationQueue(seat, start(), { wait: instant });
+    queue.setStepMode(true);
+    queue.sync(mine.slice(0, 40));
+    for (let k = 0; k < 2000 && !queue.getSnapshot().awaitingNext; k++) await new Promise((r) => setTimeout(r, 0));
+    queue.skip();
+    await idle(queue);
+    const snap = queue.getSnapshot();
+    expect(snap.view).toEqual(mine[39]!.view);
+    expect(snap.awaitingNext).toBe(false);
+    const major = mine.slice(1, 40).flatMap((u) => toSteps(u.events, seat)).filter((s) => !['MOVE', 'STEP'].includes(s.kind) && !(s.kind === 'ORIENT' && s.to !== 'REVERSE'));
+    expect(snap.log.map((e) => e.seq)).toEqual(major.map((s) => s.seq));
+    expect(snap.log.every((e) => e.title.length > 0 && e.lines.length > 0 && /^\d\d:\d\d:\d\d$/.test(e.time))).toBe(true);
+  });
+
+  it('the battle log explains attacks, trigger checks and damage in words, naming only cards this seat saw', () => {
+    for (const viewer of [0, 1] as const) {
+      const queue = new PresentationQueue(viewer, { view: updates[viewer][0]!.view, updateId: 0, seq: -1 }, { speed: 'OFF' });
+      queue.sync(updates[viewer]);
+      const log = queue.getSnapshot().log;
+      const titles = log.map((e) => e.title);
+      expect(titles.some((t) => t.includes('攻擊'))).toBe(true);
+      expect(titles).toContain('Trigger Check');
+      expect(log.some((e) => e.title.startsWith('傷害判定') && e.lines.some((l) => l.includes('Cancel') || l.includes('沒有取消')))).toBe(true);
+      // The opponent's draws never name a card.
+      for (const entry of log.filter((e) => e.title.startsWith('對手抽'))) expect(entry.cards).toEqual([]);
+    }
+  });
+
   it('with animation off nothing is animated and the view follows at once', async () => {
     let animated = 0;
     const queue = new PresentationQueue(seat, start(), {

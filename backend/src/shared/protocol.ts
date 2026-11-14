@@ -21,15 +21,22 @@ export const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 export const TOKEN_PATTERN = /^[0-9a-f]{32}$/;
 export const NAME_MAX = 16;
 
+/**
+ * The deck a player brings: the id of one of the project's test decks, or
+ * one of the player's own decks as its 50 card ids. The server checks an own
+ * deck with the deck validation engine; the browser's word is not taken.
+ */
+export type DeckChoice = string | { id: string; name: string; cards: string[] };
+
 export type ClientMessage =
   /** Create a room and take seat 0. */
-  | { t: 'create'; name: string; deck: string }
+  | { t: 'create'; name: string; deck: DeckChoice }
   /** Take the free seat of a room. */
-  | { t: 'join'; code: string; name: string; deck: string }
+  | { t: 'join'; code: string; name: string; deck: DeckChoice }
   /** Come back to a seat (page reload, lost connection). `game` and `lastUpdate`: the game this page shows and its last update id (0 and -1 for none). */
   | { t: 'resume'; code: string; token: string; game: number; lastUpdate: number }
   /** Change deck while not ready. */
-  | { t: 'deck'; deck: string }
+  | { t: 'deck'; deck: DeckChoice }
   | { t: 'ready'; ready: boolean }
   /** Answer the pending decision of game number `game`. */
   | { t: 'choice'; game: number; decisionId: number; choice: Choice }
@@ -85,7 +92,8 @@ export type ErrorCode =
   | 'STALE'
   | 'REJECTED'
   | 'RATE_LIMIT'
-  | 'SERVER_FULL';
+  | 'SERVER_FULL'
+  | 'BAD_DECK';
 
 export type ServerMessage =
   /** You have a seat. Keep `token` to come back to it. */
@@ -97,7 +105,7 @@ export type ServerMessage =
    * steps (only those after the `lastUpdate` you sent, or the latest one).
    * Updates up to `restoredUpTo` need no animation.
    */
-  | { t: 'game'; game: number; seat: PlayerId; deck: string; opponent: string; events: GameEventView[]; updates: HostUpdate[]; restoredUpTo: number }
+  | { t: 'game'; game: number; seat: PlayerId; deck: string; cards: string[]; opponent: string; events: GameEventView[]; updates: HostUpdate[]; restoredUpTo: number }
   /** One step of the current game. */
   | { t: 'update'; game: number; update: HostUpdate }
   | { t: 'replay'; game: number; replay: Replay }
@@ -126,20 +134,26 @@ export function parseClientMessage(raw: string): ClientMessage | null {
     return null;
   }
   if (!isRecord(data) || typeof data.t !== 'string') return null;
-  const deckOk = (deck: unknown): deck is string => typeof deck === 'string' && DECK_IDS.has(deck);
+  // Shape only; whether an own deck is legal is decided by the room (validateDeck).
+  const deckOk = (deck: unknown): deck is DeckChoice => {
+    if (typeof deck === 'string') return DECK_IDS.has(deck);
+    if (!isRecord(deck) || typeof deck.id !== 'string' || deck.id.length > 64 || typeof deck.name !== 'string') return false;
+    return Array.isArray(deck.cards) && deck.cards.length === 50 && deck.cards.every((c) => typeof c === 'string' && c.length <= 24);
+  };
+  const cleanDeck = (deck: DeckChoice): DeckChoice => (typeof deck === 'string' ? deck : { id: deck.id, name: cleanName(deck.name, '自製卡組'), cards: [...deck.cards] });
   switch (data.t) {
     case 'create':
-      return deckOk(data.deck) ? { t: 'create', name: cleanName(data.name, ''), deck: data.deck } : null;
+      return deckOk(data.deck) ? { t: 'create', name: cleanName(data.name, ''), deck: cleanDeck(data.deck) } : null;
     case 'join':
       return typeof data.code === 'string' && CODE_PATTERN.test(data.code.toUpperCase()) && deckOk(data.deck)
-        ? { t: 'join', code: data.code.toUpperCase(), name: cleanName(data.name, ''), deck: data.deck }
+        ? { t: 'join', code: data.code.toUpperCase(), name: cleanName(data.name, ''), deck: cleanDeck(data.deck) }
         : null;
     case 'resume':
       return typeof data.code === 'string' && CODE_PATTERN.test(data.code) && typeof data.token === 'string' && TOKEN_PATTERN.test(data.token) && isInt(data.game) && isInt(data.lastUpdate, -1)
         ? { t: 'resume', code: data.code, token: data.token, game: data.game, lastUpdate: data.lastUpdate }
         : null;
     case 'deck':
-      return deckOk(data.deck) ? { t: 'deck', deck: data.deck } : null;
+      return deckOk(data.deck) ? { t: 'deck', deck: cleanDeck(data.deck) } : null;
     case 'ready':
       return typeof data.ready === 'boolean' ? { t: 'ready', ready: data.ready } : null;
     case 'choice':
@@ -172,4 +186,5 @@ export const ERROR_ZH: Record<ErrorCode, string> = {
   REJECTED: '引擎拒絕了這個選擇。',
   RATE_LIMIT: '要求太頻繁，連線已被中斷。',
   SERVER_FULL: '伺服器的房間已滿，請稍後再試。',
+  BAD_DECK: '這副卡組不能用於對戰（不合法，或含有未支援的卡）。',
 };

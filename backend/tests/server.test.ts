@@ -1,4 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -153,6 +154,35 @@ describe('game server over WebSockets', () => {
     await expect(evil.opened()).rejects.toThrow();
     const wrongPath = new Socket(`ws://127.0.0.1:${server.port}/other`);
     await expect(wrongPath.opened()).rejects.toThrow();
+  });
+
+  it('the owner’s own card pictures are served to this computer only, never to a request under another host name or relayed by a proxy', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'wso-art-'));
+    writeFileSync(join(dir, 'SAO_S20-001.png'), 'not really a png');
+    writeFileSync(join(dir, 'sources.json'), '{"SAO_S20-001.png":{"source":"test"}}');
+    writeFileSync(join(dir, 'notes.txt'), 'private');
+    server = await startGameServer({ port: 0, userArtDir: dir });
+    const get = (path: string, headers: Record<string, string> = {}) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const req = request({ host: '127.0.0.1', port: server!.port, path, headers }, (res) => {
+          let body = '';
+          res.on('data', (d) => (body += d));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+        });
+        req.on('error', reject);
+        req.end();
+      });
+    const local = { host: `localhost:${server.port}` };
+    expect(JSON.parse((await get('/user-art/manifest.json', local)).body)).toEqual({ files: { 'SAO/S20-001': 'SAO_S20-001.png' }, sources: { 'SAO_S20-001.png': { source: 'test' } } });
+    expect(await get('/user-art/SAO_S20-001.png', local)).toMatchObject({ status: 200, body: 'not really a png' });
+    // Only pictures, only inside the folder.
+    expect((await get('/user-art/notes.txt', local)).status).toBe(404);
+    expect((await get('/user-art/..%2F..%2Fpackage.json', local)).status).toBe(404);
+    // Under another host name (another device, a tunnel) or relayed by a proxy: nothing.
+    for (const headers of [{ host: '192.168.1.20:8787' }, { host: 'my-tunnel.example' }, { ...local, 'x-forwarded-for': '203.0.113.5' }]) {
+      expect(JSON.parse((await get('/user-art/manifest.json', headers)).body), JSON.stringify(headers)).toEqual({ files: {}, sources: {} });
+      expect((await get('/user-art/SAO_S20-001.png', headers)).status, JSON.stringify(headers)).toBe(404);
+    }
   });
 
   it('serves the built client, falls back to index.html, and never serves files outside its folder', async () => {

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { type PlayerView, serializeState } from '@wso/game-engine';
+import { TEST_DECKS, allCards, deckList, getCard } from '@wso/card-database';
 import { RoomManager } from '../src/rooms';
 import { checkReplay, parseClientMessage } from '../src/shared';
 import { MemoryStore, SqliteStore } from '../src/store';
@@ -104,6 +105,62 @@ describe('rooms: lobby', () => {
     for (let i = 0; i < 25; i++) a.send({ t: 'ping' });
     expect(a.errors).toContain('RATE_LIMIT');
     expect(a.closedByServer).toBe(true);
+  });
+});
+
+describe('rooms: own decks', () => {
+  const own = (cards: string[], id = 'deck-1') => ({ id, name: '我的卡組', cards });
+  const sao = deckList(TEST_DECKS.find((d) => d.id === 'test-sao')!);
+
+  it('a legal own deck is accepted and used: the game deals from exactly its 50 cards, and the opponent never sees the list', () => {
+    const { m } = manager();
+    const a = new Client(m);
+    a.send({ t: 'create', name: 'A', deck: own(sao) });
+    expect(a.lobby!.you.deck).toBe('deck-1');
+    const b = new Client(m);
+    b.send({ t: 'join', code: a.welcome!.code, name: 'B', deck: 'test-gup' });
+    a.send({ t: 'ready', ready: true });
+    b.send({ t: 'ready', ready: true });
+    expect(a.last('game')).toMatchObject({ deck: 'deck-1', cards: sao });
+    expect(b.last('game')!.cards).not.toEqual(sao);
+    expect(JSON.stringify(b.all('lobby'))).not.toContain('我的卡組');
+    const record = [...m.rooms.values()][0]!.record;
+    expect(record.deckLists![0]).toEqual(sao);
+    expect(record.deckNames).toEqual(['我的卡組', TEST_DECKS.find((d) => d.id === 'test-gup')!.name]);
+  });
+
+  it('the server checks an own deck itself: mixed titles, a banned card, an unsupported card or a wrong size are refused with the reason', () => {
+    const { m } = manager();
+    const gup = deckList(TEST_DECKS.find((d) => d.id === 'test-gup')!);
+    const unsupported = allCards().find((c) => c.record.support === 'unsupported' && c.record.cardId.startsWith('GUP/') && c.def.kind === 'CHARACTER')!.record.cardId;
+    const haruhi = deckList(TEST_DECKS.find((d) => d.id === 'test-haruhi')!);
+    const cases: [string, string[]][] = [
+      ['Title', [gup[0]!, ...sao.slice(1)]],
+      ['使用不可', ['SY/W08-T16', ...haruhi.slice(1)]],
+      ['尚未由引擎支援', [unsupported, ...gup.filter((id) => getCard(id).def.kind === 'CHARACTER').slice(0, 41), ...gup.filter((id) => getCard(id).def.kind === 'CLIMAX')].slice(0, 50)],
+    ];
+    for (const [reason, cards] of cases) {
+      expect(cards).toHaveLength(50);
+      const c = new Client(m);
+      c.send({ t: 'create', name: 'C', deck: own(cards) });
+      expect(c.errors, reason).toEqual(['BAD_DECK']);
+      expect(c.last('error')!.message, reason).toContain(reason);
+      expect(c.welcome, reason).toBeUndefined();
+    }
+    const c = new Client(m);
+    c.send({ t: 'create', name: 'C', deck: own(sao.slice(0, 49)) });
+    c.send({ t: 'create', name: 'C', deck: own([...sao.slice(0, 49), 'XX/X00-000']) });
+    expect(c.errors).toEqual(['BAD_MESSAGE', 'BAD_DECK']);
+    expect(m.rooms.size).toBe(0);
+  });
+
+  it('changing to an illegal deck in the lobby is refused and the previous deck stays', () => {
+    const { m } = manager();
+    const a = new Client(m);
+    a.send({ t: 'create', name: 'A', deck: 'test-sao' });
+    a.send({ t: 'deck', deck: own([...sao.slice(0, 49), 'XX/X00-000']) });
+    expect(a.errors).toEqual(['BAD_DECK']);
+    expect(a.lobby!.you.deck).toBe('test-sao');
   });
 });
 

@@ -10,7 +10,9 @@ import { Resolution, Side } from './Board';
 import { CardFace } from './CardFace';
 import { PhaseTracker, PlayerBar } from './PlayerBar';
 import { createAnimator } from '../presentation/animate';
-import { type Speed, PresentationQueue, SPEED_ZH } from '../presentation/queue';
+import { PHASE_GUIDE } from '../presentation/explain';
+import { type Speed, PresentationQueue, SPEEDS, SPEED_ZH } from '../presentation/queue';
+import { BattleLog, Narration } from './Narration';
 import { DecisionPanel, LogPanel, RevealHistory } from './Panels';
 import { RevealPanel } from './RevealPanel';
 import { CardSheet, Modal, ZoneSheet } from './Sheets';
@@ -30,7 +32,7 @@ const SPEED_KEY = 'wso.animationSpeed';
 function initialSpeed(): Speed {
   try {
     const saved = window.localStorage.getItem(SPEED_KEY);
-    if (saved === 'NORMAL' || saved === 'FAST' || saved === 'OFF') return saved;
+    if (saved === 'SLOW' || saved === 'NORMAL' || saved === 'FAST' || saved === 'OFF') return saved;
   } catch {
     // Storage unavailable: use the default.
   }
@@ -150,7 +152,10 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
   };
 
   const handlers = { onCard, onZone: (side: PlayerId, zone: PileZone) => setSheet({ type: 'zone', side, zone }), onSlot };
-  const turn = view.turn;
+  // While a phase change is being narrated, the phase indicator shows that phase (the board itself changes when the narration is done).
+  const phaseNow = presentation.phaseNow;
+  const turn = view.turn && phaseNow ? { ...view.turn, player: phaseNow.player, phase: phaseNow.phase } : view.turn;
+  const phaseView = turn === view.turn ? view : { ...view, turn };
   const hand = view.sides[seat].hand;
 
   return (
@@ -174,7 +179,7 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
           <label className="speed-select">
             動畫
             <select value={presentation.speed} onChange={(e) => setSpeed(e.target.value as Speed)}>
-              {(['NORMAL', 'FAST', 'OFF'] as const).map((s) => (
+              {SPEEDS.map((s) => (
                 <option key={s} value={s}>
                   {SPEED_ZH[s]}
                 </option>
@@ -208,7 +213,7 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
           <PlayerBar view={view} side={opponent} label={host.opponentLabel} onZone={handlers.onZone} />
           <Side view={view} side={opponent} ui={ui} picked={picked} {...handlers} />
           <div className="midline" data-zone="center">
-            <PhaseTracker view={view} onTerm={(id) => setSheet({ type: 'term', id })} />
+            <PhaseTracker view={phaseView} onTerm={(id) => setSheet({ type: 'term', id })} />
             {view.attack ? (
               <span className="attack-info">
                 {who(view.attack.player, seat)}的{SLOT_ZH[view.attack.attackerSlot]}角色：{ATTACK_ZH[view.attack.type]}
@@ -277,12 +282,7 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
                 </div>
               </div>
             ) : presentation.busy ? (
-              <div className="decision">
-                <p className="waiting">正在顯示剛才發生的事…</p>
-                <button type="button" className="button small" onClick={() => queue.skip()}>
-                  跳過動畫
-                </button>
-              </div>
+              <Narration presentation={presentation} queue={queue} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
             ) : ui ? (
               snapshot.autoPlay ? (
                 <p className="waiting">自動代打中…</p>
@@ -295,10 +295,35 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
               <p className="waiting">處理中…</p>
             )}
             {snapshot.error && <p className="warning">{snapshot.error}</p>}
+            {turn && !view.result && host.mode !== 'replay' && !presentation.busy && (
+              <details className="phase-guide">
+                <summary>
+                  {PHASE_GUIDE[turn.phase].name}：可以做甚麼？
+                </summary>
+                <p>{PHASE_GUIDE[turn.phase].summary}</p>
+                <p>
+                  <strong>{turn.player === seat ? '你可以：' : '對手可以：'}</strong>
+                  {PHASE_GUIDE[turn.phase].youCan}
+                </p>
+                <p>
+                  <strong>系統會：</strong>
+                  {PHASE_GUIDE[turn.phase].system}
+                </p>
+                <p>
+                  <strong>下一步：</strong>
+                  {PHASE_GUIDE[turn.phase].next}
+                </p>
+                <p className="muted">綜合規則 {PHASE_GUIDE[turn.phase].rules}（JP ver. 1.114）。本專案自行撰寫的說明，非官方。</p>
+              </details>
+            )}
           </div>
           <div className="panel log-panel desktop-only">
-            <h2 className="panel-title">對局紀錄</h2>
-            <LogPanel events={logEvents} seat={seat} />
+            <h2 className="panel-title">戰鬥解說紀錄</h2>
+            <BattleLog entries={presentation.log} seat={seat} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
+            <details className="event-log">
+              <summary>詳細事件紀錄</summary>
+              <LogPanel events={logEvents} seat={seat} />
+            </details>
             <RevealHistory records={presentation.history} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
           </div>
         </aside>
@@ -323,8 +348,12 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
       )}
       {sheet?.type === 'term' && <TermSheet id={sheet.id} onClose={() => setSheet(null)} />}
       {sheet?.type === 'log' && (
-        <Modal title="對局紀錄" onClose={() => setSheet(null)}>
-          <LogPanel events={logEvents} seat={seat} />
+        <Modal title="戰鬥解說紀錄" onClose={() => setSheet(null)}>
+          <BattleLog entries={presentation.log} seat={seat} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
+          <details className="event-log">
+            <summary>詳細事件紀錄</summary>
+            <LogPanel events={logEvents} seat={seat} />
+          </details>
           <RevealHistory records={presentation.history} onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })} />
         </Modal>
       )}
