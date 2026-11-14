@@ -12,7 +12,7 @@
  *
  * First batch (docs: reports/RULES_IMPLEMENTATION_REPORT.md): 14 characters
  * across levels 0 to 3 in yellow, red and blue, enough for a legal deck
- * together with the booster's climaxes.
+ * together with the booster's climaxes. Second batch: 038 and 091.
  */
 
 import type { CardFilter } from '@wso/game-engine';
@@ -338,6 +338,69 @@ export const records: CardRecord[] = [
     explanation: AI(
       '【起】[(1) 把這張卡放到山札底]：從控え室選最多 2 張《夢限大みゅーたいぷ》角色加入手牌。\n' +
         '【起】【Counter】助太刀3000 Level 2 [(1) 把手牌的這張卡放到控え室]：對手正面攻擊時的 Counter 步驟使用，選我方 1 張被正面攻擊的角色，該回合 Power +3000。',
+    ),
+  },
+  {
+    cardId: 'BDY/W135-038',
+    support: 'verified',
+    abilities: [
+      { type: 'CONT', keywords: ['ASSIST'], assist: true, apply: [{ target: { who: 'IN_FRONT', filter: MUGENDAI }, stat: 'POWER', amount: 500, perTargetLevel: true }] },
+      {
+        type: 'ACT',
+        keywords: ['BRAINSTORM'],
+        timing: 'MAIN',
+        cost: [{ pay: 'STOCK', count: 1 }, { pay: 'REST_SELF' }],
+        effect: [
+          {
+            do: 'BRAINSTORM',
+            count: 4,
+            per: { kind: 'CLIMAX' },
+            each: [
+              { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, min: 0, max: 1 },
+              { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' },
+            ],
+          },
+        ],
+      },
+    ],
+    explanation: AI(
+      '【永】応援：這張卡前面的我方《夢限大みゅーたいぷ》角色全部 Power +Ｘ，Ｘ 是該角色的 Level × 500（只在後列有效）。\n' +
+        '【起】集中 [(1) 把這張卡 Rest]：翻開山札頂 4 張放到控え室，其中每有 1 張 Climax，可以從控え室選最多 1 張角色加入手牌。',
+    ),
+  },
+  {
+    cardId: 'BDY/W135-091',
+    support: 'verified',
+    abilities: [
+      {
+        type: 'AUTO',
+        trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' },
+        effect: [
+          { do: 'CHOOSE', from: 'YOUR_STAGE', filter: MUSIC, other: true, min: 1, max: 1 },
+          {
+            do: 'GRANT',
+            target: { who: 'CHOSEN' },
+            ability: {
+              type: 'AUTO',
+              trigger: { on: 'ATTACKS' },
+              condition: { if: 'FACING', filter: { levelMin: 2 } },
+              effect: [{ do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 6000 }],
+            },
+          },
+        ],
+      },
+      {
+        type: 'AUTO',
+        trigger: { on: 'REVERSED' },
+        condition: { if: 'BATTLE_OPPONENT', filter: { levelAboveMasterLevel: true } },
+        optional: true,
+        effect: [{ do: 'MOVE', target: { who: 'BATTLE_OPPONENT' }, to: 'DECK_BOTTOM' }],
+      },
+    ],
+    notes: ['The given ability belongs to the chosen character for the turn: "このカード" in it is that character.'],
+    explanation: AI(
+      '【自】這張卡由手牌放到舞台時：選我方其他 1 張《音楽》角色，該回合給予以下能力：「【自】這張卡攻擊時，如果這張卡正面的角色 Level 是 2 或以上，該回合這張卡 Power +6000。」\n' +
+        '【自】這張卡被 Reverse 時，如果它的戰鬥對手的 Level 高於對手玩家的 Level，可以把那張角色放到它主人的山札底。',
     ),
   },
 ];

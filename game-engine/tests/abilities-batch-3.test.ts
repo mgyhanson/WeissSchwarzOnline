@@ -404,4 +404,32 @@ describe('triggers added for batch 3 (CR-8.7)', () => {
     }).state;
     expect(attack(away, card(0, 1), 'DIRECT').events.filter((e) => e.type === 'ABILITY_PLAYED')).toHaveLength(0);
   });
+
+  it('このカードが手札から舞台に置かれた時かアタックした時、あなたは1枚引く: one ability, played once for each of the two events', () => {
+    const either: Ability = { type: 'AUTO', trigger: { on: 'EITHER', of: [{ on: 'PLACED_ON_STAGE', from: 'HAND' }, { on: 'ATTACKS' }] }, effect: DRAW_ONE };
+    const defs = cards({ '0:0': { abilities: [either] } });
+    const start = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), { player: 0, zone: 'hand' });
+      put(ctx, card(0, 1), stageSlot(0, 'FL'));
+      noClimaxes(ctx, 0);
+      noClimaxes(ctx, 1);
+    }).state;
+    const placed = answer(start, { kind: 'MAIN', action: { type: 'PLAY_CHARACTER', card: oid(start, card(0, 0)), slot: 'FC' } });
+    expect(played(placed.events, card(0, 0))).toBe(1);
+    expect(placed.state.zones[0].hand).toHaveLength(1);
+
+    const atClimax = answer(placed.state, { kind: 'MAIN', action: { type: 'PASS' } }).state;
+    const atAttack = atClimax.pending?.kind === 'CLIMAX' ? answer(atClimax, { kind: 'CLIMAX', card: null }).state : atClimax;
+    // Another character's attack is neither of the two events.
+    const other = attack(atAttack, card(0, 1), 'DIRECT');
+    expect(played(other.events, card(0, 0))).toBe(0);
+    const own = attack(other.state, card(0, 0), 'DIRECT');
+    expect(played(own.events, card(0, 0))).toBe(1);
+
+    // Put on the stage from somewhere else than the hand, it does not trigger (the first condition names the hand).
+    const moved = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+    });
+    expect(played(moved.events, card(0, 0))).toBe(0);
+  });
 });

@@ -69,11 +69,13 @@ function autosOf(
   grants: readonly AutoAbility[] = grantedAutos(state, card.instanceId),
 ): FoundAuto[] {
   const found: FoundAuto[] = [];
+  // …した時か…した時: the ability triggers (once) when any of its trigger conditions is met.
+  const met = (trigger: Trigger): boolean => (trigger.on === 'EITHER' ? trigger.of.some(met) : match(trigger));
   (state.defs[card.cardId]?.abilities ?? []).forEach((ability, index) => {
-    if (ability.type === 'AUTO' && match(ability.trigger)) found.push({ index, ability });
+    if (ability.type === 'AUTO' && met(ability.trigger)) found.push({ index, ability });
   });
   for (const ability of grants) {
-    if (match(ability.trigger)) found.push({ index: -1, ability, granted: ability });
+    if (met(ability.trigger)) found.push({ index: -1, ability, granted: ability });
   }
   return found;
 }

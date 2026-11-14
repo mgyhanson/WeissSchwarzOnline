@@ -17,8 +17,11 @@ import saoOthersOfficial from '../sets/SAO_OTHERS/official.json';
 import bdyOfficial from '../sets/BDY_W135/official.json';
 import { records as bdy } from '../sets/BDY_W135/cards';
 import stsOfficial from '../sets/STS_W140/official.json';
+import { records as sts } from '../sets/STS_W140/cards';
 import anmOfficial from '../sets/ANM_W138/official.json';
+import { records as anm } from '../sets/ANM_W138/cards';
 import nikOfficial from '../sets/NIK_S135/official.json';
+import { records as nik } from '../sets/NIK_S135/cards';
 import { toCardDef, unverifiedTriggerIcons } from './official';
 import { compileText } from './patterns';
 import type { CardRecord, CardSet, OfficialCard, OfficialSet } from './types';
@@ -38,9 +41,9 @@ export const SETS: readonly CardSet[] = [
   // Whole boosters imported by scripts/import-card-sets.ts. Cards without a
   // hand-written record get one from sentence patterns, or are unsupported.
   { id: 'BDY_W135', official: bdyOfficial as OfficialSet, records: bdy },
-  { id: 'STS_W140', official: stsOfficial as OfficialSet, records: [] },
-  { id: 'ANM_W138', official: anmOfficial as OfficialSet, records: [] },
-  { id: 'NIK_S135', official: nikOfficial as OfficialSet, records: [] },
+  { id: 'STS_W140', official: stsOfficial as OfficialSet, records: sts },
+  { id: 'ANM_W138', official: anmOfficial as OfficialSet, records: anm },
+  { id: 'NIK_S135', official: nikOfficial as OfficialSet, records: nik },
 ];
 
 export interface DatabaseCard {

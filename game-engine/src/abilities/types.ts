@@ -219,7 +219,9 @@ export type Trigger =
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */
-  | { on: 'STEP_START'; step: AttackStepName; turn: 'YOURS' | 'OPPONENT' | 'ANY' };
+  | { on: 'STEP_START'; step: AttackStepName; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
+  /** …した時か…した時: one ability with several trigger conditions; it triggers when any of them is met. */
+  | { on: 'EITHER'; of: Trigger[] };
 
 /** Keywords that are labels without rules meaning of their own (CR-10), kept so other effects can refer to them. */
 export type Keyword =

@@ -64,7 +64,8 @@ export async function picturesIn(page, selector) {
     for (const card of cards) card.scrollIntoView({ block: 'center' });
     // Lazy pictures start loading once scrolled to; give them a moment.
     const deadline = Date.now() + 8000;
-    const ok = (img) => img && img.complete && img.naturalWidth > 0 && img.getAttribute('src')?.startsWith('/user-art/');
+    // is-loaded is set by the page once it has measured the picture (and decided upright or landscape).
+    const ok = (img) => img && img.complete && img.naturalWidth > 0 && img.classList.contains('is-loaded') && img.getAttribute('src')?.startsWith('/user-art/');
     while (Date.now() < deadline && !cards.every((c) => ok(c.querySelector('img.c-img')))) {
       for (const card of cards) if (!ok(card.querySelector('img.c-img'))) card.scrollIntoView({ block: 'center' });
       await new Promise((r) => setTimeout(r, 100));

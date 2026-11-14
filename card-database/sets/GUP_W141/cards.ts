@@ -1,5 +1,5 @@
 /**
- * ブースターパック ガールズ＆パンツァー (GUP/W141, 2026-10-30): 19 of its 114 cards.
+ * ブースターパック ガールズ＆パンツァー (GUP/W141, 2026-10-30): 21 of its 114 cards.
  *
  * Printed information comes from official.json. Ability data below was
  * written from the official text in that file (no Q&A was published for
@@ -12,12 +12,14 @@
  * 搭乗 (e.g. 006, 014, 030), "the opponent cannot play events or backup"
  * (016, 018), two trigger checks (049), amounts counted from the opponent's
  * characters or a character's soul (043, 074, 102), choices between two
- * effects (004, 064), effects until the end of the opponent's next turn
- * (069, 098) and similar. See docs/04-visual-card-expansion-plan.md.
+ * effects (004, 064), and similar. See docs/04-visual-card-expansion-plan.md.
+ * 069 and 108 were added on 2026-11-14 (no Q&A in the official data; errata
+ * page and restriction list checked that day: nothing for these two).
  * Chinese explanations are AI-assisted and unverified.
  */
 
 import type { Ability, CardFilter } from '@wso/game-engine';
+import { encore } from '@wso/game-engine';
 import type { CardRecord } from '../../src/types';
 
 const AI = (zh: string): CardRecord['explanation'] => ({ zh, source: 'AI_ASSISTED', status: '待核實' });
@@ -47,6 +49,69 @@ const salvageTank = [
 ] as const;
 
 export const records: CardRecord[] = [
+  // Added 2026-11-14. They stand first so that the order of the older cards (and of test decks made from this list) is unchanged.
+  {
+    cardId: 'GUP/W141-069',
+    support: 'verified',
+    abilities: [
+      {
+        type: 'AUTO',
+        trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' },
+        condition: { if: 'CHARACTERS', min: 2, other: true, filter: TANK },
+        optional: true,
+        effect: [
+          { do: 'DRAW', count: 1 },
+          { do: 'CHOOSE', from: 'YOUR_HAND', min: 1, max: 1 },
+          { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' },
+        ],
+      },
+      {
+        type: 'AUTO',
+        trigger: { on: 'ATTACKS' },
+        effect: [
+          { do: 'CHOOSE', from: 'YOUR_STAGE', filter: TANK, other: true, min: 1, max: 1 },
+          { do: 'MODIFY', target: { who: 'CHOSEN' }, stat: 'POWER', amount: 1500, until: 'NEXT_OPPONENT_TURN' },
+          { do: 'GRANT', target: { who: 'CHOSEN' }, ability: encore([{ pay: 'DISCARD', count: 1, filter: { kind: 'CHARACTER' } }]), until: 'NEXT_OPPONENT_TURN' },
+        ],
+      },
+    ],
+    notes: [
+      'First ability: 1枚引いてよい。そうしたら… — the player decides once; drawing is then followed by the discard.',
+      '次の相手のターンの終わりまで: the power and the given アンコール last until the end of the opponent\'s next turn (CR-8.2.1.2).',
+    ],
+    explanation: AI(
+      '【自】這張卡由手牌放到舞台時，如果我方其他《戦車道》角色有 2 張或以上，可以抽 1 張；抽了的話，選自己 1 張手牌放到控え室。\n' +
+        '【自】這張卡攻擊時：選我方其他 1 張《戦車道》角色，直到對手下一個回合結束為止，Power +1500，並得到「【自】Encore [把手牌 1 張角色放到控え室]」。',
+    ),
+  },
+  {
+    cardId: 'GUP/W141-108',
+    support: 'verified',
+    abilities: [
+      {
+        type: 'AUTO',
+        trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' },
+        condition: { if: 'CHARACTERS', min: 4, other: true, filter: TANK },
+        optional: true,
+        effect: [
+          { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: TANK, min: 1, max: 1 },
+          { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'STOCK' },
+        ],
+      },
+      {
+        type: 'AUTO',
+        trigger: { on: 'REVERSED' },
+        condition: { if: 'BATTLE_OPPONENT', filter: { levelAboveMasterLevel: true } },
+        optional: true,
+        effect: [{ do: 'MOVE', target: { who: 'BATTLE_OPPONENT' }, to: 'DECK_BOTTOM' }],
+      },
+    ],
+    notes: ['レベルが相手のレベルより高い: the battle opponent\'s level is compared with the level of the opponent (its master).'],
+    explanation: AI(
+      '【自】這張卡由手牌放到舞台時，如果我方其他《戦車道》角色有 4 張或以上，可以從控え室選 1 張《戦車道》角色放到 Stock。\n' +
+        '【自】這張卡被 Reverse 時，如果它的戰鬥對手的 Level 高於對手玩家的 Level，可以把那張角色放到它主人的山札底。',
+    ),
+  },
   {
     cardId: 'GUP/W141-001',
     support: 'verified',
