@@ -178,7 +178,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       }
       // このカードのバトル相手が【リバース】した時
       if (opponent) {
-        for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED')) {
+        for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED' && matchesFilter(state, card.instanceId, t.filter))) {
           wait(state, opponent.location.player, opponent, found, card.objectId);
         }
       }

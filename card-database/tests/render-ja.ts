@@ -52,7 +52,8 @@ export function triggerJa(trigger: Trigger): string {
     case 'USED_BACKUP':
       return 'あなたがこのカードの『助太刀』を使った時';
     case 'BATTLE_OPPONENT_REVERSED':
-      return 'このカードのバトル相手が【リバース】した時';
+      if (!trigger.filter) return 'このカードのバトル相手が【リバース】した時';
+      return Object.keys(trigger.filter).join() === 'levelMin' ? `このカードのバトル相手でレベル${trigger.filter.levelMin}以上のキャラが【リバース】した時` : fail('trigger', trigger);
     case 'REVERSED':
       return trigger.inBattle ? fail('trigger', trigger) : 'このカードが【リバース】した時';
     case 'STAGE_TO_WAITING_ROOM':
@@ -285,6 +286,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       const each = effectsJa(e.each);
       if (each.length !== 1) fail('brainstorm', e);
       sentences.push(`自分の山札の上から${e.count}枚をめくり、控え室に置く`, `それらのカードのCX1枚につき、${each[0]}`);
+    } else if (e.do === 'REVEAL_TOP') {
+      const then = e.then ? effectsJa(e.then) : [];
+      if (then.length > 1 || (!e.take && then.length === 0)) fail('reveal', e);
+      sentences.push('自分の山札の上から1枚を公開する', `そのカードが${filterJa(e.filter, 'ZONE')}なら${e.take ? (then.length > 0 ? `手札に加え、${then[0]}` : '手札に加える') : `、${then[0]}`}`);
     } else if (e.do === 'IF' && !e.else && e.condition.if !== 'DID' && e.condition.if !== 'LAST_MOVED') {
       const inner = effectsJa(e.then);
       sentences.push(conditionJa(e.condition) + inner[0], ...inner.slice(1));
@@ -340,7 +345,12 @@ function autoJa(ability: AutoAbility): string {
     return isEncore ? `【自】 アンコール ［${costsJa(ability.cost!)}］` : fail('encore', ability);
   }
   if (ability.alarm || ability.limit !== undefined) return fail('ability', ability);
-  const head = `【自】${keywords.map((k) => KEYWORD[k] ?? fail('keyword', k)).join('')}${ability.cost ? `［${costsJa(ability.cost)}］` : ''} ${triggerJa(ability.trigger)}、${conditionJa(ability.condition)}`;
+  // "あなたのターン中、…した時": a condition on the turn is said before the trigger.
+  const conditions = ability.condition?.if === 'ALL' ? ability.condition.of : ability.condition ? [ability.condition] : [];
+  const turn = conditions[0]?.if === 'YOUR_TURN' || conditions[0]?.if === 'OPPONENT_TURN' ? conditions[0] : undefined;
+  const rest = turn ? conditions.slice(1) : conditions;
+  const after: Condition | undefined = rest.length === 0 ? undefined : rest.length === 1 ? rest[0] : { if: 'ALL', of: rest };
+  const head = `【自】${keywords.map((k) => KEYWORD[k] ?? fail('keyword', k)).join('')}${ability.cost ? `［${costsJa(ability.cost)}］` : ''} ${turn ? conditionJa(turn) : ''}${triggerJa(ability.trigger)}、${conditionJa(after)}`;
   if (ability.cost) return ability.optional ? fail('ability', ability) : `${head}コストを払ってよい。そうしたら、${effectsJa(ability.effect).join('。')}。`;
   if (!ability.optional) return `${head}${effectsJa(ability.effect).join('。')}。`;
   // …してよい: alone; before "そうしたら、" when what follows depends on it having been done; or after drawing.
@@ -366,6 +376,7 @@ export function sameWords(text: string): string {
     .replace(/(【自】 アンコール ［[^］]*］) （[^（）]*）$/, '$1')
     .replace(/(ダメージを与える。)（ダメージキャンセルは発生する）$/, '$1')
     .replace(/（CXのレベルは0として扱う）$/, '')
+    .replace(/(公開する。そのカードが[^。]*。)（(?:そうでないなら元に戻す|公開したカードは元に戻す)）$/, '$1')
     .replace(/、次の能力を与える。『(.+?)。?』/g, '、『$1』を与える')
     .replace(/。』/g, '』')
     .replace(/あなたは/g, '')

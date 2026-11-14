@@ -158,6 +158,8 @@ npm run dev
 
 ## 9. 部署（需要你決定）
 
+詳細的部署準備、環境變數、反向代理設定、部署後檢查及備份，見 [07-devices-and-deployment.md](07-devices-and-deployment.md)。
+
 目前只做了本機及同一 Wi-Fi，沒有放到互聯網。要與不在同一網絡的朋友對戰，可以：
 
 | 選項 | 做法 | 注意 |

@@ -488,6 +488,19 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'REVEAL_TOP': {
+      const top = topOf(state.zones[master].deck);
+      next();
+      if (top === undefined) return;
+      revealCard(ctx, top);
+      const hit = matchesFilter(state, top, effect.filter);
+      // Taken into the hand, or put back as it was: no longer shown.
+      if (hit && effect.take) moveCard(ctx, top, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
+      else getInstance(state, top).revealed = false;
+      if (hit && effect.then) pushEffects(ctx, effect.then, context);
+      return;
+    }
+
     case 'LOOK_TOP': {
       stepLookTop(ctx, frame, effect, next);
       return;

@@ -100,6 +100,10 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
   ],
   [/^あなたがこのカードの『助太刀』を使った時$/, () => out({ on: 'USED_BACKUP' }, '使用了這張卡的「助太刀」時')],
   [/^このカードのバトル相手が【リバース】した時$/, () => out({ on: 'BATTLE_OPPONENT_REVERSED' }, '這張卡的戰鬥對手被 Reverse 時')],
+  [
+    /^このカードのバトル相手でレベル(\d+)以上のキャラが【リバース】した時$/,
+    (m) => out({ on: 'BATTLE_OPPONENT_REVERSED', filter: { levelMin: n(m[1]) } }, `這張卡的戰鬥對手（Level ${m[1]} 或以上的角色）被 Reverse 時`),
+  ],
   [/^このカードが【リバース】した時$/, () => out({ on: 'REVERSED' }, '這張卡被 Reverse 時')],
   [/^このカードが舞台から控え室に置かれた時$/, () => out({ on: 'STAGE_TO_WAITING_ROOM' }, '這張卡由舞台放到控え室時')],
   [/^あなたの(?:CX|クライマックス)がCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED' }, '我方的 Climax 放到 Climax 置場時')],
@@ -439,6 +443,19 @@ function parseEffects(sentences: string[], battle: boolean): Out<Effect[]> {
       i++;
       continue;
     }
+    // "自分の山札の上から1枚を公開する。そのカードが…なら…": the card is taken into the hand, or something else is done.
+    const shown = sentences[i] === 'あなたは自分の山札の上から1枚を公開する' ? /^そのカードが(.+?)なら(手札に加える|手札に加え、(.+)|、(.+))$/.exec(sentences[i + 1] ?? '') : null;
+    if (sentences[i] === 'あなたは自分の山札の上から1枚を公開する') {
+      const filter = shown && parseFilter(shown[1]!, 'ZONE');
+      const rest = shown?.[3] ?? shown?.[4];
+      const then = rest ? parseSentence(rest, battle) : null;
+      if (!shown || !filter?.data || (rest && !then)) return null;
+      const take = !shown[4];
+      effects.push({ do: 'REVEAL_TOP', filter: filter.data, ...(take ? { take: true } : {}), ...(then ? { then: then.data } : {}) });
+      zh.push(`公開自己山札頂 1 張：如果是${filter.zh}，${take ? '加入手牌' : ''}${then ? `${take ? '，然後' : ''}${then.zh}` : ''}（否則放回原處）`);
+      i++;
+      continue;
+    }
     // "…、次の能力を与える。『…』": the ability given is the next, quoted sentence.
     const giving = /^(.*、)次の能力を与える$/.exec(sentences[i]!);
     const quoted = giving && /^『(.+?)。?』$/.exec(sentences[i + 1] ?? '');
@@ -478,10 +495,12 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
     if (unknown.length > 0 || !cost) return null;
     return { ability: encore(cost.data), zh: `【自】Encore [${cost.zh}]：這張卡由舞台放到控え室時，可以支付費用；支付後把它 Rest 放回原本的枠。` };
   }
-  const trigger = parts.trigger ? parseTrigger(parts.trigger) : null;
+  // "あなたのターン中、…した時": the trigger with a condition on whose turn it is.
+  const inTurn = /^(あなたのターン中|相手のターン中)、(.+)$/.exec(parts.trigger ?? '');
+  const trigger = parts.trigger ? parseTrigger(inTurn ? inTurn[2]! : parts.trigger) : null;
   if (!trigger) unknown.push({ part: 'TRIGGER', text: parts.trigger ?? '(none)' });
-  const conditions = parts.conditions.map(parseCondition);
-  conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: parts.conditions[i]! }));
+  const conditions = [...(inTurn ? [inTurn[1]!] : []), ...parts.conditions].map(parseCondition);
+  conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: [...(inTurn ? [inTurn[1]!] : []), ...parts.conditions][i]! }));
   const condition = allOf(conditions);
 
   // The effect: after paying a cost, after choosing to ("…してよい"), or always.
@@ -506,7 +525,7 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
         const a = parseEffects([first], fights);
         const b = parseEffects([sentences[1]!.slice('そうしたら、'.length)], fights);
         const last = a?.data[a.data.length - 1];
-        const cond = allOf(parts.conditions.map(parseCondition));
+        const cond = condition;
         if (a && b && trigger && cond && unknown.length === 0 && (last?.do === 'MOVE' || last?.do === 'CLOCK_TOP')) {
           return {
             ability: {
@@ -664,6 +683,9 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
   // Text in round brackets is read as a reminder only where it is known to be one: after an アンコール cost.
   // Anywhere else it may carry meaning (（そうでないなら元に戻す）, （CXのレベルは0として扱う）), so the line stays unknown.
   if (/ダメージを与える。（ダメージキャンセルは発生する）$/.test(line)) line = line.slice(0, -'（ダメージキャンセルは発生する）'.length); // a reminder of the damage rule (CR-4.12.1.2), which the engine follows
+  // What happens to a card shown from the top of the deck when it is not taken: it stays where it was (REVEAL_TOP).
+  if (/公開する。そのカードが[^。]*なら手札に加え[^。]*。（そうでないなら元に戻す）$/.test(line)) line = line.slice(0, -'（そうでないなら元に戻す）'.length);
+  if (/公開する。そのカードが[^。]*なら、[^。]*。（公開したカードは元に戻す）$/.test(line)) line = line.slice(0, -'（公開したカードは元に戻す）'.length);
   // A climax has no level: it counts as 0 (CR-2.19.1), which is how the engine reads a level filter.
   if (/レベル\d+以[上下]の.*（CXのレベルは0として扱う）$/.test(line)) line = line.slice(0, -'（CXのレベルは0として扱う）'.length);
   if (line.includes('（') && !/^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return { line: null, unknown: [{ part: 'SHAPE', text: `（…）: ${/（[^（）]*）/.exec(line)?.[0].slice(0, 30) ?? ''}` }] };

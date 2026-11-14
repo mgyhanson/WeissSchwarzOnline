@@ -146,14 +146,14 @@ export const STS_TEST_DECK: TestDeck = {
   id: 'test-sts',
   name: 'ステラソラ 三色測試卡組',
   title: 'STS',
-  note: 'Made by this project from the STS/W140 cards the engine supports (green, red and blue): 13 characters, three written by hand and ten read by the sentence grammar, and two of the booster\'s climaxes; not an official or tournament list.',
+  note: 'Made by this project from the STS/W140 cards the engine supports (green, red and blue): every supported character of the booster (15: three written by hand, twelve read by the sentence grammar) and two of its climaxes; not an official or tournament list.',
   entries: entriesOf('STS/W140', {
     // Level 0 (18)
-    '025': 4, '045': 4, '054': 4, '073': 3, '086': 3,
+    '025': 4, '045': 4, '054': 4, '073': 2, '086': 2, '087': 2,
     // Level 1 (16)
     '011': 3, '018': 2, '041': 4, '043': 4, '048': 3,
     // Level 2 (8)
-    '022': 3, '023': 2, '052': 3,
+    '022': 2, '023': 2, '052': 3, '093': 1,
     // Climaxes: 黎明告げる凱旋歌 (green), その願い、たしかに届けたよ (red)
     '031': 4, '067': 4,
   }),
@@ -163,14 +163,14 @@ export const ANM_TEST_DECK: TestDeck = {
   id: 'test-anm',
   name: 'anemoi 四色測試卡組',
   title: 'ANM',
-  note: 'Made by this project from the ANM/W138 cards the engine supports: 12 characters, one event and two climaxes. Only three level 0 characters are supported so far, so the deck starts slowly; not an official or tournament list.',
+  note: 'Made by this project from the ANM/W138 cards the engine supports: every supported character of the booster (14), its one supported event and two climaxes; not an official or tournament list.',
   entries: entriesOf('ANM/W138', {
-    // Level 0 (12)
-    '004': 4, '016': 4, '028': 4,
-    // Level 1 (16)
-    '020': 4, '041': 4, '057': 4, '068': 4,
-    // Level 2 (13) and the level 3 event
-    '042': 3, '064': 3, '094': 2, '095': 3, '096': 2, '074': 1,
+    // Level 0 (16)
+    '004': 4, '016': 4, '028': 4, '062': 4,
+    // Level 1 (15)
+    '020': 4, '041': 4, '057': 3, '068': 4,
+    // Level 2 (10) and the level 3 event
+    '042': 2, '064': 2, '065': 1, '094': 2, '095': 2, '096': 1, '074': 1,
     // Climaxes: 見つけた、大切な場所 (yellow), 好きの数だけ金平糖 (red)
     '024': 4, '075': 4,
   }),

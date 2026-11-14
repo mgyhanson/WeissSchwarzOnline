@@ -202,6 +202,12 @@ export type Effect =
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
   | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean }
+  /**
+   * 自分の山札の上から1枚を公開する。そのカードが…なら(手札に加え、)…。 The top card of your deck is shown to
+   * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
+   * taken stays where it was (元に戻す) and is no longer shown.
+   */
+  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[] }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
   | { do: 'GRANT'; target: Target; ability: AutoAbility; until?: 'NEXT_OPPONENT_TURN' };
 
@@ -222,7 +228,8 @@ export type Trigger =
   /** このカードが【リバース】した時; `inBattle`: バトル中のこのカードが【リバース】した時 (CR-7.2.1.5.1) */
   | { on: 'REVERSED'; inBattle?: boolean }
   /** このカードのバトル相手が【リバース】した時 */
-  | { on: 'BATTLE_OPPONENT_REVERSED' }
+  /** このカードのバトル相手(でレベルN以上のキャラ)が【リバース】した時; `filter`: what the reversed character must be when it is reversed. */
+  | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter }
   /** (あなたの/相手の)…フェイズの始めに */
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */

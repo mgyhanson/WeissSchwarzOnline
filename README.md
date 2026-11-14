@@ -25,11 +25,12 @@
 | STEP 9 網上對戰：伺服器、房間、重新連線、重播（分支 `feat/step9-online`） | 完成，見 [docs/06-online-play.md](docs/06-online-play.md)；只限本機及同一 Wi-Fi，未部署到互聯網 |
 | 全面升級：最新五個補充包完整匯入（526 張）、609 張卡圖、自製卡組及卡組驗證、動畫放慢及逐步解說、戰鬥解說紀錄（分支 `feat/upgrade-cards-decks-animation`） | 完成，見 [reports/](reports/)；當時 609 張中 156 張可對戰 |
 | 卡牌效果第一批及真實卡圖全面啟用（分支 `feat/card-effects-batch-1`）：BDY/W135 14 張角色人手實作、合法的 BDY 50 張卡組、卡圖提供給區域網絡及網上房間的玩家、未支援卡的分類；第二批 12 張（ANM、NIK、STS、GUP、BDY） | 完成，見 [reports/](reports/) |
-| STEP 11 起（教學）、其餘 427 張卡的效果 | 未開始／進行中 |
+| 卡牌效果第三批（分支 `feat/card-effects-batch-2`）：卡牌工作清單工具、句子文法（由已知片段自動編譯卡牌）、51 張新卡、STS／ANM／NIK 三副合法卡組、部署指南 | 完成，見 [reports/CARD_IMPLEMENTATION_PROGRESS.md](reports/CARD_IMPLEMENTATION_PROGRESS.md) |
+| STEP 11 起（教學）、其餘 376 張卡的效果 | 未開始／進行中 |
 
-目前共 587 個自動測試通過，另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局輪流使用六副真實卡組的所有配對）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，「そのターン中」及「次の相手のターンの終わりまで」的期限，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、経験、記憶、加速、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
+目前共 668 個自動測試通過，另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局輪流使用九副真實卡組的所有配對）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，「そのターン中」及「次の相手のターンの終わりまで」的期限，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、経験、記憶、加速、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
 
-卡牌資料庫收錄了 609 張真實卡牌：原有的 Trial Deck 及精選卡 83 張，以及最新五個日文補充包的全部基本卡 526 張（BanG Dream! [夢限大みゅーたいぷ]、ガールズ＆パンツァー、ステラソラ、anemoi、勝利の女神：NIKKE Vol.2）。其中 **182 張的效果已實作並測試，可以用於對戰；其餘 427 張已有完整官方資料及卡圖，可以搜尋及瀏覽，但效果尚未支援，不能用於對戰**（介面會清楚標示）。未支援的卡已按所需的工作分類，見 [reports/UNSUPPORTED_CARDS.md](reports/UNSUPPORTED_CARDS.md)。見 [reports/CARD_DATABASE_REPORT.md](reports/CARD_DATABASE_REPORT.md) 及 [card-database/README.md](card-database/README.md)。
+卡牌資料庫收錄了 609 張真實卡牌：原有的 Trial Deck 及精選卡 83 張，以及最新五個日文補充包的全部基本卡 526 張（BanG Dream! [夢限大みゅーたいぷ]、ガールズ＆パンツァー、ステラソラ、anemoi、勝利の女神：NIKKE Vol.2）。其中 **233 張的效果已實作並測試，可以用於對戰；其餘 376 張已有完整官方資料及卡圖，可以搜尋及瀏覽，但效果尚未支援，不能用於對戰**（介面會清楚標示）。未支援的卡已按所需的工作分類，見 [reports/UNSUPPORTED_CARDS.md](reports/UNSUPPORTED_CARDS.md)。見 [reports/CARD_DATABASE_REPORT.md](reports/CARD_DATABASE_REPORT.md) 及 [card-database/README.md](card-database/README.md)。
 
 自製卡組（「卡組」頁面）：建立、編輯、複製、刪除、匯入及匯出卡組，按官方構築規則及限制表即時檢查，合法的卡組可用於單機及網上對戰。見 [reports/DECK_BUILDER_REPORT.md](reports/DECK_BUILDER_REPORT.md)。
 
@@ -41,7 +42,7 @@
 
 網上對戰（`backend/`）：建立房間、以代碼或邀請連結加入，兩名玩家在不同裝置對戰。對局在伺服器上進行，每名玩家只收到自己可以看到的資訊；重新整理或斷線可以回到對局；對局結束後可下載及觀看重播。見 [docs/06-online-play.md](docs/06-online-play.md)。
 
-仍未完成：427 張新卡的效果（BDY 已有一副可對戰的 50 張卡組；STS、ANM、NIK 三個系列各只有 2 至 3 張角色及 9 至 12 張 Climax 可對戰，未能組成對戰卡組）；網上對戰未部署到互聯網（部署方式待你決定）；教學；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
+仍未完成：376 張新卡的效果（BDY、STS、ANM、NIK 各有一副可對戰的 50 張卡組，但仍沒有 Level 3 角色等較複雜的卡）；另一部實體裝置上的測試；網上對戰未部署到互聯網（部署方式待你決定）；教學；一般置換效果、シフト、Marker 類關鍵字等少見內容未實作（清單見 [rules/rule-registry.md](rules/rule-registry.md) 第 14 節）。
 
 ## 試玩
 
@@ -70,6 +71,7 @@ npm run typecheck  # 型別檢查
 npm run check      # 型別檢查 + 全部測試 + 規則登記表覆蓋檢查
 npm run registry   # 由規則登記表重新產生 rules/registry.json，並列出覆蓋報告
 npm run soak       # 4000 局隨機完整對局（約 1.5 分鐘）
+npm run cards:worklist   # 重新產生卡牌工作清單：每個未認識的片段可解鎖多少張卡（reports/CARD_WORKLIST.md）
 npm run ai:tournament  # 各難度 AI 對戰的勝率（約 5 分鐘）
 npm run server     # 建立介面並啟動網上對戰伺服器（http://localhost:8787）
 npm run server:lan # 同上，並容許同一 Wi-Fi 的裝置連線

@@ -224,3 +224,74 @@ describe('destinations and filters', () => {
     expect(done.zones[1].waitingRoom).toEqual([top]);
   });
 });
+
+describe('自分の山札の上から1枚を公開する。そのカードが…なら…', () => {
+  const music = { kind: 'CHARACTER' as const, traits: ['音楽'] };
+  const reveal = (take: boolean): Ability => ({
+    type: 'AUTO',
+    trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' },
+    effect: [{ do: 'REVEAL_TOP', filter: music, ...(take ? { take: true } : {}), then: [{ do: 'CHOOSE', from: 'YOUR_HAND', min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }] }],
+  });
+  const placed = (ability: Ability, topIsMusic: boolean) => {
+    // The top card of the deck is card 49 of player 0 (a climax unless overridden): make it a character here.
+    const defs = cards({ '0:0': { abilities: [ability] }, '0:49': { kind: 'CHARACTER', level: 0, cost: 0, power: 1000, soul: 1, traits: topIsMusic ? ['音楽'] : [] } });
+    const start = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), { player: 0, zone: 'hand' });
+      put(ctx, card(0, 1), { player: 0, zone: 'hand' });
+    }).state;
+    return answer(start, { kind: 'MAIN', action: { type: 'PLAY_CHARACTER', card: oid(start, card(0, 0)), slot: 'FC' } });
+  };
+
+  it('…なら手札に加え、自分の手札を1枚選び、控え室に置く: a matching card is shown to both players and taken, then a hand card is discarded', () => {
+    const result = placed(reveal(true), true);
+    const shown = result.events.find((e) => e.type === 'CARD_REVEALED');
+    expect(shown).toMatchObject({ instanceId: card(0, 49), zone: { player: 0, zone: 'deck' } });
+    expect(result.state.zones[0].hand).toEqual([card(0, 1), card(0, 49)]);
+    const atDiscard = result.state;
+    expect(pending(atDiscard, 'SELECT_CARDS')).toMatchObject({ min: 1, max: 1 });
+    const done = answer(atDiscard, { kind: 'SELECT_CARDS', cards: [oid(atDiscard, card(0, 1))] }).state;
+    expect(done.zones[0].hand).toEqual([card(0, 49)]);
+    assertInvariants(done);
+  });
+
+  it('（そうでないなら元に戻す）: a card that does not match is shown, stays on top of the deck, and nothing else happens', () => {
+    const result = placed(reveal(true), false);
+    expect(result.events.some((e) => e.type === 'CARD_REVEALED' && e.instanceId === card(0, 49))).toBe(true);
+    const { state } = result;
+    expect(state.pending?.kind).toBe('MAIN');
+    expect(state.zones[0].deck[state.zones[0].deck.length - 1]).toBe(card(0, 49));
+    expect(state.zones[0].hand).toEqual([card(0, 1)]);
+    // Put back as it was: face down in the deck, not shown any more.
+    expect(state.instances[card(0, 49)]!.revealed).toBe(false);
+    assertInvariants(state);
+  });
+
+  it('…なら、…（公開したカードは元に戻す）: without taking it, the card stays on top whether it matches or not', () => {
+    const hit = placed(reveal(false), true).state;
+    expect(hit.zones[0].deck[hit.zones[0].deck.length - 1]).toBe(card(0, 49));
+    expect(hit.instances[card(0, 49)]!.revealed).toBe(false);
+    expect(pending(hit, 'SELECT_CARDS').cards).toEqual([oid(hit, card(0, 1))]);
+    const miss = placed(reveal(false), false).state;
+    expect(miss.pending?.kind).toBe('MAIN');
+    expect(miss.zones[0].hand).toEqual([card(0, 1)]);
+  });
+});
+
+describe('trigger: このカードのバトル相手でレベルN以上のキャラが【リバース】した時', () => {
+  it('looks at the level of the reversed character: level 2 triggers it, level 1 does not', () => {
+    const ability: Ability = { type: 'AUTO', trigger: { on: 'BATTLE_OPPONENT_REVERSED', filter: { levelMin: 2 } }, effect: DRAW_ONE };
+    const run = (defenderLevel: number) => {
+      const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:0': { power: 2000, abilities: [ability] }, '1:0': { level: defenderLevel } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        put(ctx, card(1, 0), stageSlot(1, 'FC'));
+        noClimaxes(ctx, 0);
+        noClimaxes(ctx, 1);
+      }).state;
+      return played(answer(attack(start, card(0, 0)).state, { kind: 'COUNTER', card: null }).events, card(0, 0));
+    };
+    expect(run(2)).toBe(1);
+    expect(run(3)).toBe(1);
+    expect(run(1)).toBe(0);
+  });
+});
+
