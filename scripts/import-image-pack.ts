@@ -106,7 +106,7 @@ try {
   const sources = existsSync(sourcesFile) ? (JSON.parse(readFileSync(sourcesFile, 'utf8')) as Record<string, unknown>) : {};
   for (const cardId of report.copied) {
     const entry = index[cardId] as { file: string; url: string | null };
-    sources[entry.file] = { source: '官方卡表圖片（使用者提供的 102 張整合包）', licence: '使用者表示已取得使用許可；只在本機使用', note: entry.url ?? '' };
+    sources[entry.file] = { source: '官方卡表圖片（使用者提供的 102 張整合包）', licence: '使用者表示已取得使用許可；由本專案的伺服器提供給連線的玩家，不放入 Git', note: entry.url ?? '' };
   }
   writeFileSync(sourcesFile, `${JSON.stringify(sources, null, 2)}\n`);
   mkdirSync(join(ROOT, 'data.nosync/originals'), { recursive: true });

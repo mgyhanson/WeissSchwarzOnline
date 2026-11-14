@@ -121,7 +121,26 @@ export const SAO_MEMORY_TEST_DECK: TestDeck = {
   ],
 };
 
-export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK, SAO_TEST_DECK, GUP_TEST_DECK, SAO_MEMORY_TEST_DECK];
+const bdy = (n: string, count: number): DeckEntry => ({ cardId: `BDY/W135-${n}`, count });
+
+export const BDY_TEST_DECK: TestDeck = {
+  id: 'test-bdy',
+  name: 'BanG Dream! [夢限大みゅーたいぷ] 三色測試卡組',
+  title: 'BDY',
+  note: 'Made by this project from the BDY/W135 cards the engine supports (yellow, red and blue): 14 hand-written characters and four of the booster\'s climaxes; not an official or tournament list.',
+  entries: [
+    // Level 0
+    bdy('013', 4), bdy('035', 4), bdy('047', 4), bdy('070', 4),
+    // Level 1
+    bdy('087', 4), bdy('006', 3), bdy('019', 3), bdy('086', 2), bdy('057', 2),
+    // Level 2 and 3
+    bdy('020', 3), bdy('051', 2), bdy('089', 2), bdy('039', 2), bdy('041', 3),
+    // Climaxes: 愛は衝動 and TearJerker (named by 013), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
+    bdy('026', 2), bdy('062', 2), bdy('064', 2), bdy('097', 2),
+  ],
+};
+
+export const TEST_DECKS: readonly TestDeck[] = [HARUHI_TEST_DECK, ICHIKA_TEST_DECK, SAO_TEST_DECK, GUP_TEST_DECK, SAO_MEMORY_TEST_DECK, BDY_TEST_DECK];
 
 /** The deck as a list of 50 card ids, in the order listed. */
 export function deckList(deck: TestDeck): string[] {

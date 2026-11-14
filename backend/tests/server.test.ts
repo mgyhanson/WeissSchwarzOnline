@@ -156,33 +156,75 @@ describe('game server over WebSockets', () => {
     await expect(wrongPath.opened()).rejects.toThrow();
   });
 
-  it('the owner’s own card pictures are served to this computer only, never to a request under another host name or relayed by a proxy', async () => {
-    dir = mkdtempSync(join(tmpdir(), 'wso-art-'));
-    writeFileSync(join(dir, 'SAO_S20-001.png'), 'not really a png');
-    writeFileSync(join(dir, 'sources.json'), '{"SAO_S20-001.png":{"source":"test"}}');
-    writeFileSync(join(dir, 'notes.txt'), 'private');
-    server = await startGameServer({ port: 0, userArtDir: dir });
-    const get = (path: string, headers: Record<string, string> = {}) =>
-      new Promise<{ status: number; body: string }>((resolve, reject) => {
-        const req = request({ host: '127.0.0.1', port: server!.port, path, headers }, (res) => {
+  describe('card pictures (/user-art/)', () => {
+    const get = (path: string, headers: Record<string, string> = {}, method = 'GET') =>
+      new Promise<{ status: number; body: string; headers: Record<string, string | string[] | undefined> }>((resolve, reject) => {
+        const req = request({ host: '127.0.0.1', port: server!.port, path, headers, method }, (res) => {
           let body = '';
           res.on('data', (d) => (body += d));
-          res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body, headers: res.headers }));
         });
         req.on('error', reject);
         req.end();
       });
-    const local = { host: `localhost:${server.port}` };
-    expect(JSON.parse((await get('/user-art/manifest.json', local)).body)).toEqual({ files: { 'SAO/S20-001': 'SAO_S20-001.png' }, sources: { 'SAO_S20-001.png': { source: 'test' } } });
-    expect(await get('/user-art/SAO_S20-001.png', local)).toMatchObject({ status: 200, body: 'not really a png' });
-    // Only pictures, only inside the folder.
-    expect((await get('/user-art/notes.txt', local)).status).toBe(404);
-    expect((await get('/user-art/..%2F..%2Fpackage.json', local)).status).toBe(404);
-    // Under another host name (another device, a tunnel) or relayed by a proxy: nothing.
-    for (const headers of [{ host: '192.168.1.20:8787' }, { host: 'my-tunnel.example' }, { ...local, 'x-forwarded-for': '203.0.113.5' }]) {
-      expect(JSON.parse((await get('/user-art/manifest.json', headers)).body), JSON.stringify(headers)).toEqual({ files: {}, sources: {} });
-      expect((await get('/user-art/SAO_S20-001.png', headers)).status, JSON.stringify(headers)).toBe(404);
-    }
+    /** A picture folder: one indexed picture, one picture the index does not list, and private files. */
+    const folder = () => {
+      dir = mkdtempSync(join(tmpdir(), 'wso-art-'));
+      writeFileSync(join(dir, 'SAO_S20-001.png'), 'picture one');
+      writeFileSync(join(dir, 'SAO_S20-004.png'), 'not in the index');
+      writeFileSync(join(dir, 'notes.txt'), 'private');
+      writeFileSync(join(dir, 'image-index.json'), JSON.stringify({ 'SAO/S20-001': { file: 'SAO_S20-001.png', sha256: 'ab'.repeat(32) }, 'SAO/S20-008': { file: '../escape.png', sha256: 'cd'.repeat(32) }, 'SAO/S20-009': { file: 'missing.png', sha256: 'ef'.repeat(32) } }));
+      writeFileSync(join(dir, 'sources.json'), JSON.stringify({ 'SAO_S20-001.png': { source: 'test', secret: 'x' }, 'other.png': { source: 'unlisted' } }));
+      return dir;
+    };
+    const lan = { host: '192.168.1.20:8787' };
+
+    it('by default every game client gets the pictures: this computer, another device on the network, a player in an online room', async () => {
+      server = await startGameServer({ port: 0, userArtDir: folder() });
+      expect(server.userArt.mode).toBe('clients');
+      for (const headers of [{ host: `localhost:${server.port}` }, lan, { host: 'play.example', 'x-forwarded-for': '203.0.113.5' }]) {
+        const manifest = JSON.parse((await get('/user-art/manifest.json', headers)).body);
+        // Card id → file from the index; only listed files that exist; only the source notes of those files.
+        expect(manifest, JSON.stringify(headers)).toEqual({ files: { 'SAO/S20-001': 'SAO_S20-001.png' }, sources: { 'SAO_S20-001.png': { source: 'test' } } });
+        expect(await get('/user-art/SAO_S20-001.png', headers)).toMatchObject({ status: 200, body: 'picture one' });
+      }
+    });
+
+    it('only files the index lists are served: no other picture, no other file, nothing outside the folder', async () => {
+      server = await startGameServer({ port: 0, userArtDir: folder() });
+      for (const path of ['/user-art/SAO_S20-004.png', '/user-art/notes.txt', '/user-art/image-index.json', '/user-art/sources.json', '/user-art/..%2Fescape.png', '/user-art/..%2F..%2Fpackage.json', '/user-art/missing.png', '/user-art/%E0%A4%A']) {
+        expect((await get(path, lan)).status, path).toBeGreaterThanOrEqual(400);
+      }
+    });
+
+    it('pictures are cacheable and revalidate with an ETag; HEAD sends no body', async () => {
+      server = await startGameServer({ port: 0, userArtDir: folder() });
+      const first = await get('/user-art/SAO_S20-001.png', lan);
+      expect(first.headers).toMatchObject({ 'content-type': 'image/png', 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' });
+      const etag = first.headers.etag as string;
+      expect((await get('/user-art/SAO_S20-001.png', { ...lan, 'if-none-match': etag })).status).toBe(304);
+      expect(await get('/user-art/SAO_S20-001.png', lan, 'HEAD')).toMatchObject({ status: 200, body: '' });
+    });
+
+    it('USER_ART=local serves this computer only; USER_ART=off serves nobody; the game then draws its own faces', async () => {
+      server = await startGameServer({ port: 0, userArtDir: folder(), userArtMode: 'local' });
+      const local = { host: `localhost:${server.port}` };
+      expect((await get('/user-art/SAO_S20-001.png', local)).status).toBe(200);
+      for (const headers of [lan, { host: 'my-tunnel.example' }, { ...local, 'x-forwarded-for': '203.0.113.5' }]) {
+        expect(JSON.parse((await get('/user-art/manifest.json', headers)).body), JSON.stringify(headers)).toEqual({ files: {}, sources: {} });
+        expect((await get('/user-art/SAO_S20-001.png', headers)).status, JSON.stringify(headers)).toBe(404);
+      }
+      await server.close();
+      rmSync(dir!, { recursive: true, force: true });
+      server = await startGameServer({ port: 0, userArtDir: folder(), userArtMode: 'off' });
+      expect(JSON.parse((await get('/user-art/manifest.json', { host: `localhost:${server.port}` })).body)).toEqual({ files: {}, sources: {} });
+      expect((await get('/user-art/SAO_S20-001.png', { host: `localhost:${server.port}` })).status).toBe(404);
+    });
+
+    it('without a picture folder the manifest is empty', async () => {
+      server = await startGameServer({ port: 0 });
+      expect(JSON.parse((await get('/user-art/manifest.json')).body)).toEqual({ files: {}, sources: {} });
+    });
   });
 
   it('serves the built client, falls back to index.html, and never serves files outside its folder', async () => {

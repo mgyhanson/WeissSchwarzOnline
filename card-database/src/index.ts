@@ -15,6 +15,7 @@ import gupOfficial from '../sets/GUP_W141/official.json';
 import { records as saoOthers } from '../sets/SAO_OTHERS/cards';
 import saoOthersOfficial from '../sets/SAO_OTHERS/official.json';
 import bdyOfficial from '../sets/BDY_W135/official.json';
+import { records as bdy } from '../sets/BDY_W135/cards';
 import stsOfficial from '../sets/STS_W140/official.json';
 import anmOfficial from '../sets/ANM_W138/official.json';
 import nikOfficial from '../sets/NIK_S135/official.json';
@@ -36,7 +37,7 @@ export const SETS: readonly CardSet[] = [
   { id: 'SAO_OTHERS', official: saoOthersOfficial as OfficialSet, records: saoOthers },
   // Whole boosters imported by scripts/import-card-sets.ts. Cards without a
   // hand-written record get one from sentence patterns, or are unsupported.
-  { id: 'BDY_W135', official: bdyOfficial as OfficialSet, records: [] },
+  { id: 'BDY_W135', official: bdyOfficial as OfficialSet, records: bdy },
   { id: 'STS_W140', official: stsOfficial as OfficialSet, records: [] },
   { id: 'ANM_W138', official: anmOfficial as OfficialSet, records: [] },
   { id: 'NIK_S135', official: nikOfficial as OfficialSet, records: [] },

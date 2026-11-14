@@ -49,6 +49,7 @@ export type PromptId =
   | 'COST_DISCARD'
   /** Choose the characters to rest as a cost. */
   | 'COST_REST'
+  | 'COST_HAND_TO_CLOCK'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
   | 'LOOK_NEXT'
   /** Choose a slot for a card ability. */

@@ -24,6 +24,10 @@ export interface CardFilter {
   nameIncludes?: string;
   /** カード名に「A」か「B」か「C」を含む */
   nameIncludesAny?: string[];
+  /** 「A」か「B」: the card name is exactly one of these. */
+  names?: string[];
+  /** レベルが相手のレベルより高い: the card's level is higher than the level of the player whose card it is. */
+  levelAboveMasterLevel?: boolean;
   levelMax?: number;
   levelMin?: number;
   costMax?: number;
@@ -54,6 +58,10 @@ export type Condition =
   | { if: 'ALL_CHARACTERS'; filter: CardFilter }
   /** あなたのストックがN枚以下なら */
   | { if: 'STOCK'; max: number }
+  /** このカードのバトル相手の…が…なら: the battle opponent of this card matches (cost, level, ...). False when it is no longer on the stage. */
+  | { if: 'BATTLE_OPPONENT'; filter: CardFilter }
+  /** このカードの正面のキャラの…が…なら: there is a character facing this card and it matches. */
+  | { if: 'FACING'; filter: CardFilter }
   /** それらのカードに…があるなら: the cards moved by the most recent DECK_TOP of this resolution (inside IF only). */
   | { if: 'LAST_MOVED'; min: number; filter?: CardFilter }
   | { if: 'ALL'; of: Condition[] }
@@ -78,7 +86,11 @@ export type Cost =
   /** あなたのストックの上からN枚をクロック置場に置く */
   | { pay: 'STOCK_TO_CLOCK'; count: number }
   /** このカードを思い出にする */
-  | { pay: 'SELF_TO_MEMORY' };
+  | { pay: 'SELF_TO_MEMORY' }
+  /** 手札を(の…を)N枚クロック置場に置く: the player chooses hand cards. */
+  | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
+  /** このカードを山札の下に置く */
+  | { pay: 'SELF_TO_DECK_BOTTOM' };
 
 /** Which cards an effect applies to. */
 export type Target =
@@ -88,6 +100,8 @@ export type Target =
   | { who: 'ALL_YOURS'; filter?: CardFilter; other?: boolean }
   /** このカードの前のあなたのキャラすべて (CR-3.6.5) */
   | { who: 'IN_FRONT'; filter?: CardFilter }
+  /** (他の)あなたの前列の中央の枠のキャラ: your characters in the named slots. */
+  | { who: 'YOUR_SLOT'; slots: SlotId[]; other?: boolean }
   /** The cards chosen by the most recent CHOOSE of this resolution. */
   | { who: 'CHOSEN' }
   /** このカードのバトル相手 (CR-7.2.1.5.1; last known per CR-8.11.2) */
@@ -106,6 +120,8 @@ export type ChooseFrom =
   | 'FRONT_ATTACKED'
   /** 相手の前列のキャラ */
   | 'OPPONENT_FRONT_ROW'
+  /** 相手の後列のキャラ */
+  | 'OPPONENT_BACK_ROW'
   /** 相手のクライマックス置場のクライマックス */
   | 'OPPONENT_CLIMAX';
 
@@ -134,8 +150,11 @@ export type AttackStepName = 'ATTACK_DECLARATION' | 'TRIGGER' | 'COUNTER' | 'DAM
 export type Effect =
   /** あなたはN枚引く / 引いてよい */
   | { do: 'DRAW'; count: number; optional?: boolean }
-  /** …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1). */
-  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean }
+  /**
+   * …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1).
+   * `add`: …をN枚までと…をN枚まで選び — these are chosen in addition to the cards of the previous CHOOSE.
+   */
+  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
   | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean }
   /**
@@ -151,6 +170,8 @@ export type Effect =
   | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
+  /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
+  | { do: 'WAITING_ROOM_TO_DECK' }
   /**
    * 集中 (CR-10.7): 自分の山札の上からN枚をめくり、控え室に置く。それらのカードの…1枚につき、…
    * `each` is performed once per turned-over card matching `per`.
@@ -185,6 +206,8 @@ export type Trigger =
   | { on: 'USED_BACKUP' }
   /** このカードがアタックした時 */
   | { on: 'ATTACKS' }
+  /** 他のあなたの…のキャラがアタックした時: another character of yours, matching the filter, attacks. */
+  | { on: 'OTHER_ATTACKS'; filter?: CardFilter }
   /** このカードが【リバース】した時; `inBattle`: バトル中のこのカードが【リバース】した時 (CR-7.2.1.5.1) */
   | { on: 'REVERSED'; inBattle?: boolean }
   /** このカードのバトル相手が【リバース】した時 */

@@ -11,9 +11,9 @@ import { GUP_TEST_DECK, TEST_DECKS, allCards, deckList, defsFor, expandDeck, get
 import { abilitiesPlayed, realDeckConfig } from './real-decks';
 
 describe('complete games with the real test decks', () => {
-  it('60 random games, every pairing of the five test decks from both seats, reach a result with every invariant holding at every decision', () => {
+  it('90 random games, every pairing of the six test decks from both seats, reach a result with every invariant holding at every decision', () => {
     const games: Played[] = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 90; i++) {
       const game = playGameWith(realDeckConfig(i), `real-${i}`, randomPolicy, 30_000);
       expect(game.problems, `real-${i}`).toEqual([]);
       expect(resultProblems(game), `real-${i}`).toEqual([]);
@@ -29,6 +29,8 @@ describe('complete games with the real test decks', () => {
     // The second SAO batch: its own sets' abilities and the three new SAO/S20 cards.
     expect([...used].filter((u) => /^SAO\/S(51|65|71|80)-/.test(u)).length).toBeGreaterThan(5);
     expect([...used].filter((u) => /^SAO\/S20-0(18|76|80)#/.test(u)).length).toBeGreaterThan(1);
+    // BDY/W135 batch 1: most of its 22 abilities are played in these games (the soak lists any never played).
+    expect([...used].filter((u) => u.startsWith('BDY/W135-')).length).toBeGreaterThan(12);
   });
 
   it('a deck built with newly imported cards (GUP climaxes compiled from sentence patterns) is legal and plays whole games', () => {

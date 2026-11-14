@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 156,
-    "handWritten": 102,
+    "playable": 170,
+    "handWritten": 116,
     "fromPatterns": 54,
-    "unsupported": 453,
-    "abilitiesRun": 193
+    "unsupported": 439,
+    "abilitiesRun": 217
   },
   "sets": [
     {
@@ -62,9 +62,9 @@
       "id": "BDY_W135",
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
-      "handWritten": 0,
+      "handWritten": 14,
       "fromPatterns": 12,
-      "unsupported": 88,
+      "unsupported": 74,
       "pending": 0,
       "withoutText": 0
     },

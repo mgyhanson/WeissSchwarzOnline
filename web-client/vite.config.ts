@@ -1,57 +1,18 @@
-import { createReadStream, existsSync, readFileSync, readdirSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { join, resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { type Plugin, defineConfig } from 'vite';
-import { cardIdOfFile } from './src/images/files';
+import { createUserArt, parseUserArtMode } from '../backend/src/user-art';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-/** Pictures the player provides; never committed, never synced by iCloud, never built (card-assets/README.md). */
-const USER_ART = resolve(here, '../card-assets/local.nosync');
-const PICTURE = /^[A-Za-z0-9_\-+.]+\.(png|jpe?g|webp)$/i;
-const TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+/** The card pictures (card-assets/local.nosync, not in Git); USER_ART and USER_ART_DIR as for the game server. */
+const art = createUserArt(resolve(here, process.env.USER_ART_DIR ?? '../card-assets/local.nosync'), parseUserArtMode(process.env.USER_ART));
 
-
-function manifest(): { files: Record<string, string>; sources: Record<string, unknown> } {
-  if (!existsSync(USER_ART)) return { files: {}, sources: {} };
-  const files: Record<string, string> = {};
-  for (const name of readdirSync(USER_ART)) if (PICTURE.test(name)) files[cardIdOfFile(name)] = name;
-  let sources: Record<string, unknown> = {};
-  try {
-    sources = JSON.parse(readFileSync(join(USER_ART, 'sources.json'), 'utf8')) as Record<string, unknown>;
-  } catch {
-    // sources.json is optional.
-  }
-  return { files, sources };
-}
-
-/** Serves card-assets/local.nosync/ under /user-art/ on the dev and preview servers only, files unchanged. */
+/** Serves the card pictures under /user-art/ on the dev and preview servers, with the same rules as the game server. */
 function userArt(): Plugin {
   const handle = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    if (!req.url?.startsWith('/user-art/')) return next();
-    // Only for a browser on this computer (npm run dev:lan must not hand the pictures to other devices).
-    const address = req.socket.remoteAddress ?? '';
-    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address) && ['localhost', '127.0.0.1', '[::1]'].includes((req.headers.host ?? '').replace(/:\d+$/, ''));
-    if (!local) {
-      res.statusCode = 404;
-      res.end();
-      return;
-    }
-    const name = decodeURIComponent(req.url.slice('/user-art/'.length).split('?')[0] ?? '');
-    if (name === 'manifest.json') {
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(manifest()));
-      return;
-    }
-    const file = resolve(USER_ART, name);
-    if (!PICTURE.test(name) || !file.startsWith(USER_ART + sep) || !existsSync(file)) {
-      res.statusCode = 404;
-      res.end();
-      return;
-    }
-    res.setHeader('Content-Type', TYPES[name.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream');
-    createReadStream(file).pipe(res);
+    if (!art.handle(req, res)) next();
   };
   return {
     name: 'wso-user-art',
