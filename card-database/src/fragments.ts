@@ -23,7 +23,18 @@ export interface LineParts {
 const KEYWORDS = ['集中', '応援', 'アンコール', '絆／', '経験', '記憶', '加速', 'チェンジ', '大活躍', 'アラーム', '助太刀', '回想', '共鳴', 'シフト', '搭乗'];
 
 /** Reminder text in round brackets is not rules text (CR-1.3.x of the card list's own notes). */
-const stripReminders = (text: string): string => text.replace(/ ?（[^（）]*(?:（[^（）]*）[^（）]*)*）/g, '');
+/** Card names can contain round brackets (「…（D型改）」): they are kept, only brackets outside names are reminders. */
+export function outsideNames(text: string): string {
+  return text.replace(/「[^」]*」/g, (name) => '「' + '・'.repeat(name.length - 2) + '」');
+}
+const stripReminders = (text: string): string => {
+  const names: string[] = [];
+  const masked = text.replace(/「[^」]*」/g, (name) => {
+    names.push(name);
+    return `「#${names.length - 1}#」`;
+  });
+  return masked.replace(/ ?（[^（）]*(?:（[^（）]*）[^（）]*)*）/g, '').replace(/「#(\d+)#」/g, (_m, i: string) => names[Number(i)]!);
+};
 
 /** Cuts a cost into its actions: "(1) 手札を1枚控え室に置き、このカードを【レスト】する". */
 export function splitCost(cost: string): string[] {

@@ -8,7 +8,7 @@ import { getDef, getInstance } from '../state';
 import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
-import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, EffectContext, PerCharacter, Target } from './types';
+import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, CountWhere, EffectContext, PerCharacter, Target } from './types';
 
 type Stat = 'POWER' | 'SOUL' | 'LEVEL';
 
@@ -22,6 +22,8 @@ export interface ActiveSource {
   clockTop: boolean;
   /** True for a face-up marker: only its abilities that work in the marker zone are in force. */
   marker?: boolean;
+  /** True for a face-up memory card: only its abilities that work in memory are in force. */
+  memory?: boolean;
 }
 
 /**
@@ -49,6 +51,12 @@ export function activeSources(state: GameState): ActiveSource[] {
         const def = getDef(state, instanceId);
         if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'MARKER')) sources.push({ instanceId, master, def, clockTop: false, marker: true });
       }
+    }
+    // CR-2.12.2.3: abilities of face-up memory cards that work in memory (a face-down one has no information, CR-3.12.2.2.1).
+    for (const instanceId of zones.memory) {
+      if (getInstance(state, instanceId).face !== 'UP') continue;
+      const def = getDef(state, instanceId);
+      if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'MEMORY')) sources.push({ instanceId, master, def, clockTop: false, memory: true });
     }
     // CR-10.1 / CR-2.12.2.3: アラーム abilities of the card on top of the clock.
     const top = zones.clock[zones.clock.length - 1];
@@ -152,25 +160,7 @@ export function evalCondition(
       return total >= condition.min;
     }
     case 'COUNT': {
-      const opponent = state.zones[opponentOf(master)];
-      const characters = (ids: number[]) => ids.filter((id) => getDef(state, id).kind === 'CHARACTER');
-      const pool =
-        condition.where === 'YOUR_WAITING_ROOM'
-          ? zones.waitingRoom
-          : condition.where === 'YOUR_HAND'
-            ? zones.hand
-            : condition.where === 'YOUR_MEMORY'
-              ? zones.memory.filter((id) => !condition.filter || getInstance(state, id).face === 'UP')
-              : condition.where === 'YOUR_MEMORY_AND_MARKERS'
-                ? [...zones.memory, ...SLOTS.flatMap((slot) => zones.marker[slot])]
-              : condition.where === 'YOUR_CLIMAX'
-                ? zones.climax
-                : condition.where === 'YOUR_FRONT_ROW'
-                  ? characters(FRONT_SLOTS.flatMap((slot) => zones.stage[slot]))
-                  : condition.where === 'OPPONENT_FRONT_ROW'
-                    ? characters(FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]))
-                    : characters(SLOTS.flatMap((slot) => opponent.stage[slot]));
-      const count = pool.filter((id) => !(condition.other && id === source) && matchesFilter(state, id, condition.filter)).length;
+      const count = zoneCount(state, master, source, condition.where, condition.filter, condition.other);
       return count >= (condition.min ?? 0) && count <= (condition.max ?? Infinity);
     }
     case 'ANY':
@@ -259,6 +249,30 @@ function continuousTargets(
   }
 }
 
+/** How many cards of a kind are in a zone, for COUNT conditions and +N per card (…1枚につき). */
+export function zoneCount(state: GameState, master: PlayerId, source: number, where: CountWhere, filter: CardFilter | undefined, other?: boolean): number {
+      const opponent = state.zones[opponentOf(master)];
+      const characters = (ids: number[]) => ids.filter((id) => getDef(state, id).kind === 'CHARACTER');
+      const pool =
+        where === 'YOUR_WAITING_ROOM'
+          ? state.zones[master].waitingRoom
+          : where === 'YOUR_HAND'
+            ? state.zones[master].hand
+            : where === 'YOUR_MEMORY'
+              ? state.zones[master].memory.filter((id) => !filter || getInstance(state, id).face === 'UP')
+              : where === 'YOUR_MEMORY_AND_MARKERS'
+                ? [...state.zones[master].memory, ...SLOTS.flatMap((slot) => state.zones[master].marker[slot])]
+              : where === 'YOUR_CLIMAX'
+                ? state.zones[master].climax
+                : where === 'YOUR_FRONT_ROW'
+                  ? characters(FRONT_SLOTS.flatMap((slot) => state.zones[master].stage[slot]))
+                  : where === 'OPPONENT_FRONT_ROW'
+                    ? characters(FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]))
+                    : characters(SLOTS.flatMap((slot) => opponent.stage[slot]));
+      const count = pool.filter((id) => !(other && id === source) && matchesFilter(state, id, filter)).length;
+  return count;
+}
+
 /** The character in the slot whose marker zone this card is in (このマーカーを持つ舞台のキャラ). */
 export function markerHolder(state: GameState, instanceId: number): number[] {
   const location = getInstance(state, instanceId).location;
@@ -289,7 +303,7 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
     for (const ability of source.def.abilities ?? []) {
       if (ability.type !== 'CONT' || ability.inHand) continue;
       // A marker ability works from the marker zone and only from there.
-      if ((ability.zone === 'MARKER') !== Boolean(source.marker)) continue;
+      if ((ability.zone === 'MARKER') !== Boolean(source.marker) || (ability.zone === 'MEMORY') !== Boolean(source.memory)) continue;
       // An アラーム ability works from the top of the clock and only from there.
       if (Boolean(ability.alarm) !== source.clockTop) continue;
       if (ability.assist) {
@@ -321,7 +335,11 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
   for (const { source, ability } of continuousInForce(state)) {
     for (const part of ability.apply) {
       if (part.stat !== stat || !continuousTargets(state, source, part.target, levelOf).includes(instanceId)) continue;
-      let amount = part.amount * perCount(state, source.master, source.instanceId, part.per) * (part.perMarker ? markersOf(state, source.instanceId).length : 1);
+      let amount =
+        part.amount *
+        perCount(state, source.master, source.instanceId, part.per) *
+        (part.perMarker ? markersOf(state, source.instanceId).length : 1) *
+        (part.perCount ? zoneCount(state, source.master, source.instanceId, part.perCount.where, part.perCount.filter) : 1);
       // Ｘはそのキャラのレベル×N. Only power and soul use this, so levels are already settled.
       if (part.perTargetLevel) amount = part.amount * currentLevel(state, instanceId);
       total += amount;

@@ -336,6 +336,27 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
   switch (effect.do) {
     case 'DRAW': {
+      // N枚まで引く: one card at a time; the player may stop before each (CR-4.10.1).
+      if (effect.upTo) {
+        const drawn = frame.scratch[0] ?? 0;
+        if (drawn >= effect.count || state.zones[master].deck.length === 0) {
+          next();
+          return;
+        }
+        if (frame.step === 0) {
+          frame.step = 1;
+          ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'DRAW_NEXT' });
+          return;
+        }
+        frame.step = 0;
+        if (!takeAnswer(ctx, 'CONFIRM').accept) {
+          next();
+          return;
+        }
+        frame.scratch[0] = drawn + 1;
+        pushFrame(ctx, { kind: 'DRAW', player: master, remaining: 1 });
+        return;
+      }
       if (effect.optional && frame.step === 0) {
         frame.step = 1;
         ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
@@ -583,6 +604,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       context.did = taken.length > 0;
       return;
     }
+
+    case 'REPEAT':
+      next();
+      // The repetitions in a row: one list of effects, so each runs after the one before has finished.
+      pushEffects(ctx, Array.from({ length: effect.times }, () => effect.effects).flat(), context);
+      return;
 
     case 'TRIGGER_CHECKS':
       next();

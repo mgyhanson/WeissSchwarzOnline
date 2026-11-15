@@ -21,7 +21,7 @@
 
 import type { Ability, AutoAbility, CardFilter, Condition, Cost, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
 import { encore } from '@wso/game-engine';
-import { type LineParts, splitCost, splitLine } from './fragments';
+import { type LineParts, outsideNames, splitCost, splitLine } from './fragments';
 import { TRIGGER_ICONS } from './official';
 
 /** What a part means, and how to say it in Chinese. */
@@ -116,6 +116,7 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
       return filter && (!filter.data || filter.data.kind === 'CHARACTER') ? out({ on: 'HOLDER_ATTACKS', ...(filter.data ? { filter: filter.data } : {}) }, `這張卡是 Marker 時，持有這個 Marker 的${filter.zh}攻擊時`) : null;
     },
   ],
+  [/^あなたのCXがトリガーした時$/, () => out({ on: 'TRIGGER_CHECK_REVEALS', filter: { kind: 'CLIMAX' } }, '我方 Trigger Check 翻出 Climax 時')],
   [/^相手のCXがCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED', opponent: true }, '對手的 Climax 放到 Climax 置場時')],
   [
     /^あなたのトリガーアイコンが\[\[([a-z]+)\.gif\]\]のCXがCX置場に置かれた時$/,
@@ -241,6 +242,8 @@ function parseOneCondition(text: string): Out<Condition> {
       );
     }
   }
+  // 記憶 (CR-10.9): the engine's MEMORY condition, as the hand-written cards use it.
+  if ((m = /^あなたの思い出置場に「([^」]+)」がある$/.exec(text))) return out({ if: 'MEMORY', min: 1, filter: { name: m[1]! } }, `我方思い出有「${m[1]}」`);
   if (text === 'このカードの下にマーカーがある') return out({ if: 'MARKERS', of: 'SELF', min: 1 }, '這張卡下面有 Marker');
   if (text === 'このカードの下にマーカーがない') return out({ if: 'MARKERS', of: 'SELF', max: 0 }, '這張卡下面沒有 Marker');
   if ((m = /^このカードの下の異なるカード名のマーカーが(\d+)枚以上$/.exec(text))) return out({ if: 'MARKERS', of: 'SELF', min: n(m[1]), distinctNames: true }, `這張卡下面不同卡名的 Marker 有 ${m[1]} 張或以上`);
@@ -436,9 +439,9 @@ const countZh = (count: string | undefined, upTo: string | undefined) => `${upTo
 
 /** 「…してよい」 put back into its plain form; null when the sentence is not optional. */
 function plainForm(sentence: string): string | null {
-  const m = /^(.*?)(置いて|戻して|して|引いて|加えて)よい$/.exec(sentence);
+  const m = /^(.*?)(置いて|戻して|して|引いて|加えて|行って)よい$/.exec(sentence);
   if (!m) return null;
-  const verb = { 置いて: '置く', 戻して: '戻す', して: 'する', 引いて: '引く', 加えて: '加える' }[m[2]!]!;
+  const verb = { 置いて: '置く', 戻して: '戻す', して: 'する', 引いて: '引く', 加えて: '加える', 行って: '行う' }[m[2]!]!;
   return m[1]! + verb;
 }
 
@@ -506,6 +509,7 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
 
   // Drawing, damage, the top of the deck and of the clock.
   if ((m = /^(\d+)枚引く$/.exec(text))) return out([{ do: 'DRAW', count: n(m[1]) }], `抽 ${m[1]} 張`);
+  if ((m = /^(\d+)枚まで引く$/.exec(text))) return out([{ do: 'DRAW', count: n(m[1]), upTo: true }], `最多抽 ${m[1]} 張（每張之前可以停止）`);
   if ((m = /^そのアタック中、(?:あなたは)?トリガーステップにトリガーチェックを(\d+)回行う$/.exec(sentence))) return out([{ do: 'TRIGGER_CHECKS', count: n(m[1]) }], `這次攻擊的 Trigger 步驟進行 ${m[1]} 次 Trigger Check`);
   if ((m = /^(\d+)枚引き、自分の手札を(\d+)枚選び、控え室に置く$/.exec(text))) {
     return out(
@@ -597,9 +601,9 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     if (a && b) return out([{ do: 'CHOOSE_ONE', options: [a.data, b.data], said: 'OR' }], `${a.zh}，或${b.zh}（自己選）`);
   }
   // "AしB": two effects in one sentence, done in order. Tried last, so a known whole sentence is never split.
-  for (const join of ['置き、', '戻し、']) {
+  for (const join of ['置き、', '戻し、', '引き、']) {
     for (let i = text.indexOf(join); i > 0; i = text.indexOf(join, i + 1)) {
-      const a = parseSentence(`${text.slice(0, i)}${join === '置き、' ? '置く' : '戻す'}`, battle);
+      const a = parseSentence(`${text.slice(0, i)}${join === '置き、' ? '置く' : join === '戻し、' ? '戻す' : '引く'}`, battle);
       const b = a && parseSentence(text.slice(i + join.length), battle);
       if (a && b) return out([...a.data, ...b.data], `${a.zh}，然後${b.zh}`);
     }
@@ -700,14 +704,29 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
   }
   for (let i = 0; i < sentences.length; i++) {
     const brainstorm = /^あなたは自分の山札の上から(\d+)枚をめくり、控え室に置く$/.exec(sentences[i]!);
-    const each = brainstorm && /^それらのカードのCX1枚につき、(.+)$/.exec(sentences[i + 1] ?? '');
+    const each = brainstorm && /^それらのカードの(CX|トリガーアイコンが\[\[[a-z]+\.gif\]\]のCX)1枚につき、(.+)$/.exec(sentences[i + 1] ?? '');
     if (brainstorm && each) {
-      const plain = plainForm(each[1]!);
-      const inner = parseSentence(plain ?? each[1]!, false);
+      const per = parseFilter(each[1]!, 'ZONE');
+      // "次の行動を行う。『…』": the action is the next, quoted sentence.
+      const quotedAction = each[2] === '次の行動を行う' ? /^『(.+?)。?』$/.exec(sentences[i + 2] ?? '') : null;
+      const plain = quotedAction ? null : plainForm(each[2]!);
+      const inner = quotedAction ? parseEffects(quotedAction[1]!.split('。').filter((x) => x !== ''), false) : parseSentence(plain ?? each[2]!, false);
       // "…してよい" inside: only for a choice of cards, where it is "up to" in effect; kept out for now.
-      if (!inner || plain) return null;
-      effects.push({ do: 'BRAINSTORM', count: n(brainstorm[1]), per: { kind: 'CLIMAX' }, each: inner.data });
-      zh.push(`翻開山札頂 ${brainstorm[1]} 張放到控え室，其中每有 1 張 Climax，${inner.zh}`);
+      if (!inner || plain || !per?.data) return null;
+      effects.push({ do: 'BRAINSTORM', count: n(brainstorm[1]), per: per.data, each: inner.data });
+      zh.push(`翻開山札頂 ${brainstorm[1]} 張放到控え室，其中每有 1 張${per.zh}，${inner.zh}`);
+      i += quotedAction ? 2 : 1;
+      continue;
+    }
+    // "次の行動を(N回)行う。『…』": the quoted action, once or N times.
+    const repeat = /^(?:あなたは)?次の行動を(?:(\d+)回)?行う$/.exec(sentences[i]!);
+    const action = repeat && /^『(.+?)。?』$/.exec(sentences[i + 1] ?? '');
+    if (repeat && action) {
+      const inner = parseEffects(action[1]!.split('。').filter((x) => x !== ''), battle);
+      if (!inner) return null;
+      const times = repeat[1] ? n(repeat[1]) : 1;
+      effects.push({ do: 'REPEAT', times, effects: inner.data });
+      zh.push(`${times > 1 ? `以下行動進行 ${times} 次` : '進行以下行動'}：${inner.zh}`);
       i++;
       continue;
     }
@@ -781,10 +800,13 @@ export interface Unknown {
   text: string;
 }
 
-function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
+function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
+  let parts = input;
   const combo = parts.marks.includes('CXコンボ');
   const isEncore = parts.marks.includes('アンコール');
-  if (parts.marks.some((mark) => mark !== 'CXコンボ' && mark !== 'アンコール')) unknown.push({ part: 'MARK', text: parts.marks.join(' ') });
+  // 記憶 and 経験 are keyword words with no effect of their own (CR-10.9.1, CR-10.10.1).
+  const words: ('MEMORY' | 'EXPERIENCE')[] = parts.marks.flatMap((mark) => (mark === '記憶' ? ['MEMORY' as const] : mark === '経験' ? ['EXPERIENCE' as const] : []));
+  if (parts.marks.some((mark) => mark !== 'CXコンボ' && mark !== 'アンコール' && mark !== '記憶' && mark !== '経験')) unknown.push({ part: 'MARK', text: parts.marks.join(' ') });
   const cost = parts.cost ? parseCost(parts.cost) : out<Cost[]>([], '');
   if (!cost) for (const action of parts.cost ?? []) if (!parseCostAction(action)) unknown.push({ part: 'COST', text: action });
   if (isEncore) {
@@ -793,6 +815,9 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
     if (unknown.length > 0 || !cost) return null;
     return { ability: encore(cost.data), zh: `【自】Encore [${cost.zh}]：這張卡由舞台放到控え室時，可以支付費用；支付後把它 Rest 放回原本的枠。` };
   }
+  // "思い出置場にこのカードがあ(る|り、…)なら、…した時": the ability works from memory (CR-2.12.2.3).
+  const memoryZone = /^思い出置場にこのカードがあ(?:る|り、(.+?))なら、(.+)$/.exec(parts.trigger ?? '');
+  if (memoryZone) parts = { ...parts, trigger: memoryZone[2]!, conditions: [...(memoryZone[1] ? [memoryZone[1]] : []), ...parts.conditions] };
   // "あなたのターン中、…した時": the trigger with a condition on whose turn it is.
   const inTurn = /^(あなたのターン中|相手のターン中)、(.+)$/.exec(parts.trigger ?? '');
   const trigger = parts.trigger ? parseTrigger(inTurn ? inTurn[2]! : parts.trigger) : null;
@@ -857,8 +882,8 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
 
   const ability: AutoAbility = {
     type: 'AUTO',
-    ...(combo ? { keywords: ['CX_COMBO'] } : {}),
-    ...(trigger.data.on === 'HOLDER_ATTACKS' ? { zone: 'MARKER' as const } : {}),
+    ...(combo || words.length > 0 ? { keywords: [...(combo ? ['CX_COMBO' as const] : []), ...words] } : {}),
+    ...(trigger.data.on === 'HOLDER_ATTACKS' ? { zone: 'MARKER' as const } : memoryZone ? { zone: 'MEMORY' as const } : {}),
     trigger: trigger.data,
     ...(condition.data ? { condition: condition.data } : {}),
     ...(parts.cost ? { cost: cost.data } : {}),
@@ -904,7 +929,16 @@ function activated(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
 }
 
 /** 【永】: this card's or your characters' numbers, while conditions hold. */
-function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
+function continuous(input: LineParts, unknown: Unknown[]): GrammarLine | null {
+  // 記憶 and 経験 are words only (CR-10.9.1, CR-10.10.1): read the line without them, then name them on the ability.
+  const said = input.marks.filter((mark): mark is '記憶' | '経験' => mark === '記憶' || mark === '経験');
+  const result = continuousBody({ ...input, marks: input.marks.filter((mark) => mark !== '記憶' && mark !== '経験') }, unknown);
+  if (!result || said.length === 0 || result.ability.type !== 'CONT') return result;
+  return { ...result, ability: { ...result.ability, keywords: [...said.map((w) => (w === '記憶' ? ('MEMORY' as const) : ('EXPERIENCE' as const))), ...(result.ability.keywords ?? [])] } };
+}
+
+function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | null {
+  let parts = input;
   // 回想 (CR-10.20.2) and 【リンク】 （名称） (CR-10.17): keyword abilities, the second with only a name.
   if (parts.marks.join() === '回想' && parts.effects.length === 0 && parts.conditions.length === 0 && !parts.cost) {
     return { ability: { type: 'CONT', recollection: true, apply: [] }, zh: '【永】回想（這張卡在思い出時，我方角色由舞台以外放到舞台而下面沒有 Marker 的話，可以把這張卡以表向放到它下面作為 Marker；這張卡由 Marker 置場移到其他公開區域時放到思い出）。' };
@@ -940,6 +974,50 @@ function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
     return {
       ability: { type: 'CONT', ...(perMarker[1] ? { condition: { if: 'YOUR_TURN' as const } } : {}), apply: [{ target: { who: 'SELF' }, stat, amount: n(perMarker[3]), perMarker: true }] },
       zh: `【永】${perMarker[1] ? '我方回合中，' : ''}這張卡下面每有 1 張 Marker，這張卡 ${stat === 'POWER' ? 'Power' : 'Soul'} +${perMarker[3]}。`,
+    };
+  }
+  // 応援 (CR-10.3.2): in force only while this card is in the back row; it gives the characters in front of it.
+  if (parts.marks.join() === '応援' && !parts.cost) {
+    const [first, second] = parts.effects;
+    const texts = [...parts.conditions];
+    let sentence = first ?? '';
+    const turn = /^(あなたのターン中|相手のターン中)、(.+)$/.exec(sentence);
+    if (turn) {
+      texts.push(turn[1]!);
+      sentence = turn[2]!;
+    }
+    const assist = /^このカードの前のあなたの(.+?)すべてに、パワーを＋(\d+|Ｘ)$/.exec(sentence);
+    const byLevel = assist?.[2] === 'Ｘ' ? /^Ｘはそのキャラのレベル×(\d+)に等しい$/.exec(second ?? '') : null;
+    const filter = assist && parseFilter(assist[1]!, 'STAGE');
+    const condition = allOf(texts.map(parseCondition));
+    const fits = assist && filter && condition && (!filter.data || filter.data.kind === 'CHARACTER') && (assist[2] === 'Ｘ' ? byLevel && parts.effects.length === 2 : parts.effects.length === 1);
+    if (fits) {
+      const amount = n(assist[2] === 'Ｘ' ? byLevel![1] : assist[2]);
+      return {
+        ability: {
+          type: 'CONT',
+          keywords: ['ASSIST'],
+          assist: true,
+          ...(condition.data ? { condition: condition.data } : {}),
+          apply: [{ target: { who: 'IN_FRONT', ...(filter.data ? { filter: filter.data } : {}) }, stat: 'POWER', amount, ...(assist[2] === 'Ｘ' ? { perTargetLevel: true } : {}) }],
+        },
+        zh: `【永】應援：${condition.zh ? `${condition.zh}，` : ''}放在後列時，它前面的我方${filter.zh}全部 Power +${assist[2] === 'Ｘ' ? `該角色 Level×${amount}` : amount}。`,
+      };
+    }
+  }
+  // 記憶 / 経験 are words only (CR-10.9.1, CR-10.10.1).
+  const contWords = parts.marks.filter((mark) => mark === '記憶' || mark === '経験');
+  if (contWords.length > 0 && contWords.length === parts.marks.length) parts = { ...parts, marks: [] };
+  const perMemory = parts.marks.length === 0 && parts.effects.length === 1 ? /^(?:(あなたのターン中)、)?あなたの思い出置場の「([^」]+)」1枚につき、このカードのパワーを＋(\d+)$/.exec(parts.effects[0]!) : null;
+  if (perMemory && parts.conditions.length === 0 && !parts.cost) {
+    return {
+      ability: {
+        type: 'CONT',
+        ...(contWords.length > 0 ? { keywords: contWords.map((w) => (w === '記憶' ? ('MEMORY' as const) : ('EXPERIENCE' as const))) } : {}),
+        ...(perMemory[1] ? { condition: { if: 'YOUR_TURN' as const } } : {}),
+        apply: [{ target: { who: 'SELF' }, stat: 'POWER', amount: n(perMemory[3]), perCount: { where: 'YOUR_MEMORY', filter: { name: perMemory[2]! } } }],
+      },
+      zh: `【永】${perMemory[1] ? '我方回合中，' : ''}我方思い出每有 1 張「${perMemory[2]}」，這張卡 Power +${perMemory[3]}。`,
     };
   }
   if (parts.marks.length > 0 || parts.cost) unknown.push({ part: 'MARK', text: [...parts.marks, parts.cost ? '［cost］' : ''].join(' ') });
@@ -1034,6 +1112,7 @@ function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   return {
     ability: {
       type: 'CONT',
+      ...(contWords.length > 0 ? { keywords: contWords.map((w) => (w === '記憶' ? ('MEMORY' as const) : ('EXPERIENCE' as const))) } : {}),
       ...(condition.data ? { condition: condition.data } : {}),
       apply,
       ...(given.length > 0 ? { grant: given.map((g) => ({ target: { who: 'SELF' as const }, ability: g.ability })) } : {}),
@@ -1051,7 +1130,7 @@ function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
  * brackets anywhere else may carry meaning.
  */
 function withoutReminders(line: string): string {
-  const m = /（([^（）]*)）$/.exec(line);
+  const m = /（([^（）]*)）$/.exec(outsideNames(line));
   if (!m || /^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return line;
   const body = line.slice(0, m.index);
   // 回想 has the meaning CR-10.20.2 gives it, which the engine plays; its reminder only restates it (CR-2.12.3).
@@ -1074,7 +1153,7 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
   let line = raw;
   const unknown: Unknown[] = [];
   line = withoutReminders(line);
-  if (line.includes('（') && !/^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return { line: null, unknown: [{ part: 'SHAPE', text: `（…）: ${/（[^（）]*）/.exec(line)?.[0].slice(0, 30) ?? ''}` }] };
+  if (outsideNames(line).includes('（') && !/^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return { line: null, unknown: [{ part: 'SHAPE', text: `（…）: ${/（[^（）]*）/.exec(line)?.[0].slice(0, 30) ?? ''}` }] };
   const parts = splitLine(line);
   if (!parts) return { line: null, unknown: [{ part: 'SHAPE', text: line.slice(0, 40) }] };
   const result = parts.type === 'AUTO' ? automatic(parts, unknown) : parts.type === 'ACT' ? activated(parts, unknown) : parts.type === 'CONT' ? continuous(parts, unknown) : null;
@@ -1085,7 +1164,7 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
 /** The effect of an event card whose whole text is one paragraph of known effect sentences. Counter events are not read. */
 export function readEvent(text: string): { effect: Effect[]; zh: string } | null {
   const line = withoutReminders(text.trim());
-  if (line.includes('（') || line.includes('【') || line.includes('『')) return null;
+  if (outsideNames(line).includes('（') || line.includes('【') || line.includes('『')) return null;
   const parts = splitLine(line, 'EVENT');
   if (!parts || parts.type !== 'EVENT' || parts.marks.length > 0 || parts.cost || parts.trigger || parts.conditions.length > 0) return null;
   if (parts.effects.some((s) => s.startsWith('そうしたら、') || plainForm(s) !== null)) return null;

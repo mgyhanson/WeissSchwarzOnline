@@ -250,3 +250,53 @@ describe('搭乗 (CR-10.21): ［このカードを表向きで他のあなたの
     expect(canActivate(start)).toBe(false);
   });
 });
+
+describe('memory: abilities that work there, and +N per card there', () => {
+  it('思い出置場にこのカードがあるなら、あなたのCXがトリガーした時…: from memory (face up) only', () => {
+    const fromMemory: Ability = { type: 'AUTO', zone: 'MEMORY', trigger: { on: 'TRIGGER_CHECK_REVEALS', filter: { kind: 'CLIMAX' } }, effect: DRAW_ONE };
+    const run = (where: 'memory' | 'memory-down' | 'stage') => {
+      const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:5': { abilities: [fromMemory] } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        if (where === 'stage') put(ctx, card(0, 5), stageSlot(0, 'FL'));
+        else put(ctx, card(0, 5), { player: 0, zone: 'memory' }, { face: where === 'memory' ? 'UP' : 'DOWN' });
+        noClimaxes(ctx, 1);
+        // The top card of player 0's deck is a climax (card 49): the trigger check reveals it.
+      }).state;
+      return played(attack(start, card(0, 0), 'DIRECT').events, card(0, 5));
+    };
+    expect([run('memory'), run('memory-down'), run('stage')]).toEqual([1, 0, 0]);
+  });
+
+  it('記憶 あなたの思い出置場の「…」1枚につき、このカードのパワーを＋1500 (face-up cards with that name)', () => {
+    const name = `Test character ${testCardId(0, 5)}`;
+    const per: Ability = { type: 'CONT', keywords: ['MEMORY'], apply: [{ target: { who: 'SELF' }, stat: 'POWER', amount: 1500, perCount: { where: 'YOUR_MEMORY', filter: { name } } }] };
+    const state = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [per] }, '0:6': { name } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'memory' });
+      put(ctx, card(0, 6), { player: 0, zone: 'memory' });
+      put(ctx, card(0, 7), { player: 0, zone: 'memory' });
+    }).state;
+    expect(getPower(state, card(0, 0))).toBe(1000 + 3000);
+  });
+});
+
+describe('N枚まで引く and 次の行動をN回行う', () => {
+  it('N枚まで引く: asks before each card; stopping keeps the rest', () => {
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act([{ do: 'DRAW', count: 3, upTo: true }])] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    let state = activate(start, card(0, 0)).state;
+    expect(pending(state, 'CONFIRM').prompt).toBe('DRAW_NEXT');
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: false }).state;
+    expect(state.pending?.kind).toBe('MAIN');
+    expect(state.zones[0].hand).toEqual([card(0, 49), card(0, 48)]);
+  });
+
+  it('次の行動を2回行う。『…』: the action twice, the second after the first', () => {
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act([{ do: 'REPEAT', times: 2, effects: [{ do: 'DECK_TOP', count: 1, to: 'STOCK' }, ...DRAW_ONE] }])] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    const { state, events } = activate(start, card(0, 0));
+    expect(events.filter((e) => e.type === 'CARD_MOVED').map((e) => (e.type === 'CARD_MOVED' ? `${e.reason}:${e.to.zone}` : ''))).toEqual(['EFFECT:stock', 'DRAW:hand', 'EFFECT:stock', 'DRAW:hand']);
+    expect(state.zones[0].stock).toEqual([card(0, 49), card(0, 47)]);
+    expect(state.zones[0].hand).toEqual([card(0, 48), card(0, 46)]);
+  });
+});

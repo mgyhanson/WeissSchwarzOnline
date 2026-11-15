@@ -124,5 +124,26 @@
    "ANM_W138": 36,
    "NIK_S135": 38
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-2 應援、記憶、思い出生效、重複行動",
+  "done": "應援的各種寫法、記憶及経験字樣、在思い出生效的能力、按思い出卡數加數值、最多抽 N 張、重複 N 次的行動、集中後按 Trigger 圖示及引號行動、卡名中的括號",
+  "next": "見 BATCH_3_PRIORITY.md",
+  "playable": 315,
+  "unsupported": 294,
+  "level3Playable": 18,
+  "level3Open": 45,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 61,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 48,
+   "STS_W140": 45,
+   "ANM_W138": 38,
+   "NIK_S135": 40
+  }
  }
 ]

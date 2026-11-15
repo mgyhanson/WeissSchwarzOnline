@@ -68,6 +68,8 @@ export type PromptId =
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
   | 'LOOK_NEXT'
+  /** N枚まで引く: draw one more card? */
+  | 'DRAW_NEXT'
   /** Choose a slot for a card ability. */
   | 'EFFECT_SLOT'
   | 'TRIGGER_ORDER'

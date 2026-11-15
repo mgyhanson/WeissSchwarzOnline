@@ -211,7 +211,9 @@ export type AttackStepName = 'ATTACK_DECLARATION' | 'TRIGGER' | 'COUNTER' | 'DAM
 
 export type Effect =
   /** あなたはN枚引く / 引いてよい */
-  | { do: 'DRAW'; count: number; optional?: boolean }
+  | { do: 'DRAW'; count: number; optional?: boolean; /** N枚まで引く: the player may stop before each card. */ upTo?: boolean }
+  /** 次の行動をN回行う。『…』: the quoted effects, N times in a row. */
+  | { do: 'REPEAT'; times: number; effects: Effect[] }
   /**
    * …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1).
    * `add`: …をN枚までと…をN枚まで選び — these are chosen in addition to the cards of the previous CHOOSE.
@@ -356,8 +358,8 @@ export interface ContinuousAbility {
   alarm?: boolean;
   /** このカードは相手の効果に選ばれない: the opponent's effects cannot choose this card (CR-8.6.3.1). */
   untargetable?: boolean;
-  /** マーカー置場にこのカードがあるなら: the ability works while this card is a face-up marker, and only then (CR-2.12.2.3). */
-  zone?: 'MARKER';
+  /** マーカー置場にこのカードがあるなら / 思い出置場にこのカードがあるなら: the ability works while this card is a face-up marker or in memory face up, and only there (CR-2.12.2.3). */
+  zone?: 'MARKER' | 'MEMORY';
   /**
    * 回想 (CR-10.20.2): the card has the two automatic abilities of the keyword. While it is face up in its master's
    * memory: when a character of theirs is put on the stage from outside the stage, with no marker under it, they may
@@ -390,6 +392,8 @@ export interface ContinuousAbility {
     perTargetLevel?: boolean;
     /** このカードの下のマーカー1枚につき: multiplies the amount by the number of markers of this card's slot. */
     perMarker?: boolean;
+    /** あなたの思い出置場の「…」1枚につき: multiplies the amount by the number of matching cards in a zone (as COUNT). */
+    perCount?: { where: CountWhere; filter?: CardFilter };
   }[];
   /** …に『…』を与える: automatic abilities given to the targets while this ability is active. */
   grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' }>; ability: AutoAbility }[];
@@ -399,8 +403,8 @@ export interface ContinuousAbility {
 export interface AutoAbility {
   type: 'AUTO';
   keywords?: Keyword[];
-  /** マーカー置場にこのカードがあるなら: triggers only while this card is a face-up marker. */
-  zone?: 'MARKER';
+  /** マーカー置場にこのカードがあるなら / 思い出置場にこのカードがあるなら: triggers only while this card is there, face up. */
+  zone?: 'MARKER' | 'MEMORY';
   /** アラーム (CR-10.1): triggers only while this card is the top card of its master's clock. */
   alarm?: boolean;
   trigger: Trigger;

@@ -69,8 +69,8 @@ function wait(
 }
 
 /** Whether an automatic ability of an active source is in force: アラーム ones only from the clock, others only elsewhere (CR-10.1). */
-function inForce(source: { clockTop: boolean; marker?: boolean }, ability: AutoAbility): boolean {
-  return Boolean(ability.alarm) === source.clockTop && (ability.zone === 'MARKER') === Boolean(source.marker);
+function inForce(source: { clockTop: boolean; marker?: boolean; memory?: boolean }, ability: AutoAbility): boolean {
+  return Boolean(ability.alarm) === source.clockTop && (ability.zone === 'MARKER') === Boolean(source.marker) && (ability.zone === 'MEMORY') === Boolean(source.memory);
 }
 
 /**
