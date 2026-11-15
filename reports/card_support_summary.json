@@ -1,0 +1,277 @@
+{
+ "total": 609,
+ "playable": 379,
+ "unsupported": 230,
+ "bySet": [
+  {
+   "set": "SY_W08_TD",
+   "total": 17,
+   "playable": 17,
+   "byKind": {
+    "CHARACTER": {
+     "total": 13,
+     "playable": 13
+    },
+    "EVENT": {
+     "total": 1,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 3,
+     "playable": 3
+    }
+   },
+   "level3": {
+    "total": 1,
+    "playable": 1
+   }
+  },
+  {
+   "set": "5HY_W83_TD_ICHIKA",
+   "total": 18,
+   "playable": 18,
+   "byKind": {
+    "CHARACTER": {
+     "total": 15,
+     "playable": 15
+    },
+    "EVENT": {
+     "total": 1,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 2,
+     "playable": 2
+    }
+   },
+   "level3": {
+    "total": 2,
+    "playable": 2
+   }
+  },
+  {
+   "set": "SAO_S20",
+   "total": 30,
+   "playable": 30,
+   "byKind": {
+    "CHARACTER": {
+     "total": 21,
+     "playable": 21
+    },
+    "EVENT": {
+     "total": 1,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 8,
+     "playable": 8
+    }
+   },
+   "level3": {
+    "total": 0,
+    "playable": 0
+   }
+  },
+  {
+   "set": "GUP_W141",
+   "total": 114,
+   "playable": 81,
+   "byKind": {
+    "CHARACTER": {
+     "total": 95,
+     "playable": 65
+    },
+    "EVENT": {
+     "total": 4,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 15,
+     "playable": 15
+    }
+   },
+   "level3": {
+    "total": 12,
+    "playable": 5
+   }
+  },
+  {
+   "set": "SAO_OTHERS",
+   "total": 18,
+   "playable": 18,
+   "byKind": {
+    "CHARACTER": {
+     "total": 17,
+     "playable": 17
+    },
+    "EVENT": {
+     "total": 0,
+     "playable": 0
+    },
+    "CLIMAX": {
+     "total": 1,
+     "playable": 1
+    }
+   },
+   "level3": {
+    "total": 0,
+    "playable": 0
+   }
+  },
+  {
+   "set": "BDY_W135",
+   "total": 100,
+   "playable": 61,
+   "byKind": {
+    "CHARACTER": {
+     "total": 85,
+     "playable": 49
+    },
+    "EVENT": {
+     "total": 3,
+     "playable": 0
+    },
+    "CLIMAX": {
+     "total": 12,
+     "playable": 12
+    }
+   },
+   "level3": {
+    "total": 16,
+    "playable": 7
+   }
+  },
+  {
+   "set": "STS_W140",
+   "total": 100,
+   "playable": 59,
+   "byKind": {
+    "CHARACTER": {
+     "total": 84,
+     "playable": 46
+    },
+    "EVENT": {
+     "total": 4,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 12,
+     "playable": 12
+    }
+   },
+   "level3": {
+    "total": 9,
+    "playable": 3
+   }
+  },
+  {
+   "set": "ANM_W138",
+   "total": 100,
+   "playable": 48,
+   "byKind": {
+    "CHARACTER": {
+     "total": 81,
+     "playable": 34
+    },
+    "EVENT": {
+     "total": 7,
+     "playable": 2
+    },
+    "CLIMAX": {
+     "total": 12,
+     "playable": 12
+    }
+   },
+   "level3": {
+    "total": 13,
+    "playable": 9
+   }
+  },
+  {
+   "set": "NIK_S135",
+   "total": 112,
+   "playable": 47,
+   "byKind": {
+    "CHARACTER": {
+     "total": 90,
+     "playable": 34
+    },
+    "EVENT": {
+     "total": 9,
+     "playable": 0
+    },
+    "CLIMAX": {
+     "total": 13,
+     "playable": 13
+    }
+   },
+   "level3": {
+    "total": 13,
+    "playable": 2
+   }
+  }
+ ],
+ "level3": {
+  "total": 63,
+  "playable": 26
+ },
+ "classes": {
+  "A": 79,
+  "B": 1,
+  "C": 94,
+  "D": 56,
+  "E": 0
+ },
+ "topParts": [
+  {
+   "part": "EFFECT: あなたは自分の山札を見てCXをN枚まで選んで公開し、自分の手札のCXをN枚まで選んで公開し、それらのCXを入れ替え、その山札をシャッフルする",
+   "unlocks": 2,
+   "cards": 4
+  },
+  {
+   "part": "EFFECT: あなたは自分の控え室のキャラをN枚選び、手札に戻し、自分の控え室のその手札に戻したキャラと同じカード名のキャラをN枚選び、手札に戻す",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは自分のレベル置場のカードと控え室のカードをN枚ずつ選び、入れ替えてよい",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "OPTIONAL: あなたは自分の山札の上からN枚までを、公開してよい。N枚以上公開したなら、あなたはそれらのカードの《…》のキャラか「…」をN枚まで選び、手札に加え、残りのカードを控え室に置き、自分の手札をN枚選び、控え室に置く",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: 得る: 『【起】【ターンN】［あなたの舞台の『回想』を持つキャラをN枚思い出にする］ そのターン中、このカードのパワーを＋N。』",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "SHAPE: （…）: （CXのレベルはNとして扱う。ストック置場に置かないなら元に",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "OPTIONAL: あなたはこのカードを思い出にしてよい。そうしたら、次のあなたのドローフェイズの始めに、あなたは自分の思い出置場の「…」をN枚選び、舞台の好きな枠に置く",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
+   "unlocks": 1,
+   "cards": 2
+  },
+  {
+   "part": "SHAPE: cost without あなたはコストを払ってよい。そうしたら、",
+   "unlocks": 1,
+   "cards": 2
+  },
+  {
+   "part": "TRIGGER: あなたのトリガーアイコンが[[soul.gif]][[soul.gif]]のCXがCX置場に置かれた時",
+   "unlocks": 1,
+   "cards": 2
+  }
+ ]
+}

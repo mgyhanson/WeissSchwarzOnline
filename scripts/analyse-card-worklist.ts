@@ -397,6 +397,70 @@ const batch3: string[] = [
 ];
 writeFileSync(join(ROOT, 'reports/BATCH_3_PROGRESS.md'), `${batch3.join('\n')}\n`);
 
+// --- reports/BATCH_4_PROGRESS.md ---------------------------------------------
+const b4 = batches.filter((b) => b.title.startsWith('B4'));
+writeFileSync(
+  join(ROOT, 'reports/BATCH_4_PROGRESS.md'),
+  `${[
+    '# Batch 4 進度',
+    '',
+    '> 由 `npm run cards:worklist` 產生；每批用 `npm run cards:worklist -- --batch "B4-…" "完成內容" "下一步"` 記錄。',
+    '',
+    '| 日期 | 批次 | 完成內容 | 可對戰 | Level 3 | 未支援 | GUP | BDY | STS | ANM | NIK | 下一步 |',
+    '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
+    ...b4.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.bySet.GUP_W141} | ${b.bySet.BDY_W135} | ${b.bySet.STS_W140} | ${b.bySet.ANM_W138} | ${b.bySet.NIK_S135} | ${b.next} |`),
+    '',
+  ].join('\n')}\n`,
+);
+
+// --- one source for the support numbers ------------------------------------
+// reports/card_support_summary.json, and the block between the support-summary markers in the
+// hand-written reports, are all written from here; no other file states the current numbers.
+const kinds = ['CHARACTER', 'EVENT', 'CLIMAX'] as const;
+const classCount = (cls: string) => count(work, (w) => w.class === cls);
+const summary = {
+  total: cards.length,
+  playable: count(cards, (c) => c.record.support === 'verified'),
+  unsupported: work.length,
+  bySet: SETS.map((set) => {
+    const inSet = cards.filter((c) => c.set === set.id);
+    return {
+      set: set.id,
+      total: inSet.length,
+      playable: count(inSet, (c) => c.record.support === 'verified'),
+      byKind: Object.fromEntries(kinds.map((k) => [k, { total: count(inSet, (c) => c.def.kind === k), playable: count(inSet, (c) => c.def.kind === k && c.record.support === 'verified') }])),
+      level3: { total: count(inSet, (c) => c.def.level === 3), playable: count(inSet, (c) => c.def.level === 3 && c.record.support === 'verified') },
+    };
+  }),
+  level3: { total: level3.length, playable: count(level3, (c) => c.record.support === 'verified') },
+  classes: Object.fromEntries(['A', 'B', 'C', 'D', 'E'].map((cls) => [cls, classCount(cls)])),
+  topParts: ranked.slice(0, 10).map((r) => ({ part: r.part, unlocks: r.unlocks.length, cards: r.cards.length })),
+};
+writeFileSync(join(ROOT, 'reports/card_support_summary.json'), `${JSON.stringify(summary, null, 1)}\n`);
+const setName = (id: string) => id.replace('_', '/');
+const summaryMd = [
+  `<!-- support-summary:start (由 npm run cards:worklist 產生，請勿手改；數字只以此為準) -->`,
+  `**目前卡牌支援（${new Date().toISOString().slice(0, 10)}，程式計算）**：${summary.total} 張中 **${summary.playable} 張可對戰**，未支援 ${summary.unsupported} 張；Level 3 ${summary.level3.playable}/${summary.level3.total}。`,
+  '',
+  '| 系列 | 卡數 | 可對戰 | 角色 | Event | Climax | Level 3 |',
+  '|---|---:|---:|---:|---:|---:|---:|',
+  ...summary.bySet.map(
+    (r) =>
+      `| ${setName(r.set)} | ${r.total} | ${r.playable} | ${r.byKind.CHARACTER!.playable}/${r.byKind.CHARACTER!.total} | ${r.byKind.EVENT!.playable}/${r.byKind.EVENT!.total} | ${r.byKind.CLIMAX!.playable}/${r.byKind.CLIMAX!.total} | ${r.level3.total > 0 ? `${r.level3.playable}/${r.level3.total}` : '-'} |`,
+  ),
+  `| **合計** | ${summary.total} | ${summary.playable} | | | | 五個補充包 ${summary.level3.playable}/${summary.level3.total} |`,
+  '',
+  `未支援分類（初步，只用作排序）：A ${summary.classes.A}、B ${summary.classes.B}、C ${summary.classes.C}、D ${summary.classes.D}、E ${summary.classes.E}。詳細見 \`reports/CARD_WORKLIST.md\`。`,
+  '<!-- support-summary:end -->',
+].join('\n');
+writeFileSync(join(ROOT, 'reports/CARD_SUPPORT_SUMMARY.md'), `# 卡牌支援摘要\n\n${summaryMd}\n`);
+for (const file of ['README.md', 'reports/CARD_DATABASE_REPORT.md', 'reports/RULES_IMPLEMENTATION_REPORT.md', 'reports/TEST_REPORT.md']) {
+  const path = join(ROOT, file);
+  const text = readFileSync(path, 'utf8');
+  const replaced = text.replace(/<!-- support-summary:start[\s\S]*?<!-- support-summary:end -->/, summaryMd);
+  if (replaced !== text) writeFileSync(path, replaced);
+}
+
 // --- what changed since the previous run (data.nosync/worklist-previous.json) --
 const previousFile = join(ROOT, 'data.nosync/worklist-previous.json');
 const previous: { playable: string[]; textHash: Record<string, string> } = existsSync(previousFile) ? JSON.parse(readFileSync(previousFile, 'utf8')) : { playable: [], textHash: {} };
