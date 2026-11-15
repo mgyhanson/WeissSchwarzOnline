@@ -311,3 +311,58 @@ describe('costs and filters', () => {
     expect(played(result.events, card(0, 5))).toBe(1);
   });
 });
+
+describe('Ｘ from the cards just put into the waiting room, or from a shown card', () => {
+  const levels = cards({ '0:49': { kind: 'CHARACTER', level: 2, cost: 0, power: 1000, soul: 1 }, '0:48': { kind: 'CHARACTER', level: 0, cost: 0, power: 1000, soul: 1 }, '0:5': { level: 3 }, '0:6': { level: 2 } });
+  const withAbility = (effect: Effect[]) => (p: 0 | 1, i: number) => (p === 0 && i === 0 ? { abilities: [act(effect)] } : levels(p, i));
+  const start = (effect: Effect[]) =>
+    scenario({ step: 'MAIN_START', defs: withAbility(effect) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'waitingRoom' });
+      put(ctx, card(0, 6), { player: 0, zone: 'waitingRoom' });
+    }).state;
+
+  it('山札の上から2枚を、控え室に置き、そのターン中、このカードのパワーを＋Ｘ。Ｘはそれらのカードのレベルの合計×1000', () => {
+    const state = activate(start([{ do: 'DECK_TOP', count: 2, to: 'WAITING_ROOM', setX: 'LEVEL_TOTAL' }, { do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 1000, timesX: true }]), card(0, 0)).state;
+    // The top two cards are levels 2 and 0: X is 2.
+    expect(getPower(state, card(0, 0))).toBe(1000 + 2000);
+  });
+
+  it('…自分の控え室のレベルＸ以下のキャラを1枚選び、手札に戻す: the cards just put there count too; a climax counts as level 0', () => {
+    const atChoose = activate(start([{ do: 'DECK_TOP', count: 2, to: 'WAITING_ROOM', setX: 'LEVEL_TOTAL' }, { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, levelMaxX: true, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' }]), card(0, 0)).state;
+    const offered = pending(atChoose, 'SELECT_CARDS').cards.map((o) => atChoose.instances.find((x) => x.objectId === o)!.instanceId).sort((a, b) => a - b);
+    // X = 2: levels 2 (card 6), 2 and 0 (cards 49 and 48) are offered; level 3 (card 5) is not.
+    expect(offered).toEqual([card(0, 6), card(0, 48), card(0, 49)]);
+  });
+
+  it('山札の上から1枚を公開し、… Ｘは公開されたカードのレベル: the card is shown and stays on top', () => {
+    const result = activate(start([{ do: 'SHOW_TOP' }, { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, levelMaxX: true, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' }]), card(0, 0));
+    expect(result.events.some((e) => e.type === 'CARD_REVEALED' && e.instanceId === card(0, 49))).toBe(true);
+    const state = result.state;
+    expect(state.zones[0].deck[state.zones[0].deck.length - 1]).toBe(card(0, 49));
+    expect(state.instances[card(0, 49)]!.revealed).toBe(false);
+    // X = 2: card 6 (level 2) is offered, card 5 (level 3) is not.
+    expect(pending(state, 'SELECT_CARDS').cards).toEqual([oid(state, card(0, 6))]);
+  });
+
+  it('…公開する。そのカードのレベルが1以上ならストック置場に置く', () => {
+    const toStock = (levelOfTop: number) => {
+      const defs = (p: 0 | 1, i: number) => (p === 0 && i === 0 ? { abilities: [act([{ do: 'REVEAL_TOP', filter: { levelMin: 1 }, toStock: true }])] } : p === 0 && i === 49 ? { kind: 'CHARACTER' as const, level: levelOfTop, cost: 0, power: 1000, soul: 1 } : undefined);
+      const state = activate(scenario({ step: 'MAIN_START', defs }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state, card(0, 0)).state;
+      return state.zones[0].stock;
+    };
+    expect(toStock(1)).toEqual([card(0, 49)]);
+    expect(toStock(0)).toEqual([]);
+  });
+
+  it('a choice whose option is 自分のクロックの上から1枚を、控え室に置いてよい asks before moving the card', () => {
+    const defs = cards({ '0:0': { abilities: [act([{ do: 'CHOOSE_ONE', options: [DRAW_ONE, [{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', optional: true }]] }])] } });
+    const start = scenario({ step: 'MAIN_START', defs }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'clock' });
+    }).state;
+    const atAsk = answer(activate(start, card(0, 0)).state, { kind: 'SELECT_OPTION', option: 'EFFECT_2' }).state;
+    expect(pending(atAsk, 'CONFIRM').prompt).toBe('USE_ABILITY');
+    expect(answer(atAsk, { kind: 'CONFIRM', accept: false }).state.zones[0].clock).toEqual([card(0, 5)]);
+  });
+});

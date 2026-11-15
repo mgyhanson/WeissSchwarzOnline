@@ -374,7 +374,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'MODIFY': {
       // CR-8.9.2: applies to the cards that are there now, not to ones arriving later.
-      const amount = effect.amount * perCount(state, master, context.source, effect.per);
+      const amount = effect.amount * perCount(state, master, context.source, effect.per) * (effect.timesX ? (context.x ?? 0) : 1);
       const untilTurn = effect.until === 'NEXT_OPPONENT_TURN' ? nextOpponentTurn(state, master) : undefined;
       for (const id of resolveTarget(state, context, effect.target)) {
         addModifier(state, getInstance(state, id).objectId, effect.stat, amount, untilTurn);
@@ -413,6 +413,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       if (done === 0) context.moved = [];
       const top = topOf(state.zones[whose].deck);
       if (done >= effect.count || top === undefined) {
+        // Ｘはそれらのカードのレベルの合計: printed levels; a climax has none and counts as 0 (CR-2.19.1).
+        if (effect.setX === 'LEVEL_TOTAL') context.x = (context.moved ?? []).reduce((sum, id) => sum + (getDef(state, id).level ?? 0), 0);
         next();
         return;
       }
@@ -547,14 +549,27 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'SHOW_TOP': {
+      const top = topOf(state.zones[master].deck);
+      next();
+      context.x = 0;
+      if (top === undefined) return;
+      revealCard(ctx, top);
+      context.x = getDef(state, top).level ?? 0;
+      // 公開したカードは元に戻す: it stays on top, no longer shown.
+      getInstance(state, top).revealed = false;
+      return;
+    }
+
     case 'REVEAL_TOP': {
       const top = topOf(state.zones[master].deck);
       next();
       if (top === undefined) return;
       revealCard(ctx, top);
       const hit = matchesFilter(state, top, effect.filter);
-      // Taken into the hand, or put back as it was: no longer shown.
-      if (hit && effect.take) moveCard(ctx, top, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
+      // Taken into the hand (or the stock), or put back as it was: no longer shown.
+      if (hit && effect.toStock) moveCard(ctx, top, { player: master, zone: 'stock' }, { reason: 'EFFECT' });
+      else if (hit && effect.take) moveCard(ctx, top, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
       else getInstance(state, top).revealed = false;
       if (hit && effect.then) pushEffects(ctx, effect.then, context);
       return;

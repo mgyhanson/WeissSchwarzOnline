@@ -19,5 +19,26 @@
    "ANM_W138": 28,
    "NIK_S135": 35
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "L3-2 Ｘ及公開山札頂、勘誤核對",
+  "done": "Ｘ＝放到控え室的卡的 Level 合計／公開卡的 Level；公開後放 Stock；選擇效果內可拒絕的選項；括號提示逐項判斷；四張勘誤卡核對（3 張只是異圖版本卡圖，STS-030 已是修正後文字）",
+  "next": "見 CARD_WORKLIST.md 首項",
+  "playable": 264,
+  "unsupported": 345,
+  "level3Playable": 7,
+  "level3Open": 56,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 48,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 41,
+   "STS_W140": 27,
+   "ANM_W138": 29,
+   "NIK_S135": 36
+  }
  }
 ]

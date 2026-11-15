@@ -257,6 +257,25 @@ const count = (e: { min: number; max: number }): string => (e.min === e.max ? `$
 
 /** The effect sentences for a list of effects, each without "あなたは" and "。". */
 export function effectsJa(effects: readonly Effect[]): string[] {
+  // Ｘ made by the first effect and used by what follows: one sentence, then "Ｘは…に等しい".
+  const maker = effects[0];
+  if (maker && ((maker.do === 'DECK_TOP' && maker.setX) || maker.do === 'SHOW_TOP')) {
+    const rest = effects.slice(1);
+    const use = rest[0];
+    let usesText: string;
+    let times = 1;
+    if (use?.do === 'MODIFY' && use.timesX && use.target.who === 'SELF' && rest.length === 1) {
+      usesText = `そのターン中、このカードの${STAT[use.stat]}を＋Ｘ`;
+      times = use.amount;
+    } else if (use?.do === 'CHOOSE' && use.levelMaxX) {
+      const plain = effectsJa([{ ...use, levelMaxX: false } as Effect, ...rest.slice(1)]);
+      if (plain.length !== 1) fail('x', effects);
+      usesText = plain[0]!.replace(/(控え室の)(、?)/, '$1レベルＸ以下の$2');
+    } else return fail('x', effects);
+    const made = maker.do === 'DECK_TOP' ? `自分の山札の上から${maker.count}枚を、控え室に置き、` : '自分の山札の上から1枚を公開し、';
+    const xIs = maker.do === 'DECK_TOP' ? 'それらのカードのレベルの合計' : '公開されたカードのレベル';
+    return [`${made}${usesText}`, `Ｘは${xIs}${times > 1 ? `×${times}` : ''}に等しい`];
+  }
   const sentences: string[] = [];
   for (let i = 0; i < effects.length; ) {
     const e = effects[i]!;
@@ -284,7 +303,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
                   : e.from === 'OPPONENT_STAGE' || e.from === 'OPPONENT_FRONT_ROW' || e.from === 'OPPONENT_BACK_ROW'
                   ? `相手の${e.from === 'OPPONENT_FRONT_ROW' ? '前列の' : e.from === 'OPPONENT_BACK_ROW' ? '後列の' : ''}${filterJa(e.filter, 'STAGE')}`
                   : fail('choose', e);
-      if (e.add || e.levelMaxX || (e.other && e.from !== 'YOUR_STAGE')) fail('choose', e);
+      if (e.add || (e.levelMaxX && e.from !== 'YOUR_WAITING_ROOM') || (e.other && e.from !== 'YOUR_STAGE')) fail('choose', e);
       sentences.push(`${from}を${count(e)}選び、${action.text}`);
       i += 1 + action.used;
       continue;
@@ -337,6 +356,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       const each = effectsJa(e.each);
       if (each.length !== 1) fail('brainstorm', e);
       sentences.push(`自分の山札の上から${e.count}枚をめくり、控え室に置く`, `それらのカードのCX1枚につき、${each[0]}`);
+    } else if (e.do === 'REVEAL_TOP' && e.toStock) {
+      if (e.take || e.then) fail('reveal', e);
+      const level = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
+      sentences.push('自分の山札の上から1枚を公開する', `そのカード${level}ならストック置場に置く`);
     } else if (e.do === 'REVEAL_TOP') {
       const then = e.then ? effectsJa(e.then) : [];
       if (then.length > 1 || (!e.take && then.length === 0)) fail('reveal', e);
@@ -352,6 +375,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
 /** One quoted effect of a choice. */
 function quotedJa(option: readonly Effect[]): string {
   const first = option[0];
+  if (option.length === 1 && (first?.do === 'CLOCK_TOP' || first?.do === 'DRAW') && first.optional) return may(effectsJa([{ ...first, optional: false } as Effect])[0]!);
   if (option.length === 1 && first?.do === 'MAY_PAY') return `［${costsJa(first.cost)}］ コストを払ってよい。そうしたら、${effectsJa(first.then).join('。')}`;
   return effectsJa(option).join('。');
 }
@@ -446,7 +470,7 @@ export function sameWords(text: string): string {
     .replace(/(【自】 アンコール ［[^］]*］) （[^（）]*）$/, '$1')
     .replace(/（ダメージキャンセルは発生する）$/, '')
     .replace(/（CXのレベルは0として扱う）$/, '')
-    .replace(/(公開する。そのカードが[^。]*。)（(?:そうでないなら元に戻す|公開したカードは元に戻す)）$/, '$1')
+    .replace(/（(?:(?:CXのレベルは0として扱う|そうでないなら元に戻す|公開したカードは元に戻す|ダメージキャンセルは発生する)。?)+）$/, '')
     .replace(/、次の能力を与える。『(.+?)。?』/g, '、『$1』を与える')
     .replace(/。』/g, '』')
     // "CX置場に「…」" in a condition is the player's own climax zone, written with or without あなたの.

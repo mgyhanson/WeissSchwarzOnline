@@ -521,6 +521,14 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
 function parseQuotedEffect(inner: string, battle: boolean): Out<Effect[]> {
   const paid = /^［([^］]*)］ ?あなたはコストを払ってよい。そうしたら、(.+)$/.exec(inner);
   const sentences = (paid ? paid[2]! : inner).split('。').filter((s) => s !== '');
+  // One "…してよい" sentence alone: the effects that can be declined by themselves.
+  if (!paid && sentences.length === 1 && plainForm(sentences[0]!) !== null) {
+    const plain = parseEffects([plainForm(sentences[0]!)!], battle);
+    const only = plain?.data.length === 1 ? plain.data[0] : undefined;
+    if (only?.do === 'CLOCK_TOP' && !only.optional) return out([{ ...only, optional: true }], `可以${plain!.zh}`);
+    if (only?.do === 'DRAW' && !only.optional) return out([{ ...only, optional: true }], `可以${plain!.zh}`);
+    return null;
+  }
   if (sentences.some((s) => s.startsWith('そうしたら、') || plainForm(s) !== null)) return null;
   const effects = parseEffects(sentences, battle);
   if (!effects || !paid) return effects;
@@ -556,9 +564,35 @@ function unknownEffects(sentences: string[], battle: boolean): Unknown[] {
 }
 
 /** The effect sentences of an ability, in order. 集中 takes two sentences. */
-function parseEffects(sentences: string[], battle: boolean): Out<Effect[]> {
+function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
   const effects: Effect[] = [];
   const zh: string[] = [];
+  // "Ｘは…に等しい": where X comes from, said after the sentence that uses it.
+  const xDef = all.map((s) => /^Ｘは(それらのカードのレベルの合計|公開されたカードのレベル)(?:×(\d+))?に等しい$/.exec(s)).find((m) => m);
+  const sentences = xDef ? all.filter((s) => s !== xDef[0]) : all;
+  if (xDef) {
+    // The sentence that makes X: the top cards to the waiting room, or one card shown; then what uses X.
+    const made =
+      xDef[1] === 'それらのカードのレベルの合計'
+        ? /^あなたは自分の山札の上から(\d+)枚を、控え室に置き、(.+Ｘ.*)$/.exec(sentences[0] ?? '')
+        : /^あなたは自分の山札の上から1枚を公開し、(.+Ｘ.*)$/.exec(sentences[0] ?? '');
+    if (!made || sentences.length !== 1) return null;
+    const uses = made[made.length - 1]!;
+    const times = xDef[2] ? n(xDef[2]) : 1;
+    let usesX: Out<Effect[]> = null;
+    const boost = /^そのターン中、このカードの(パワー|ソウル)を＋Ｘ$/.exec(uses);
+    if (boost) {
+      usesX = out([{ do: 'MODIFY', target: { who: 'SELF' }, stat: boost[1] === 'パワー' ? 'POWER' : 'SOUL', amount: times, timesX: true }], `該回合這張卡 ${boost[1] === 'パワー' ? 'Power' : 'Soul'} +Ｘ${times > 1 ? `×${times}` : ''}`);
+    } else if (/レベルＸ以下の/.test(uses) && times === 1) {
+      const chosen = parseSentence(uses.replace('レベルＸ以下の', ''), battle);
+      const first = chosen?.data[0];
+      if (first?.do === 'CHOOSE') usesX = out([{ ...first, levelMaxX: true }, ...chosen!.data.slice(1)], chosen!.zh.replace(/選/, '選 Level Ｘ 或以下的'));
+    }
+    if (!usesX) return null;
+    const maker: Effect = xDef[1] === 'それらのカードのレベルの合計' ? { do: 'DECK_TOP', count: n(made[1]), to: 'WAITING_ROOM', setX: 'LEVEL_TOTAL' } : { do: 'SHOW_TOP' };
+    const makerZh = xDef[1] === 'それらのカードのレベルの合計' ? `把自己山札頂 ${made[1]} 張放到控え室（Ｘ是這些卡的 Level 合計，Climax 當作 0）` : '公開自己山札頂 1 張後放回原處（Ｘ是該卡的 Level，Climax 當作 0）';
+    return out([maker, ...usesX.data], `${makerZh}，然後${usesX.zh}`);
+  }
   for (let i = 0; i < sentences.length; i++) {
     const brainstorm = /^あなたは自分の山札の上から(\d+)枚をめくり、控え室に置く$/.exec(sentences[i]!);
     const each = brainstorm && /^それらのカードのCX1枚につき、(.+)$/.exec(sentences[i + 1] ?? '');
@@ -585,13 +619,21 @@ function parseEffects(sentences: string[], battle: boolean): Out<Effect[]> {
       continue;
     }
     // "自分の山札の上から1枚を公開する。そのカードが…なら…": the card is taken into the hand, or something else is done.
-    const shown = sentences[i] === 'あなたは自分の山札の上から1枚を公開する' ? /^そのカードが(.+?)なら(手札に加える|手札に加え、(.+)|、(.+))$/.exec(sentences[i + 1] ?? '') : null;
+    const shown = sentences[i] === 'あなたは自分の山札の上から1枚を公開する' ? /^そのカード(?:が(.+?)|のレベルが(\d+)以上)なら(手札に加える|ストック置場に置く|手札に加え、(.+)|、(.+))$/.exec(sentences[i + 1] ?? '') : null;
     if (sentences[i] === 'あなたは自分の山札の上から1枚を公開する') {
-      const filter = shown && parseFilter(shown[1]!, 'ZONE');
-      const rest = shown?.[3] ?? shown?.[4];
+      const levelFilter = shown?.[2] !== undefined ? out<CardFilter | undefined>({ levelMin: n(shown[2]) }, `Level ${shown[2]} 或以上的卡`) : null;
+      const filter = shown && (levelFilter ?? parseFilter(shown[1]!, 'ZONE'));
+      if (shown && shown[3] === 'ストック置場に置く' && filter?.data) {
+        effects.push({ do: 'REVEAL_TOP', filter: filter.data, toStock: true });
+        zh.push(`公開自己山札頂 1 張：如果是${filter.zh}，放到 Stock（否則放回原處）`);
+        i++;
+        continue;
+      }
+      // Groups: 4 = what follows 手札に加え、, 5 = what follows "なら、" (the card is not taken).
+      const rest = shown?.[4] ?? shown?.[5];
       const then = rest ? parseSentence(rest, battle) : null;
       if (!shown || !filter?.data || (rest && !then)) return null;
-      const take = !shown[4];
+      const take = shown[5] === undefined;
       effects.push({ do: 'REVEAL_TOP', filter: filter.data, ...(take ? { take: true } : {}), ...(then ? { then: then.data } : {}) });
       zh.push(`公開自己山札頂 1 張：如果是${filter.zh}，${take ? '加入手牌' : ''}${then ? `${take ? '，然後' : ''}${then.zh}` : ''}（否則放回原處）`);
       i++;
@@ -855,17 +897,33 @@ function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
 }
 
 /** Ability data for one line of a character's or climax's text, or what is unknown about it. */
+/**
+ * The reminder in round brackets at the end of a line, removed when every note in it is known to say only
+ * what the engine does anyway; otherwise the line is returned as it is (and stays unknown). Text in round
+ * brackets anywhere else may carry meaning.
+ */
+function withoutReminders(line: string): string {
+  const m = /（([^（）]*)）$/.exec(line);
+  if (!m || /^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return line;
+  const body = line.slice(0, m.index);
+  const notes = m[1]!.split('。').filter((note) => note !== '');
+  const known = notes.every((note) => {
+    // CR-4.12.1.2: damage by an effect can be cancelled like any damage.
+    if (note === 'ダメージキャンセルは発生する') return /ダメージを/.test(body);
+    // CR-2.19.1: a climax has no level, so it counts as 0 — which is how the engine reads every level.
+    if (note === 'CXのレベルは0として扱う') return /レベル/.test(body);
+    // A card shown from the top of the deck and not taken stays where it was (REVEAL_TOP, SHOW_TOP).
+    if (note === 'そうでないなら元に戻す') return /公開する。そのカード(?:が|の)[^。]*なら(?:手札に加え|ストック置場に置)/.test(body);
+    if (note === '公開したカードは元に戻す') return /公開する。そのカード(?:が|の)[^。]*なら、|山札の上から1枚を公開し、/.test(body);
+    return false;
+  });
+  return known ? body : line;
+}
+
 export function readLine(raw: string): { line: GrammarLine | null; unknown: Unknown[] } {
   let line = raw;
   const unknown: Unknown[] = [];
-  // Text in round brackets is read as a reminder only where it is known to be one: after an アンコール cost.
-  // Anywhere else it may carry meaning (（そうでないなら元に戻す）, （CXのレベルは0として扱う）), so the line stays unknown.
-  if (/ダメージを[^（）]*（ダメージキャンセルは発生する）$/.test(line)) line = line.slice(0, -'（ダメージキャンセルは発生する）'.length); // a reminder of the damage rule (CR-4.12.1.2), which the engine follows
-  // What happens to a card shown from the top of the deck when it is not taken: it stays where it was (REVEAL_TOP).
-  if (/公開する。そのカードが[^。]*なら手札に加え[^。]*。（そうでないなら元に戻す）$/.test(line)) line = line.slice(0, -'（そうでないなら元に戻す）'.length);
-  if (/公開する。そのカードが[^。]*なら、[^。]*。（公開したカードは元に戻す）$/.test(line)) line = line.slice(0, -'（公開したカードは元に戻す）'.length);
-  // A climax has no level: it counts as 0 (CR-2.19.1), which is how the engine reads a level filter.
-  if (/レベル\d+以[上下]の.*（CXのレベルは0として扱う）$/.test(line)) line = line.slice(0, -'（CXのレベルは0として扱う）'.length);
+  line = withoutReminders(line);
   if (line.includes('（') && !/^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return { line: null, unknown: [{ part: 'SHAPE', text: `（…）: ${/（[^（）]*）/.exec(line)?.[0].slice(0, 30) ?? ''}` }] };
   const parts = splitLine(line);
   if (!parts) return { line: null, unknown: [{ part: 'SHAPE', text: line.slice(0, 40) }] };
@@ -876,8 +934,7 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
 
 /** The effect of an event card whose whole text is one paragraph of known effect sentences. Counter events are not read. */
 export function readEvent(text: string): { effect: Effect[]; zh: string } | null {
-  let line = text.trim();
-  if (/ダメージを与える。（ダメージキャンセルは発生する）$/.test(line)) line = line.slice(0, -'（ダメージキャンセルは発生する）'.length);
+  const line = withoutReminders(text.trim());
   if (line.includes('（') || line.includes('【') || line.includes('『')) return null;
   const parts = splitLine(line, 'EVENT');
   if (!parts || parts.type !== 'EVENT' || parts.marks.length > 0 || parts.cost || parts.trigger || parts.conditions.length > 0) return null;

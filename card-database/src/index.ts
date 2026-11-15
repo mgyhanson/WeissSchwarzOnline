@@ -62,9 +62,24 @@ const AI_NOTE = { source: 'AI_ASSISTED', status: '待核實' } as const;
 /**
  * Cards with an entry on the official errata page that nobody has compared
  * with the stored text yet (parallel versions count for their base card).
- * They are never compiled automatically.
+ * They are never compiled automatically. Empty since the check below.
  */
-export const ERRATA_UNCHECKED: readonly string[] = ['GUP/W141-008', 'GUP/W141-062', 'GUP/W141-070', 'STS/W140-030'];
+export const ERRATA_UNCHECKED: readonly string[] = [];
+
+/**
+ * Errata entries compared with the stored data. Source: https://ws-tcg.com/rules/errata/
+ * (page last updated 2026/11/12), read on 2026-11-15.
+ */
+export const ERRATA_CHECKED: readonly { cardId: string; entry: string; finding: string }[] = [
+  { cardId: 'GUP/W141-008', entry: 'GUP/W141-008S', finding: 'Artwork of the parallel version only; card text unchanged. The database stores the base card and its picture.' },
+  { cardId: 'GUP/W141-062', entry: 'GUP/W141-062S', finding: 'Artwork of the parallel version only; card text unchanged.' },
+  { cardId: 'GUP/W141-070', entry: 'GUP/W141-070S', finding: 'Artwork of the parallel version only; card text unchanged.' },
+  {
+    cardId: 'STS/W140-030',
+    entry: 'STS/W140-030, STS/W140-030S',
+    finding: 'Card text corrected (…1枚手札に加え、1枚ストック置場に置き、残りのカードを控え室に置く). The text stored from the official card list on 2026-11-13 is already the corrected text.',
+  },
+];
 
 /**
  * The record of a card nobody has written by hand: from sentence patterns

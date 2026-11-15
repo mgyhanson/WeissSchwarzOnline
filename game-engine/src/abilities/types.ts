@@ -185,7 +185,7 @@ export type Effect =
    * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
    * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
    */
-  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN' }
+  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN'; /** ＋Ｘ (Ｘは…×N): the amount is multiplied by X of this resolution. */ timesX?: boolean }
   /** …を【スタンド】/【レスト】/【リバース】する */
   | { do: 'ORIENT'; target: Target; to: Orientation }
   /** 相手にNダメージを与える */
@@ -194,7 +194,7 @@ export type Effect =
    * 自分の山札の上からN枚を…に置く.
    * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
    */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' }
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -223,7 +223,9 @@ export type Effect =
    * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
    * taken stays where it was (元に戻す) and is no longer shown.
    */
-  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[] }
+  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean }
+  /** 自分の山札の上から1枚を公開し、… Ｘは公開されたカードのレベルに等しい: shown to both players and put back; X is its level (a climax counts as 0). */
+  | { do: 'SHOW_TOP' }
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
   | { do: 'TRIGGER_CHECKS'; count: number }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
@@ -424,7 +426,7 @@ export interface EffectContext {
   sourceSlot: { player: 0 | 1; slot: SlotId } | null;
   /** Keywords of the ability (moves made by a チェンジ ability count as change, CR-10.8.4). */
   keywords?: Keyword[];
-  /** Ｘ: set by a BRAINSTORM with setX, used by CHOOSE with levelMaxX. */
+  /** Ｘ: set by a BRAINSTORM, a DECK_TOP or a SHOW_TOP; used by CHOOSE with levelMaxX and MODIFY with timesX. */
   x?: number;
   /** The slot chosen by the most recent CHOOSE_SLOT. */
   slot?: SlotId | null;
