@@ -44,6 +44,8 @@ export interface CardFilter {
   levelMin?: number;
   costMax?: number;
   costMin?: number;
+  /** パワーN以下の (the current power) */
+  powerMax?: number;
   color?: string;
   hasTrigger?: TriggerIcon;
 }
@@ -236,7 +238,7 @@ export type Effect =
    */
   | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
-  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean; /** for UNDER_SELF / UNDER_THAT: 表向き or 裏向き */ face?: 'UP' | 'DOWN'; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
+  | { do: 'MOVE'; target: Target; to: Destination; /** …に好きな順番で置く: the player chooses the order the cards go there in. */ inOrder?: boolean; reveal?: boolean; rested?: boolean; /** for UNDER_SELF / UNDER_THAT: 表向き or 裏向き */ face?: 'UP' | 'DOWN'; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**
    * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
    * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
@@ -288,7 +290,14 @@ export type Effect =
    * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
    * taken stays where it was (元に戻す) and is no longer shown.
    */
-  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean }
+  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean; /** 公開してよい: the player is asked first. */ optional?: boolean; /** そうでないなら、…: done when the card does not match. */ else?: Effect[] }
+  /**
+   * The cards just chosen are split: up to `take` of them (exactly, with `exact`, as many as there are) go to `to`
+   * (in the order the player chooses, with `inOrder`), the rest to `rest`. 1枚手札に加え、残りのカードを…
+   */
+  | { do: 'SPLIT_CHOSEN'; take: number; exact?: boolean; to: Destination; inOrder?: boolean; rest: Destination; reveal?: boolean }
+  /** …してよい inside an effect: the player is asked; the effects happen only if they accept (and `did` records it). */
+  | { do: 'MAY'; effects: Effect[] }
   /**
    * (自分|相手)の山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置き(、残りのカードを控え室に置く).
    * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to

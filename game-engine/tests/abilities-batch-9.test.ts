@@ -188,3 +188,82 @@ describe('triggers', () => {
     expect(run(1)).toBe(0);
   });
 });
+
+describe('batch 4 part 2: shown cards, choices and splits', () => {
+  it('山札の上から1枚を公開してよい。そのカードが…なら、…してよい、そうでないなら、…', () => {
+    const reveal = (optional: boolean, filter: { kind: 'CHARACTER' | 'CLIMAX' }) =>
+      act([{ do: 'REVEAL_TOP', filter, optional, then: [{ do: 'MAY', effects: [{ do: 'DAMAGE', amount: 1 }] }], else: DRAW_ONE }]);
+    const setup = (ability: Ability) =>
+      scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [ability] } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        noClimaxes(ctx, 0);
+        noClimaxes(ctx, 1);
+      }).state;
+    // Declined at the start: nothing is shown.
+    const declined = answer(activate(setup(reveal(true, { kind: 'CHARACTER' })), card(0, 0)).state, { kind: 'CONFIRM', accept: false });
+    expect(declined.events.some((e) => e.type === 'CARD_REVEALED')).toBe(false);
+    // A character: the player may deal the damage; it stays on the deck.
+    let state = answer(activate(setup(reveal(true, { kind: 'CHARACTER' })), card(0, 0)).state, { kind: 'CONFIRM', accept: true }).state;
+    expect(pending(state, 'CONFIRM').prompt).toBe('USE_ABILITY');
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    expect(state.zones[1].clock).toHaveLength(1);
+    expect(state.zones[0].deck[state.zones[0].deck.length - 1]).toBe(card(0, 41));
+    // Not a climax: the else branch draws instead.
+    const other = activate(setup(reveal(false, { kind: 'CLIMAX' })), card(0, 0)).state;
+    expect(other.zones[0].hand).toEqual([card(0, 41)]);
+  });
+
+  it('…を2枚まで選び、公開し、1枚手札に加え、残りのカードをストック置場の下に置く: exactly one to the hand', () => {
+    const search = act([{ do: 'CHOOSE', from: 'YOUR_DECK', filter: { kind: 'CHARACTER' }, min: 0, max: 2 }, { do: 'SPLIT_CHOSEN', take: 1, exact: true, to: 'HAND', rest: 'STOCK_BOTTOM', reveal: true }, { do: 'SHUFFLE' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [search] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 20), { player: 0, zone: 'stock' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5)), oid(state, card(0, 6))] }).state;
+    expect(pending(state, 'SELECT_CARDS')).toMatchObject({ prompt: 'EFFECT_SPLIT', min: 1, max: 1 });
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 6))] }).state;
+    expect(state.zones[0].hand).toEqual([card(0, 6)]);
+    expect(state.zones[0].stock).toEqual([card(0, 5), card(0, 20)]);
+    assertInvariants(state);
+  });
+
+  it('…を2枚まで選び、2枚までストック置場に好きな順番で置き、残りのカードを思い出にする', () => {
+    const split = act([{ do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', min: 0, max: 2 }, { do: 'SPLIT_CHOSEN', take: 2, to: 'STOCK', inOrder: true, rest: 'MEMORY' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [split] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'waitingRoom' });
+      put(ctx, card(0, 6), { player: 0, zone: 'waitingRoom' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5)), oid(state, card(0, 6))] }).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5)), oid(state, card(0, 6))] }).state;
+    expect(pending(state, 'SELECT_CARDS').prompt).toBe('EFFECT_PLACE_ORDER');
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 6))] }).state;
+    // 6 went first, so 5 is on top.
+    expect(state.zones[0].stock).toEqual([card(0, 6), card(0, 5)]);
+    expect(state.zones[0].memory).toEqual([]);
+  });
+
+  it('自分の手札を2枚まで選び、ストック置場に好きな順番で置く', () => {
+    const order = act([{ do: 'CHOOSE', from: 'YOUR_HAND', min: 0, max: 2 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'STOCK', inOrder: true }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [order] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'hand' });
+      put(ctx, card(0, 6), { player: 0, zone: 'hand' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5)), oid(state, card(0, 6))] }).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5))] }).state;
+    expect(state.zones[0].stock).toEqual([card(0, 5), card(0, 6)]);
+  });
+
+  it('相手の前列のパワー8000以下のキャラ: by current power', () => {
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '1:0': { power: 8000 }, '1:1': { power: 9000 } }) }, (ctx) => {
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+      put(ctx, card(1, 1), stageSlot(1, 'FL'));
+    }).state;
+    expect(matchesFilter(start, card(1, 0), { kind: 'CHARACTER', powerMax: 8000 })).toBe(true);
+    expect(matchesFilter(start, card(1, 1), { kind: 'CHARACTER', powerMax: 8000 })).toBe(false);
+  });
+});

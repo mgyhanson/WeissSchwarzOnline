@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 403,
- "unsupported": 206,
+ "playable": 417,
+ "unsupported": 192,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 84,
+   "playable": 86,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 68
+     "playable": 70
     },
     "EVENT": {
      "total": 4,
@@ -92,7 +92,7 @@
    },
    "level3": {
     "total": 12,
-    "playable": 6
+    "playable": 7
    }
   },
   {
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 61,
+   "playable": 65,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 48
+     "playable": 52
     },
     "EVENT": {
      "total": 4,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 57,
+   "playable": 60,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 43
+     "playable": 46
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 56,
+   "playable": 61,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 43
+     "playable": 48
     },
     "EVENT": {
      "total": 9,
@@ -213,12 +213,12 @@
  ],
  "level3": {
   "total": 63,
-  "playable": 27
+  "playable": 28
  },
  "classes": {
-  "A": 58,
+  "A": 54,
   "B": 1,
-  "C": 92,
+  "C": 82,
   "D": 55,
   "E": 0
  },
@@ -234,7 +234,17 @@
    "cards": 2
   },
   {
+   "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
    "part": "EFFECT: あなたは自分のレベル置場のカードと控え室のカードをN枚ずつ選び、入れ替えてよい",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "SHAPE: cost without あなたはコストを払ってよい。そうしたら、",
    "unlocks": 2,
    "cards": 2
   },
@@ -259,17 +269,7 @@
    "cards": 2
   },
   {
-   "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
-   "part": "SHAPE: cost without あなたはコストを払ってよい。そうしたら、",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
-   "part": "EFFECT: あなたのターン中、他のあなたのキャラすべてに、パワーを＋Ｘ。Ｘはそのキャラのソウル×Nに等しい",
+   "part": "EFFECT: そのターン中、そのキャラのパワーを＋N",
    "unlocks": 1,
    "cards": 2
   }

@@ -446,8 +446,68 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'SPLIT_CHOSEN': {
+      const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
+      if (frame.step === 0) {
+        if (chosen.length === 0) {
+          next();
+          return;
+        }
+        if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
+        const max = Math.min(effect.take, chosen.length);
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_SPLIT', cards: chosen.map((id) => getInstance(state, id).objectId), min: effect.exact ? max : 0, max, look: lookMap(state, chosen) });
+        return;
+      }
+      if (frame.step === 1) {
+        const picked = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+        frame.scratch = picked;
+        frame.step = 2;
+      }
+      // The cards for the first place, in the order the player gives (when asked), then the rest at once.
+      const picked = frame.scratch.filter((id) => chosen.includes(id));
+      if (effect.inOrder && picked.length > 1 && frame.step === 2) {
+        frame.step = 3;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: picked.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: lookMap(state, picked) });
+        return;
+      }
+      if (frame.step === 3) {
+        const first = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+        const target = destinationZone(state, context, first, effect.to);
+        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) });
+        frame.scratch = picked.filter((id) => id !== first);
+        frame.step = 2;
+        return;
+      }
+      const rest = chosen.filter((id) => !picked.includes(id));
+      next();
+      const moves: BatchMove[] = [];
+      for (const [ids, to] of [[picked, effect.to], [rest, effect.rest]] as const) {
+        for (const instanceId of ids) {
+          const target = destinationZone(state, context, instanceId, to);
+          if (target) moves.push({ instanceId, to: target.zone, opts: { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) } });
+        }
+      }
+      moveBatch(ctx, moves);
+      return;
+    }
+
     case 'MOVE': {
       const targets = resolveTarget(state, context, effect.target);
+      // …に好きな順番で置く: one card at a time, in the order the player chooses.
+      if (effect.inOrder && targets.length > 1) {
+        if (frame.step === 0) {
+          frame.step = 1;
+          ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: targets.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: lookMap(state, targets) });
+          return;
+        }
+        const first = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+        const target = destinationZone(state, context, first, effect.to);
+        frame.step = 0;
+        context.did = true;
+        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) });
+        return;
+      }
       // …に戻すか…に置く: the player says which, when there is something to move.
       let to = effect.to;
       if (effect.orTo && targets.length > 0) {
@@ -815,8 +875,31 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'MAY': {
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+        return;
+      }
+      const accept = takeAnswer(ctx, 'CONFIRM').accept;
+      context.did = accept;
+      next();
+      if (accept) pushEffects(ctx, effect.effects, context);
+      return;
+    }
+
     case 'REVEAL_TOP': {
       const top = topOf(state.zones[master].deck);
+      // 公開してよい: asked first (only when there is a card to show).
+      if (effect.optional && top !== undefined && frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+        return;
+      }
+      if (effect.optional && top !== undefined && !takeAnswer(ctx, 'CONFIRM').accept) {
+        next();
+        return;
+      }
       next();
       if (top === undefined) return;
       revealCard(ctx, top);
@@ -826,6 +909,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       else if (hit && effect.take) moveCard(ctx, top, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
       else getInstance(state, top).revealed = false;
       if (hit && effect.then) pushEffects(ctx, effect.then, context);
+      if (!hit && effect.else) pushEffects(ctx, effect.else, context);
       return;
     }
 

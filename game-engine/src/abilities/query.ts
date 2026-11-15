@@ -119,6 +119,7 @@ export function matchesFilter(
   if (filter.hasTrigger && !def.triggers.includes(filter.hasTrigger)) return false;
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
   if (filter.costMin !== undefined && (def.cost ?? 0) < filter.costMin) return false;
+  if (filter.powerMax !== undefined && currentStat(state, instanceId, 'POWER') > filter.powerMax) return false;
   if (filter.levelMax !== undefined || filter.levelMin !== undefined) {
     const level = levelOf(state, instanceId);
     if (filter.levelMax !== undefined && level > filter.levelMax) return false;

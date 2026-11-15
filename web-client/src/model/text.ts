@@ -134,6 +134,8 @@ export const PROMPT_ZH: Record<PromptId, string> = {
   LOOK_NEXT: '要再查看山札頂的下一張卡嗎？',
   DRAW_NEXT: '要再抽 1 張嗎？',
   DECK_TOP_NEXT: '要再把山札頂 1 張放過去嗎？',
+  EFFECT_PLACE_ORDER: '請選擇下一張要放過去的卡（按你選的次序放置）。',
+  EFFECT_SPLIT: '請選擇要放到第一個位置的卡，其餘放到另一處。',
   EFFECT_SLOT: '請選擇要把卡放到哪一個枠。',
   TRIGGER_ORDER: '翻出的卡有多個 Trigger 圖示，請選擇先執行哪一個。',
   TRIGGER_RETURN: 'Trigger「風」：可以選對手 1 張角色返回手牌。',
