@@ -15,6 +15,8 @@ export interface MatchResult {
   winner: PlayerId | null;
   decisions: number;
   problems: string[];
+  /** Card ids of the cards each player played from hand (characters, events, climaxes). */
+  played: [Set<string>, Set<string>];
 }
 
 export function playMatch(
@@ -29,6 +31,7 @@ export function playMatch(
   const ais = ([0, 1] as const).map((p) => createAi({ level: levels[p], card, deck: lists[p], seed: `${seed}-${p}`, ...extra }));
   let { state } = createGame({ defs: defsFor(new Set([...lists[0], ...lists[1]])), decks: lists }, seed);
   const problems: string[] = [];
+  const played: [Set<string>, Set<string>] = [new Set(), new Set()];
   let decisions = 0;
   while (state.pending && !state.result && decisions < 5000) {
     const pending = state.pending;
@@ -43,12 +46,13 @@ export function playMatch(
       break;
     }
     state = result.state;
+    for (const e of result.events) if (e.type === 'CARD_PLAYED') played[e.player].add(e.cardId);
     decisions++;
     if (checkEvery > 0 && decisions % checkEvery === 0) problems.push(...checkInvariants(state));
   }
   if (!state.result) problems.push(`no result after ${decisions} decisions`);
   const r = state.result;
-  return { state, winner: r && r.outcome === 'WIN' ? r.winner : null, decisions, problems };
+  return { state, winner: r && r.outcome === 'WIN' ? r.winner : null, decisions, problems, played };
 }
 
 /** Plays `games` games with seats and decks alternating; returns the first level's wins. */

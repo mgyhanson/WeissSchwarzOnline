@@ -7,13 +7,13 @@
 import { describe, expect, it } from 'vitest';
 import { serializeState } from '@wso/game-engine';
 import { type Played, playGameWith, randomPolicy, resultProblems } from '../../game-engine/tests/random-play';
-import { GUP_TEST_DECK, TEST_DECKS, allCards, deckList, defsFor, expandDeck, getCard, validateDeck } from '../src/index';
+import { GRAMMAR, GUP_TEST_DECK, TEST_DECKS, allCards, deckList, defsFor, expandDeck, getCard, validateDeck } from '../src/index';
 import { abilitiesPlayed, realDeckConfig } from './real-decks';
 
 describe('complete games with the real test decks', () => {
-  it('90 random games, every pairing of the six test decks from both seats, reach a result with every invariant holding at every decision', () => {
+  it('108 random games, every pairing of the nine test decks from both seats, reach a result with every invariant holding at every decision', () => {
     const games: Played[] = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 108; i++) {
       const game = playGameWith(realDeckConfig(i), `real-${i}`, randomPolicy, 30_000);
       expect(game.problems, `real-${i}`).toEqual([]);
       expect(resultProblems(game), `real-${i}`).toEqual([]);
@@ -31,6 +31,8 @@ describe('complete games with the real test decks', () => {
     expect([...used].filter((u) => /^SAO\/S20-0(18|76|80)#/.test(u)).length).toBeGreaterThan(1);
     // BDY/W135 batch 1: most of its 22 abilities are played in these games (the soak lists any never played).
     expect([...used].filter((u) => u.startsWith('BDY/W135-')).length).toBeGreaterThan(12);
+    // The STS, ANM and NIK decks, most of whose cards were read by the sentence grammar.
+    for (const prefix of ['STS/W140-', 'ANM/W138-', 'NIK/S135-']) expect([...used].filter((u) => u.startsWith(prefix)).length, prefix).toBeGreaterThan(8);
   });
 
   it('a deck built with newly imported cards (GUP climaxes compiled from sentence patterns) is legal and plays whole games', () => {
@@ -62,10 +64,11 @@ describe('complete games with the real test decks', () => {
     // Not a legal deck (five titles) and not offered to players: it only puts the cards into complete games.
     const batch = ['ANM/W138-004', 'ANM/W138-068', 'ANM/W138-095', 'NIK/S135-029', 'NIK/S135-031', 'STS/W140-052', 'STS/W140-054', 'STS/W140-073', 'GUP/W141-069', 'GUP/W141-108', 'BDY/W135-038', 'BDY/W135-091'];
     for (const cardId of batch) expect(getCard(cardId).record.support, cardId).toBe('verified');
-    const mine = expandDeck([...batch, 'BDY/W135-013', 'BDY/W135-035'].map((cardId) => ({ cardId, count: 3 })).concat([{ cardId: 'BDY/W135-026', count: 4 }, { cardId: 'GUP/W141-026', count: 4 }]));
+    // The two fillers are 《戦車道》 level 0 characters, so that the GUP cards' "other 《戦車道》 characters" conditions can be met.
+    const mine = expandDeck([...batch, 'GUP/W141-001', 'GUP/W141-084'].map((cardId) => ({ cardId, count: 3 })).concat([{ cardId: 'BDY/W135-026', count: 4 }, { cardId: 'GUP/W141-026', count: 4 }]));
     expect(mine).toHaveLength(50);
     const games: Played[] = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 72; i++) {
       const other = deckList(TEST_DECKS[i % TEST_DECKS.length]!);
       const decks: [string[], string[]] = i % 2 === 0 ? [mine, other] : [other, mine];
       const game = playGameWith({ defs: defsFor(new Set([...decks[0], ...decks[1]])), decks }, `batch-4-${i}`, randomPolicy, 30_000);
@@ -84,6 +87,38 @@ describe('complete games with the real test decks', () => {
     const rare = ['ANM/W138-095#0', 'GUP/W141-108#0', 'GUP/W141-108#1', 'BDY/W135-091#1'];
     expect(expected.filter((key) => !used.has(key) && !rare.includes(key))).toEqual([]);
   });
+
+  it('every card read by the sentence grammar plays whole games: exercise decks of those cards against every test deck', () => {
+    // Not legal decks (mixed titles) and not offered to players: they only put every compiled card into complete games.
+    const compiled = allCards().filter((c) => c.record.patterns?.includes(GRAMMAR) && c.def.kind !== 'CLIMAX');
+    expect(compiled.length).toBeGreaterThanOrEqual(40);
+    // Fourteen kinds of card (three copies each, level 0 first in each deck) and eight climaxes make 50.
+    const sorted = [...compiled].sort((a, b) => (a.def.level ?? 0) - (b.def.level ?? 0));
+    const groups = Array.from({ length: Math.ceil(sorted.length / 14) }, (_, g) => sorted.filter((_, i) => i % Math.ceil(sorted.length / 14) === g));
+    const games: Played[] = [];
+    groups.forEach((group, g) => {
+      const fill = sorted.filter((c) => !group.includes(c)).slice(0, 14 - group.length);
+      const mine = expandDeck([...group, ...fill].map((c) => ({ cardId: c.record.cardId, count: 3 })).concat([{ cardId: 'BDY/W135-026', count: 4 }, { cardId: 'GUP/W141-026', count: 4 }]));
+      expect(mine).toHaveLength(50);
+      for (let i = 0; i < 36; i++) {
+        const other = deckList(TEST_DECKS[i % TEST_DECKS.length]!);
+        const decks: [string[], string[]] = i % 2 === 0 ? [mine, other] : [other, mine];
+        const game = playGameWith({ defs: defsFor(new Set([...decks[0], ...decks[1]])), decks }, `grammar-${g}-${i}`, randomPolicy, 30_000);
+        expect(game.problems, `grammar-${g}-${i}`).toEqual([]);
+        expect(resultProblems(game), `grammar-${g}-${i}`).toEqual([]);
+        games.push(game);
+      }
+    });
+    const used = abilitiesPlayed(games);
+    const expected = compiled.flatMap((c) => [
+      ...(c.def.abilities ?? []).flatMap((ability, index) => (ability.type === 'CONT' ? [] : [`${c.record.cardId}#${index}`])),
+      ...(c.def.effect ? [`${c.record.cardId}#event`] : []),
+    ]);
+    const unplayed = expected.filter((key) => !used.has(key));
+    console.log(`[grammar games] ${JSON.stringify({ decks: groups.length, games: games.length, abilities: expected.length, played: expected.length - unplayed.length, unplayed })}`);
+    // Random play reaches most of them; the ones it does not reach are listed above (conditions such as a named climax in play).
+    expect(unplayed.length).toBeLessThanOrEqual(expected.length * 0.25);
+  }, 300_000);
 
   it('INV-07: a game with the real decks replays exactly', () => {
     const first = playGameWith(realDeckConfig(), 'real-replay', randomPolicy, 30_000);

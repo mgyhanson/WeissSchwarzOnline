@@ -30,7 +30,10 @@ export * from './types';
 export { hasCounterIcon, plainText, toCardDef, unverifiedTriggerIcons } from './official';
 export * from './decks';
 export * from './formats';
-export { PATTERN_IDS, compileText, ruleLines } from './patterns';
+export { GRAMMAR, PATTERN_IDS, compileText, ruleLines } from './patterns';
+export { readLine } from './grammar';
+export type { Unknown } from './grammar';
+export { shape, splitLine } from './fragments';
 
 export const SETS: readonly CardSet[] = [
   { id: 'SY_W08_TD', official: syOfficial as OfficialSet, records: sy },
@@ -57,6 +60,28 @@ export interface DatabaseCard {
 const AI_NOTE = { source: 'AI_ASSISTED', status: '待核實' } as const;
 
 /**
+ * Cards with an entry on the official errata page that nobody has compared
+ * with the stored text yet (parallel versions count for their base card).
+ * They are never compiled automatically. Empty since the check below.
+ */
+export const ERRATA_UNCHECKED: readonly string[] = [];
+
+/**
+ * Errata entries compared with the stored data. Source: https://ws-tcg.com/rules/errata/
+ * (page last updated 2026/11/12), read on 2026-11-15.
+ */
+export const ERRATA_CHECKED: readonly { cardId: string; entry: string; finding: string }[] = [
+  { cardId: 'GUP/W141-008', entry: 'GUP/W141-008S', finding: 'Artwork of the parallel version only; card text unchanged. The database stores the base card and its picture.' },
+  { cardId: 'GUP/W141-062', entry: 'GUP/W141-062S', finding: 'Artwork of the parallel version only; card text unchanged.' },
+  { cardId: 'GUP/W141-070', entry: 'GUP/W141-070S', finding: 'Artwork of the parallel version only; card text unchanged.' },
+  {
+    cardId: 'STS/W140-030',
+    entry: 'STS/W140-030, STS/W140-030S',
+    finding: 'Card text corrected (…1枚手札に加え、1枚ストック置場に置き、残りのカードを控え室に置く). The text stored from the official card list on 2026-11-13 is already the corrected text.',
+  },
+];
+
+/**
  * The record of a card nobody has written by hand: from sentence patterns
  * when every line of its text is a known one, otherwise unsupported.
  */
@@ -68,6 +93,15 @@ function autoRecord(card: OfficialCard): CardRecord {
       origin: 'NONE',
       support: 'unsupported',
       notes: [`Trigger icon not verified yet: ${unknownIcons.join(', ')} (card-database/src/official.ts).`],
+      explanation: { zh: '', ...AI_NOTE },
+    };
+  }
+  if (ERRATA_UNCHECKED.includes(card.no)) {
+    return {
+      cardId: card.no,
+      origin: 'NONE',
+      support: 'unsupported',
+      notes: ['The official errata page has an entry for this card; it stays unsupported until that entry has been read and compared with the stored text.'],
       explanation: { zh: '', ...AI_NOTE },
     };
   }
@@ -87,6 +121,7 @@ function autoRecord(card: OfficialCard): CardRecord {
     patterns: compiled.patterns,
     support: 'verified',
     ...(compiled.abilities && compiled.abilities.length > 0 ? { abilities: compiled.abilities } : {}),
+    ...(compiled.effect ? { effect: compiled.effect } : {}),
     notes: ['Ability data generated from the official text: every line is a known sentence pattern (card-database/src/patterns.ts), each tested on this card.'],
     explanation: { zh: compiled.zh.join('\n'), ...AI_NOTE },
   };

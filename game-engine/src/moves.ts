@@ -101,6 +101,10 @@ function relocate(
   inst.enteredBatch = batch;
   // CR-8.6.6.1: a revealed card that moves is no longer "revealed in its old zone".
   inst.revealed = false;
+  if (!slotToSlot) {
+    if (to.zone === 'stage' && from.zone === 'hand' && state.turn) inst.placedFromHandTurn = state.turn.number;
+    else delete inst.placedFromHandTurn;
+  }
 
   const event: CardMovedEvent = {
     type: 'CARD_MOVED',

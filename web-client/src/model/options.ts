@@ -282,6 +282,8 @@ export function decisionUi(view: PlayerView, decision: Decision): DecisionUi {
     }
     case 'SELECT_OPTION': {
       const ui = base('選擇', PROMPT_ZH[decision.prompt]);
+      // A card the player is looking at for this choice (e.g. 山札の上か下に置く).
+      if (decision.look) for (const id of Object.keys(decision.look)) ui.shown.push(pickCard(view, Number(id), decision.look));
       ui.buttons = decision.options.map((option) => ({ key: `option-${option}`, label: OPTION_ZH[option] ?? option, choice: { kind: 'SELECT_OPTION', option } }));
       return ui;
     }

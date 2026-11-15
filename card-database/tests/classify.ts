@@ -22,8 +22,10 @@ import { compileText, ruleLines } from '../src/index';
 
 export type SupportClass = 'A' | 'B' | 'C' | 'D' | 'E';
 
-/** Cards with an entry on the official errata page (checked 2026-11-14); parallel versions count for their base card. */
-export const ERRATA: readonly string[] = ['GUP/W141-008', 'GUP/W141-062', 'GUP/W141-070', 'STS/W140-030'];
+/** Cards with an errata entry that has not been compared with the stored text yet (see ERRATA_CHECKED in src/index.ts). */
+import { ERRATA_UNCHECKED } from '../src/index';
+
+export const ERRATA: readonly string[] = ERRATA_UNCHECKED;
 
 interface Marker {
   re: RegExp;

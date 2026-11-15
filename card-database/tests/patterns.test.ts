@@ -31,7 +31,7 @@ import {
   moveCard,
   stageSlot,
 } from '@wso/game-engine';
-import { PATTERN_IDS, allCards, compileText, defsFor, getCard, ruleLines } from '../src/index';
+import { GRAMMAR, PATTERN_IDS, allCards, compileText, defsFor, getCard, ruleLines } from '../src/index';
 import { answer, oid, pending } from './helpers';
 
 /** A level 0 character without text and without any trait used by the new sets. */
@@ -421,6 +421,12 @@ describe('sentence patterns', () => {
     for (const card of handVerified) {
       const compiled = compileText(card.official);
       if (!compiled) continue;
+      // An event read by the sentence grammar: its effect, compared in grammar.test.ts as well.
+      if (card.def.kind === 'EVENT') {
+        expect(compiled.effect, card.record.cardId).toEqual(card.record.effect);
+        checked.push(card.record.cardId);
+        continue;
+      }
       expect(card.record.effect, card.record.cardId).toBeUndefined();
       expect(compiled.abilities ?? [], card.record.cardId).toEqual(card.record.abilities ?? []);
       checked.push(card.record.cardId);
@@ -429,12 +435,25 @@ describe('sentence patterns', () => {
     expect(checked.length).toBeGreaterThanOrEqual(20);
   });
 
-  it('events are never compiled, and a card with one unknown line is not compiled at all', () => {
+  it('an event is compiled only as one paragraph of known effect sentences, and a card with one unknown line is not compiled at all', () => {
     for (const card of allCards()) {
       if (card.record.origin !== 'PATTERN') continue;
-      expect(card.def.kind, card.record.cardId).not.toBe('EVENT');
+      if (card.def.kind === 'EVENT') {
+        // An event has an effect and no abilities; its one paragraph was read by the sentence grammar.
+        expect(card.record.patterns, card.record.cardId).toEqual([GRAMMAR]);
+        expect(card.def.abilities, card.record.cardId).toBeUndefined();
+        expect(card.def.effect?.length ?? 0, card.record.cardId).toBeGreaterThan(0);
+        continue;
+      }
+      expect(card.def.effect, card.record.cardId).toBeUndefined();
       expect(card.record.patterns!.length, card.record.cardId).toBe(card.def.abilities?.length ?? 0);
     }
+    // An event with a sentence the grammar does not know, a counter event and an event with a cost are not compiled.
+    const event = allCards().find((c) => c.def.kind === 'EVENT')!.official;
+    expect(compileText({ ...event, text: 'あなたは2枚引く。あなたは踊る。' })).toBeNull();
+    expect(compileText({ ...event, text: '【カウンター】 あなたは2枚引く。' })).toBeNull();
+    expect(compileText({ ...event, text: '［(1)］ あなたはコストを払ってよい。そうしたら、あなたは2枚引く。' })).toBeNull();
+    expect(compileText({ ...event, text: 'あなたは2枚引く。' })).toEqual({ effect: [{ do: 'DRAW', count: 2 }], zh: ['抽 2 張。'], patterns: [GRAMMAR] });
     const mixed = { ...getCard('SAO/S20-015').official, text: '【永】 あなたのターン中、このカードのパワーを＋1000。<br>【自】 このカードは踊る。' };
     expect(compileText(mixed)).toBeNull();
   });

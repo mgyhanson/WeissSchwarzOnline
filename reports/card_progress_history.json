@@ -1,0 +1,42 @@
+[
+ {
+  "date": "2026-11-14",
+  "cards": 609,
+  "playable": 233,
+  "handWritten": 128,
+  "wholeSentencePatterns": 54,
+  "grammar": 51,
+  "unsupported": 376,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 38,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 32,
+   "STS_W140": 24,
+   "ANM_W138": 27,
+   "NIK_S135": 29
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "cards": 609,
+  "playable": 289,
+  "handWritten": 128,
+  "wholeSentencePatterns": 54,
+  "grammar": 107,
+  "unsupported": 320,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 55,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 47,
+   "STS_W140": 31,
+   "ANM_W138": 35,
+   "NIK_S135": 38
+  }
+ }
+]

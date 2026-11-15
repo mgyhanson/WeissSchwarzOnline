@@ -164,7 +164,7 @@ export const records: CardRecord[] = [
       {
         type: 'AUTO',
         trigger: { on: 'USED_BACKUP' },
-        condition: { if: 'ALL_CHARACTERS', filter: { traits: ['五つ子'] } },
+        condition: { if: 'ALL_CHARACTERS', filter: { kind: 'CHARACTER', traits: ['五つ子'] } },
         optional: true,
         effect: [{ do: 'DECK_TOP', count: 1, to: 'STOCK' }],
       },

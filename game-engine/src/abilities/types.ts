@@ -26,11 +26,16 @@ export interface CardFilter {
   nameIncludesAny?: string[];
   /** 「A」か「B」: the card name is exactly one of these. */
   names?: string[];
+  /** …か…: the card matches at least one of these (e.g. 《A》のキャラか「カード名」). */
+  anyOf?: CardFilter[];
   /** レベルが相手のレベルより高い: the card's level is higher than the level of the player whose card it is. */
   levelAboveMasterLevel?: boolean;
+  /** 自分のレベル以下のレベルの: the card's level is at most the level of the player whose zone it is in. */
+  levelAtMostOwnLevel?: boolean;
   levelMax?: number;
   levelMin?: number;
   costMax?: number;
+  costMin?: number;
   color?: string;
   hasTrigger?: TriggerIcon;
 }
@@ -64,8 +69,20 @@ export type Condition =
   | { if: 'FACING'; filter: CardFilter }
   /** それらのカードに…があるなら: the cards moved by the most recent DECK_TOP of this resolution (inside IF only). */
   | { if: 'LAST_MOVED'; min: number; filter?: CardFilter }
+  /** …してよい。そうしたら、… / 手札に加えたなら: the instruction just before (a MOVE, CLOCK_TOP or LOOK_TOP of this resolution) moved at least one card (inside IF only). */
+  | { if: 'DID' }
+  /**
+   * …がN枚以上/以下、…がいる for cards that are not your characters on the stage: how many cards of a kind are
+   * in a zone. `min` defaults to 0 and `max` to no limit. In memory, a face-down card matches no filter.
+   */
+  | { if: 'COUNT'; where: CountWhere; filter?: CardFilter; other?: boolean; min?: number; max?: number }
+  /** …か…: at least one of the conditions holds. */
+  | { if: 'ANY'; of: Condition[] }
   | { if: 'ALL'; of: Condition[] }
   | { if: 'NOT'; of: Condition };
+
+/** Where a COUNT condition counts. */
+export type CountWhere = 'YOUR_WAITING_ROOM' | 'YOUR_HAND' | 'YOUR_MEMORY' | 'YOUR_CLIMAX' | 'YOUR_FRONT_ROW' | 'OPPONENT_STAGE' | 'OPPONENT_FRONT_ROW';
 
 /** One action of a cost (CR-8.4). Costs are paid in the order listed (CR-8.4.2.1). */
 export type Cost =
@@ -76,7 +93,8 @@ export type Cost =
   /** 手札の…をN枚控え室に置く */
   | { pay: 'DISCARD'; count: number; filter?: CardFilter }
   /** (手札の)このカードを控え室に置く */
-  | { pay: 'SELF_TO_WAITING_ROOM' }
+  /** (手札の/【スタンド】している)このカードを控え室に置く; `standing`: only while it is standing. */
+  | { pay: 'SELF_TO_WAITING_ROOM'; standing?: boolean }
   /** 自分の山札の上から1枚をクロック置場に置く (the cost of 加速, CR-10.12) */
   | { pay: 'DECK_TOP_TO_CLOCK' }
   /** このカードをクロック置場に置く */
@@ -86,11 +104,16 @@ export type Cost =
   /** あなたのストックの上からN枚をクロック置場に置く */
   | { pay: 'STOCK_TO_CLOCK'; count: number }
   /** このカードを思い出にする */
-  | { pay: 'SELF_TO_MEMORY' }
+  /** (【スタンド】している)このカードを思い出にする */
+  | { pay: 'SELF_TO_MEMORY'; standing?: boolean }
+  /** このカードを手札に戻す */
+  | { pay: 'SELF_TO_HAND' }
   /** 手札を(の…を)N枚クロック置場に置く: the player chooses hand cards. */
   | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
   /** このカードを山札の下に置く */
-  | { pay: 'SELF_TO_DECK_BOTTOM' };
+  | { pay: 'SELF_TO_DECK_BOTTOM' }
+  /** (他の)あなたの舞台の…のキャラをN枚控え室に置く: the player chooses characters on their stage. */
+  | { pay: 'CHARACTERS_TO_WAITING_ROOM'; count: number; filter?: CardFilter; other?: boolean };
 
 /** Which cards an effect applies to. */
 export type Target =
@@ -123,12 +146,18 @@ export type ChooseFrom =
   /** 相手の後列のキャラ */
   | 'OPPONENT_BACK_ROW'
   /** 相手のクライマックス置場のクライマックス */
-  | 'OPPONENT_CLIMAX';
+  | 'OPPONENT_CLIMAX'
+  /** 相手の控え室のカード */
+  | 'OPPONENT_WAITING_ROOM'
+  /** 自分の思い出置場の…: face-up cards only (a face-down card has no name or traits, CR-3.12.2.2.1). */
+  | 'YOUR_MEMORY';
 
 export type Destination =
   | 'HAND'
   | 'WAITING_ROOM'
   | 'STOCK'
+  /** ストック置場の下に置く */
+  | 'STOCK_BOTTOM'
   | 'CLOCK'
   | 'MEMORY'
   | 'DECK_TOP'
@@ -156,18 +185,21 @@ export type Effect =
    */
   | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
-  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean }
+  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**
    * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
    * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
    */
-  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN' }
+  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN'; /** ＋Ｘ (Ｘは…×N): the amount is multiplied by X of this resolution. */ timesX?: boolean }
   /** …を【スタンド】/【レスト】/【リバース】する */
   | { do: 'ORIENT'; target: Target; to: Orientation }
   /** 相手にNダメージを与える */
   | { do: 'DAMAGE'; amount: number }
-  /** 自分の山札の上からN枚を…に置く */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK' }
+  /**
+   * 自分の山札の上からN枚を…に置く.
+   * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
+   */
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -184,20 +216,47 @@ export type Effect =
    * (EMPTY_BACK). Skipped when the previous CHOOSE chose nothing.
    */
   | { do: 'CHOOSE_SLOT'; which: 'ANY' | 'EMPTY_BACK' }
-  /** 自分のクロックの上から1枚を、控え室に置く */
-  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' }
+  /** 自分のクロックの上から1枚を、控え室に置く; `whose: 'OPPONENT'`: 相手のクロックの上から1枚を… */
+  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' | 'STOCK'; whose?: 'OPPONENT'; /** 1枚までを: the player may leave it. */ optional?: boolean }
   /**
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
   | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean }
+  /**
+   * 自分の山札の上から1枚を公開する。そのカードが…なら(手札に加え、)…。 The top card of your deck is shown to
+   * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
+   * taken stays where it was (元に戻す) and is no longer shown.
+   */
+  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean }
+  /**
+   * (自分|相手)の山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置き(、残りのカードを控え室に置く).
+   * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to
+   * put back (the rest go to the waiting room); then puts them back on top in the order they choose.
+   */
+  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number }
+  /**
+   * 相手は自分のストックすべてを、控え室に置き(山札に戻し、その山札をシャッフルし)、自分の山札の上から同じ枚数を
+   * ストック置場に置く.
+   */
+  | { do: 'OPPONENT_STOCK_RESET'; via: 'WAITING_ROOM' | 'DECK' }
+  /** 自分の山札の上から1枚を公開し、… Ｘは公開されたカードのレベルに等しい: shown to both players and put back; X is its level (a climax counts as 0). */
+  | { do: 'SHOW_TOP' }
+  /** 自分の山札を上から1枚見て、山札の上か下に置く: the player looks at the top card and leaves it or puts it on the bottom. */
+  | { do: 'TOP_OR_BOTTOM' }
+  /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
+  | { do: 'TRIGGER_CHECKS'; count: number }
+  /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
+  | { do: 'CHOOSE_ONE'; options: Effect[][]; /** How the card says it: 'OR' for "Aするか、B" in one sentence (text only). */ said?: 'OR' }
+  /** ［cost］ あなたはコストを払ってよい。そうしたら、… inside an effect: an optional payment, then what it buys. */
+  | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[] }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
   | { do: 'GRANT'; target: Target; ability: AutoAbility; until?: 'NEXT_OPPONENT_TURN' };
 
 /** The trigger condition of an automatic ability (CR-8.1.1.2.1). */
 export type Trigger =
   /** このカードが(手札から)舞台に置かれた時; HAND_OR_CHANGE: 手札から舞台に置かれた時か『チェンジ』で舞台に置かれた時 */
-  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' | 'HAND_OR_CHANGE' }
+  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' | 'HAND_OR_CHANGE' | 'HAND_OR_MEMORY' }
   /** このカードが手札からクライマックス置場に置かれた時 */
   | { on: 'THIS_CLIMAX_PLACED' }
   /** あなたのキャラのトリガーチェックで…がでた時 */
@@ -205,17 +264,21 @@ export type Trigger =
   /** あなたがこのカードの『助太刀』を使った時 (CR-10.5.3) */
   | { on: 'USED_BACKUP' }
   /** このカードがアタックした時 */
-  | { on: 'ATTACKS' }
+  /** このカードがアタックした時; `placedThisTurn`: …手札から舞台に置かれたターン中、… */
+  | { on: 'ATTACKS'; placedThisTurn?: boolean }
+  /** このカードのアタックの終わりに (CR-7.5.1.4 / CR-7.6.1.5) */
+  | { on: 'ATTACK_END' }
   /** 他のあなたの…のキャラがアタックした時: another character of yours, matching the filter, attacks. */
   | { on: 'OTHER_ATTACKS'; filter?: CardFilter }
   /** このカードが【リバース】した時; `inBattle`: バトル中のこのカードが【リバース】した時 (CR-7.2.1.5.1) */
   | { on: 'REVERSED'; inBattle?: boolean }
   /** このカードのバトル相手が【リバース】した時 */
-  | { on: 'BATTLE_OPPONENT_REVERSED' }
+  /** このカードのバトル相手(でレベルN以上のキャラ)が【リバース】した時; `filter`: what the reversed character must be when it is reversed. */
+  | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter; placedThisTurn?: boolean }
   /** (あなたの/相手の)…フェイズの始めに */
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
-  | { on: 'CLIMAX_PLACED'; filter?: CardFilter }
+  | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean }
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */
@@ -252,6 +315,15 @@ export interface ContinuousAbility {
    * card of its master's clock, and not otherwise.
    */
   alarm?: boolean;
+  /** このカードは相手の効果に選ばれない: the opponent's effects cannot choose this card (CR-8.6.3.1). */
+  untargetable?: boolean;
+  /** このカードはサイドアタックできない: this card cannot make a side attack (CR-7.2.1.4). */
+  noSideAttack?: boolean;
+  /**
+   * あなたの手札のこのカードの…: the ability works while this card is in its master's hand, and only there
+   * (CR-2.12.2.3). It applies to this card itself.
+   */
+  inHand?: boolean;
   /**
    * 大活躍 (CR-10.6.2): while this character is in its master's front-centre
    * slot and not reversed, a character of the opponent that attacks makes a
@@ -374,10 +446,12 @@ export interface EffectContext {
   sourceSlot: { player: 0 | 1; slot: SlotId } | null;
   /** Keywords of the ability (moves made by a チェンジ ability count as change, CR-10.8.4). */
   keywords?: Keyword[];
-  /** Ｘ: set by a BRAINSTORM with setX, used by CHOOSE with levelMaxX. */
+  /** Ｘ: set by a BRAINSTORM, a DECK_TOP or a SHOW_TOP; used by CHOOSE with levelMaxX and MODIFY with timesX. */
   x?: number;
   /** The slot chosen by the most recent CHOOSE_SLOT. */
   slot?: SlotId | null;
   /** Instance ids moved by the most recent DECK_TOP (for それらのカードに…があるなら). */
   moved?: number[];
+  /** Whether the most recent MOVE or CLOCK_TOP moved a card (for そうしたら). */
+  did?: boolean;
 }

@@ -17,6 +17,7 @@
 
 import type { Ability, Effect } from '@wso/game-engine';
 import { backup, encore } from '@wso/game-engine';
+import { readEvent, readLine } from './grammar';
 import type { OfficialCard } from './types';
 
 export interface Compiled {
@@ -278,6 +279,8 @@ LINE_PATTERNS.push(
 const ICON_REMINDER = /^（\[\[[a-z_]+\.gif\]\]：[^（）]*）$/;
 
 export const PATTERN_IDS: readonly string[] = LINE_PATTERNS.map((p) => p.id);
+/** The pattern id recorded for a line read by the sentence grammar (grammar.ts) instead of a whole-sentence pattern. */
+export const GRAMMAR = 'GRAMMAR';
 
 /** The lines of a card's text that are rules text (icon reminders removed). */
 export function ruleLines(card: OfficialCard): string[] {
@@ -292,7 +295,11 @@ export function ruleLines(card: OfficialCard): string[] {
 export function compileText(card: OfficialCard): Compiled | null {
   const lines = ruleLines(card);
   if (lines.length === 0) return { zh: [card.kind === '2' ? '沒有能力的角色。' : '沒有文字。'], patterns: [] };
-  if (card.kind === '3') return null;
+  if (card.kind === '3') {
+    // An event: one paragraph, compiled only when every sentence of it is a known effect (grammar.ts).
+    const event = lines.length === 1 ? readEvent(lines[0]!) : null;
+    return event ? { effect: event.effect, zh: [event.zh], patterns: [GRAMMAR] } : null;
+  }
   const abilities: Ability[] = [];
   const zh: string[] = [];
   const patterns: string[] = [];
@@ -308,7 +315,14 @@ export function compileText(card: OfficialCard): Compiled | null {
       matched = true;
       break;
     }
-    if (!matched) return null;
+    if (!matched) {
+      // Not a known whole sentence: is it built only from known parts (grammar.ts)?
+      const read = readLine(line).line;
+      if (!read) return null;
+      abilities.push(read.ability);
+      zh.push(read.zh);
+      patterns.push(GRAMMAR);
+    }
   }
   return { abilities, zh, patterns };
 }

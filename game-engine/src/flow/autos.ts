@@ -114,7 +114,9 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
         const placed = autosOf(
           state,
           card,
-          (t) => t.on === 'PLACED_ON_STAGE' && (t.from === undefined || (t.from === 'HAND' ? fromHand : fromHand || byChange)),
+          (t) =>
+            t.on === 'PLACED_ON_STAGE' &&
+            (t.from === undefined || (t.from === 'HAND' ? fromHand : t.from === 'HAND_OR_MEMORY' ? fromHand || event.from.zone === 'memory' : fromHand || byChange)),
         );
         for (const found of placed) wait(state, event.to.player, card, found, null);
       }
@@ -130,7 +132,9 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           for (const found of autosOf(state, card, (t) => t.on === 'THIS_CLIMAX_PLACED')) wait(state, event.to.player, card, found, null);
         }
         // あなたのクライマックスがクライマックス置場に置かれた時
-        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && matchesFilter(state, event.instanceId, t.filter));
+        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && !t.opponent && matchesFilter(state, event.instanceId, t.filter));
+        // 相手のクライマックスがクライマックス置場に置かれた時
+        sourcesWith(state, opponentOf(event.to.player), (t) => t.on === 'CLIMAX_PLACED' && t.opponent === true && matchesFilter(state, event.instanceId, t.filter));
       }
       return;
     }
@@ -154,7 +158,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const attacker = attackerInstance(state);
       if (!attacker || attacker.objectId !== event.attackerObjectId) return;
       const defender = defenderInstance(state);
-      for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS')) {
+      const placedNow = attacker.placedFromHandTurn !== undefined && attacker.placedFromHandTurn === state.turn?.number;
+      for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS' && (!t.placedThisTurn || placedNow))) {
         wait(state, event.player, attacker, found, defender ? defender.objectId : null);
       }
       // 他のあなたの…のキャラがアタックした時: abilities of the attacking player's other cards in force.
@@ -178,7 +183,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       }
       // このカードのバトル相手が【リバース】した時
       if (opponent) {
-        for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED')) {
+        const placedNow = opponent.placedFromHandTurn !== undefined && opponent.placedFromHandTurn === state.turn?.number;
+        for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED' && matchesFilter(state, card.instanceId, t.filter) && (!t.placedThisTurn || placedNow))) {
           wait(state, opponent.location.player, opponent, found, card.objectId);
         }
       }
@@ -229,6 +235,16 @@ export function registerTriggers(ctx: Ctx): void {
       });
     }
   }
+}
+
+/**
+ * このカードのアタックの終わりに (CR-7.5.1.4 / CR-7.6.1.5): called by the attack when it ends, for the
+ * attacking character if it is still on the stage as the same object.
+ */
+export function registerAttackEnd(state: GameState): void {
+  const attacker = attackerInstance(state);
+  if (!attacker || !state.attack) return;
+  for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACK_END')) wait(state, state.attack.player, attacker, found, null);
 }
 
 /** How a waiting ability is shown to its master when choosing an order (CR-8.7.3.1). */

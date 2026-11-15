@@ -73,9 +73,19 @@ card-database/
 
 未支援的卡的分類（A 至 E）由 `tests/classify.ts` 產生，見 `reports/UNSUPPORTED_CARDS.md`。
 
+## 新增卡牌的做法（第三批起）：按共通效果，不是逐張
+
+1. `npm run cards:worklist`：程式讀取所有未支援的卡，把每一句拆成片段，列出**哪個未認識的片段可以解鎖最多卡**（`reports/CARD_WORKLIST.md`；每張卡的詳情在 `data.nosync/card-worklist.json`）。不需要人或 AI 重讀全部卡牌文字。
+2. 只看排名最前的片段所涉及的幾張卡的原文：`npm run cards:worklist -- --part "片段文字"`，或某系列只差一個片段的卡：`npm run cards:worklist -- STS 1`。
+3. 如果引擎已有對應的構件：在 `src/grammar.ts` 加入這個片段（一至數行），並在 `tests/render-ja.ts` 加入寫回日文的對應一行。如果引擎沒有：先在 `game-engine` 加通用構件及測試。
+4. `npx vitest run card-database/tests/grammar`：交叉核對及反向核對會指出任何不一致。
+5. 再執行 `npm run cards:worklist`，新解鎖的卡會自動成為可對戰（`origin: 'PATTERN'`，句式記為 `GRAMMAR`），進度寫入 `reports/CARD_IMPLEMENTATION_PROGRESS.md`。
+
+只有整張卡每一句都被準確讀懂才會成為可對戰；特殊的卡仍然可以在 `sets/<系列>/cards.ts` 人手編寫。有官方勘誤而未核對的卡列在 `src/index.ts` 的 `ERRATA_UNCHECKED`，不會自動編譯。
+
 ## 測試卡組
 
-`decks.ts` 有六副本專案自行組成的合法 Neo-Standard 卡組（50 張、同名最多 4 張、Climax 8 張、單一作品），**都不是官方的固定配置或比賽卡組**：涼宮ハルヒ、一花（兩個 Trial Deck 商品頁都沒有公開每種卡的張數）、SAO（黃藍）、GUP（黃綠藍）、SAO 経験・記憶・アラーム（第二批的卡）、BanG Dream! [夢限大みゅーたいぷ]（`test-bdy`，黃紅藍三色：14 種人手實作的角色及 4 種 Climax，全部是已驗證的卡）。涼宮ハルヒ卡組沒有放入禁卡情報連結解除。自動對局測試會輪流使用五副卡組的所有配對。
+`decks.ts` 有九副本專案自行組成的合法 Neo-Standard 卡組（50 張、同名最多 4 張、Climax 8 張、單一作品），**都不是官方的固定配置或比賽卡組**：涼宮ハルヒ、一花（兩個 Trial Deck 商品頁都沒有公開每種卡的張數）、SAO（黃藍）、GUP（黃綠藍）、SAO 経験・記憶・アラーム（第二批的卡）、BanG Dream! [夢限大みゅーたいぷ]（`test-bdy`，黃紅藍三色：14 種人手實作的角色及 4 種 Climax，全部是已驗證的卡）、ステラソラ（`test-sts`）、anemoi（`test-anm`）、勝利の女神：NIKKE（`test-nik`）。涼宮ハルヒ卡組沒有放入禁卡情報連結解除。自動對局測試會輪流使用五副卡組的所有配對。
 
 ## 新增一個系列的步驟
 
