@@ -9,12 +9,13 @@
  * abilities of STEP 4d.
  */
 
+import { handLimit } from '../abilities/query';
 import type { Ctx } from '../moves';
 import { moveCard, moveCards, setOrientation } from '../moves';
 import { listMainActions, listPlayableClimaxes, performMainAction, playClimax } from '../play';
 import { getInstance } from '../state';
 import type { Phase, TurnState } from '../types';
-import { HAND_LIMIT, SLOTS, opponentOf } from '../types';
+import { SLOTS, opponentOf } from '../types';
 import { ask, emit, findObject, objectIdsOf, pushCheckTiming, pushFrame, takeAnswer } from './core';
 import type { Frame } from './frames';
 
@@ -191,7 +192,7 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
 
     case 'END_HAND_LIMIT': {
       // CR-6.8.1.2: discard down to the hand limit.
-      const excess = zones.hand.length - HAND_LIMIT;
+      const excess = zones.hand.length - handLimit(state, player);
       if (excess <= 0) {
         frame.step = 'END_CLIMAX';
         return;
@@ -233,7 +234,7 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
       // CR-6.8.1.5: the turn ends only if the hand is within the limit and
       // nothing was resolved in that last check timing. Otherwise the end
       // phase is performed again from the start.
-      if (state.lastCheckActed || zones.hand.length > HAND_LIMIT) {
+      if (state.lastCheckActed || zones.hand.length > handLimit(state, player)) {
         frame.step = 'END_START';
         return;
       }

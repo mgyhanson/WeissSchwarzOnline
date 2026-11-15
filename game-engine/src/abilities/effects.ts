@@ -35,7 +35,7 @@ function restable(state: GameState, context: EffectContext, cost: Extract<Cost, 
 function sacrificable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'CHARACTERS_TO_WAITING_ROOM' }>): number[] {
   const stage = state.zones[context.master].stage;
   return SLOTS.flatMap((slot) => stage[slot]).filter(
-    (id) => getDef(state, id).kind === 'CHARACTER' && !(cost.other && id === context.source) && matchesFilter(state, id, cost.filter),
+    (id) => getDef(state, id).kind === 'CHARACTER' && !(cost.other && id === context.source) && !(cost.standing && getInstance(state, id).orientation !== 'STAND') && matchesFilter(state, id, cost.filter),
   );
 }
 
@@ -82,9 +82,12 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
         if (!sourceIfUnchanged(state, context)) return false;
         break;
+      case 'SELF_TO_DECK_BOTTOM':
+        if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
+        if (!sourceIfUnchanged(state, context)) return false;
+        break;
       case 'SELF_TO_CLOCK':
       case 'SELF_TO_HAND':
-      case 'SELF_TO_DECK_BOTTOM':
         if (!sourceIfUnchanged(state, context)) return false;
         break;
       case 'HAND_TO_CLOCK':
@@ -329,6 +332,7 @@ function destinationZone(state: GameState, context: EffectContext, instanceId: n
     case 'MEMORY':
       return { zone: { player, zone: 'memory' }, bottom: false };
     case 'DECK_TOP':
+    case 'DECK':
       return { zone: { player, zone: 'deck' }, bottom: false };
     case 'DECK_BOTTOM':
       return { zone: { player, zone: 'deck' }, bottom: true };
@@ -388,9 +392,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         return;
       }
       if (effect.optional && !takeAnswer(ctx, 'CONFIRM').accept) {
+        context.did = false;
         next();
         return;
       }
+      // N枚引いたなら: whether a card was really drawn.
+      if (effect.optional) context.did = state.zones[master].deck.length > 0;
       next();
       pushFrame(ctx, { kind: 'DRAW', player: master, remaining: effect.count });
       return;
@@ -521,6 +528,19 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const done = frame.scratch[0] ?? 0;
       if (done === 0) context.moved = [];
       const top = topOf(state.zones[whose].deck);
+      // 上からN枚までを: the player may stop before each card.
+      if (effect.upTo && done < effect.count && top !== undefined) {
+        if (frame.step !== 3) {
+          frame.step = 3;
+          ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'DECK_TOP_NEXT' });
+          return;
+        }
+        frame.step = 2;
+        if (!takeAnswer(ctx, 'CONFIRM').accept) {
+          next();
+          return;
+        }
+      }
       if (done >= effect.count || top === undefined) {
         // Ｘはそれらのカードのレベルの合計: printed levels; a climax has none and counts as 0 (CR-2.19.1).
         if (effect.setX === 'LEVEL_TOTAL') context.x = (context.moved ?? []).reduce((sum, id) => sum + (getDef(state, id).level ?? 0), 0);
@@ -764,7 +784,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       if (frame.step === 0) {
         frame.step = 1;
-        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], look: lookMap(state, [top]) });
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: effect.anyOfThree ? ['DECK_TOP', 'DECK_BOTTOM', 'WAITING_ROOM'] : ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], look: lookMap(state, [top]) });
         return;
       }
       const option = takeAnswer(ctx, 'SELECT_OPTION').option;

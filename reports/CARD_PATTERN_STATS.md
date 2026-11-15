@@ -2,17 +2,17 @@
 
 > 由 `npm run cards:worklist` 產生。請勿手改。
 
-資料庫 609 張卡：可對戰 379（人手 128、自動 251），未支援 230。
+資料庫 609 張卡：可對戰 403（人手 128、自動 275），未支援 206。
 
 ## 自動產生的卡用到的句式
 
 | 句式 | 卡數 |
 |---|---:|
-| 句子文法（GRAMMAR：由已知片段組成的句子） | 197 |
+| 句子文法（GRAMMAR：由已知片段組成的句子） | 221 |
 | CLIMAX_POWER_SOUL | 43 |
 | CLIMAX_SOUL | 2 |
 | ASSIST | 1 |
-| YOUR_TURN_POWER | 5 |
+| YOUR_TURN_POWER | 6 |
 | OPPONENT_TURN_POWER | 0 |
 | EXPERIENCE_POWER | 0 |
 | ENCORE_DISCARD_CHARACTER | 1 |
@@ -21,9 +21,9 @@
 | POWER_ALL_TRAIT | 5 |
 | POWER_PER_OTHER_TRAIT | 4 |
 | YOUR_TURN_OTHERS_TRAIT_POWER | 2 |
-| CX_PHASE_TRAIT_BOOST | 2 |
-| PLACED_SELF_POWER | 3 |
-| ATTACK_SELF_POWER_WITH_OTHER_TRAIT | 1 |
+| CX_PHASE_TRAIT_BOOST | 3 |
+| PLACED_SELF_POWER | 4 |
+| ATTACK_SELF_POWER_WITH_OTHER_TRAIT | 2 |
 | PLACED_TRAIT_COUNT_TO_STOCK | 2 |
 | CX_DRAW_UP_TO_ONE_CHOOSE_SOUL | 3 |
 | CX_WAITING_ROOM_TO_STOCK_ALL_SOUL | 3 |
@@ -31,7 +31,7 @@
 
 ## 片段出現次數（全部 609 張卡的角色及 Climax 文字；「已認識」指文法認識這個片段）
 
-### 效果句子：606 種，已認識 463 種
+### 效果句子：606 種，已認識 477 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|
@@ -76,7 +76,7 @@
 | 他のあなたの《…》のキャラN枚につき、このカードのパワーを＋N | 5 | ✓ |
 | Ｘはあなたの《…》のキャラの枚数×Nに等しい | 5 | ✓ |
 
-### 觸發：73 種，已認識 44 種
+### 觸發：73 種，已認識 48 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|
@@ -116,12 +116,12 @@
 | 【クロック】 アラーム このカードがクロックのN番上にあるなら、あなたのクライマックスフェイズの始めに | 2 |  |
 | このカードがトリガーした時 | 2 | ✓ |
 | 他のあなたの《…》のキャラがアタックした時 | 2 | ✓ |
-| あなたのトリガーアイコンが[[soul.gif]][[soul.gif]]のCXがCX置場に置かれた時 | 2 |  |
+| あなたのトリガーアイコンが[[soul.gif]][[soul.gif]]のCXがCX置場に置かれた時 | 2 | ✓ |
 | このカードが手札から舞台に置かれたターン中、このカードがアタックした時 | 2 | ✓ |
 | あなたのキャラのトリガーチェックでクライマックスがでた時 | 1 |  |
 | このカードのバトル中、あなたの受けたダメージがキャンセルされた時 | 1 | ✓ |
 
-### Cost：62 種，已認識 48 種
+### Cost：62 種，已認識 50 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|

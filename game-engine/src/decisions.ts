@@ -72,6 +72,8 @@ export type PromptId =
   | 'LOOK_NEXT'
   /** N枚まで引く: draw one more card? */
   | 'DRAW_NEXT'
+  /** 山札の上からN枚までを…に置く: move one more card? */
+  | 'DECK_TOP_NEXT'
   /** Choose a slot for a card ability. */
   | 'EFFECT_SLOT'
   | 'TRIGGER_ORDER'

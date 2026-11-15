@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 379,
- "unsupported": 230,
+ "playable": 403,
+ "unsupported": 206,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 81,
+   "playable": 84,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 65
+     "playable": 68
     },
     "EVENT": {
      "total": 4,
@@ -92,7 +92,7 @@
    },
    "level3": {
     "total": 12,
-    "playable": 5
+    "playable": 6
    }
   },
   {
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 61,
+   "playable": 62,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 49
+     "playable": 50
     },
     "EVENT": {
      "total": 3,
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 59,
+   "playable": 61,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 46
+     "playable": 48
     },
     "EVENT": {
      "total": 4,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 48,
+   "playable": 57,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 34
+     "playable": 43
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 47,
+   "playable": 56,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 34
+     "playable": 43
     },
     "EVENT": {
      "total": 9,
@@ -213,13 +213,13 @@
  ],
  "level3": {
   "total": 63,
-  "playable": 26
+  "playable": 27
  },
  "classes": {
-  "A": 79,
+  "A": 58,
   "B": 1,
-  "C": 94,
-  "D": 56,
+  "C": 92,
+  "D": 55,
   "E": 0
  },
  "topParts": [
@@ -269,7 +269,7 @@
    "cards": 2
   },
   {
-   "part": "TRIGGER: あなたのトリガーアイコンが[[soul.gif]][[soul.gif]]のCXがCX置場に置かれた時",
+   "part": "EFFECT: あなたのターン中、他のあなたのキャラすべてに、パワーを＋Ｘ。Ｘはそのキャラのソウル×Nに等しい",
    "unlocks": 1,
    "cards": 2
   }

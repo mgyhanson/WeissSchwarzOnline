@@ -6,7 +6,7 @@
 
 import { getDef, getInstance } from '../state';
 import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
-import { SLOTS, opponentOf } from '../types';
+import { SLOTS, opponentOf, HAND_LIMIT } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
 import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, CountWhere, EffectContext, PerCharacter, Target } from './types';
 
@@ -93,7 +93,12 @@ export function matchesFilter(
   if (!filter) return true;
   const def = getDef(state, instanceId);
   if (filter.kind && def.kind !== filter.kind) return false;
-  if (filter.traits && !filter.traits.some((trait) => def.traits.includes(trait))) return false;
+  if (filter.traits) {
+    const traits = traitsOf(state, instanceId);
+    if (!filter.traits.some((trait) => traits.includes(trait))) return false;
+  }
+  if (filter.nameExcludes !== undefined && def.name.includes(filter.nameExcludes)) return false;
+  if (filter.triggersExactly && [...def.triggers].sort().join() !== [...filter.triggersExactly].sort().join()) return false;
   if (filter.anyOf && !filter.anyOf.some((part) => matchesFilter(state, instanceId, part, levelOf))) return false;
   if (filter.hasLink !== undefined && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.link === filter.hasLink)) return false;
   if (filter.hasRecollection && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.recollection)) return false;
@@ -263,7 +268,8 @@ export function zoneCount(state: GameState, master: PlayerId, source: number, wh
             : where === 'YOUR_MEMORY'
               ? state.zones[master].memory.filter((id) => !filter || getInstance(state, id).face === 'UP')
               : where === 'YOUR_LEVEL'
-                ? state.zones[master].level
+                ? // CR-3.9.2.2.1: a face-down level card has no information, so it matches no filter.
+                  state.zones[master].level.filter((id) => !filter || getInstance(state, id).face === 'UP')
               : where === 'YOUR_MEMORY_AND_MARKERS'
                 ? [...state.zones[master].memory, ...SLOTS.flatMap((slot) => state.zones[master].marker[slot])]
               : where === 'YOUR_CLIMAX'
@@ -363,6 +369,7 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
   for (const { source, ability } of continuousInForce(state)) {
     for (const part of ability.apply) {
       if (part.stat !== stat || !continuousTargets(state, source, part.target, levelOf).includes(instanceId)) continue;
+      if (part.onlyIf && !evalCondition(state, source.master, source.instanceId, part.onlyIf)) continue;
       let amount =
         part.amount *
         perCount(state, source.master, source.instanceId, part.per) *
@@ -414,6 +421,42 @@ export function ignoresColorCondition(state: GameState, instanceId: number): boo
   if (inst.location.zone !== 'hand') return false;
   const player = inst.location.player;
   return (getDef(state, instanceId).abilities ?? []).some((ability) => ability.type === 'CONT' && ability.inHand === true && ability.ignoresColor === true && evalCondition(state, player, instanceId, ability.condition));
+}
+
+/**
+ * The traits a card has: its printed ones and those given by continuous abilities in force (…に《…》を与える),
+ * for a character on the stage. While this is being worked out, traits asked for again are the printed ones
+ * (a condition of a trait-giving ability that itself looks at traits).
+ */
+let traitsInProgress = false;
+export function traitsOf(state: GameState, instanceId: number): readonly string[] {
+  const def = getDef(state, instanceId);
+  const inst = getInstance(state, instanceId);
+  if (traitsInProgress || inst.location.zone !== 'stage') return def.traits;
+  const anyGiver =
+    state.grants.some((grant) => grant.ability.type === 'CONT' && grant.ability.giveTraits) ||
+    [0, 1].some((p) => SLOTS.some((slot) => state.zones[p as PlayerId].stage[slot].some((id) => (getDef(state, id).abilities ?? []).some((a) => a.type === 'CONT' && a.giveTraits))));
+  if (!anyGiver) return def.traits;
+  traitsInProgress = true;
+  try {
+    const traits = [...def.traits];
+    for (const { source, ability } of continuousInForce(state)) {
+      const give = ability.giveTraits;
+      if (!give) continue;
+      const applies = give.to === 'SELF' ? source.instanceId === instanceId : source.instanceId !== instanceId && getDef(state, instanceId).kind === 'CHARACTER';
+      if (applies) traits.push(...give.traits.filter((t) => !traits.includes(t)));
+    }
+    return traits;
+  } finally {
+    traitsInProgress = false;
+  }
+}
+
+/** CR-6.8.1.2: the hand limit, raised by あなたの手札の枚数上限を＋N. */
+export function handLimit(state: GameState, player: PlayerId): number {
+  let limit = HAND_LIMIT;
+  for (const { source, ability } of continuousInForce(state)) if (ability.handLimitPlus && source.master === player) limit += ability.handLimitPlus;
+  return limit;
 }
 
 export function cannotMove(state: GameState, instanceId: number): boolean {

@@ -250,5 +250,26 @@
    "ANM_W138": 48,
    "NIK_S135": 47
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B4-1 現有構件延伸",
+  "done": "Stand 中的 Cost、放回山札洗牌、山札頂最多 N 張、抽了才執行、三選一放置、回合分開的永續、卡名不含／含其一、兩個 Soul 圖示、特徵給予、手牌上限、使用【起】時、這張卡的 Trigger Check、給予其他角色能力、Level 置場角色張數",
+  "next": "C 類：山札及控え室多段操作",
+  "playable": 403,
+  "unsupported": 206,
+  "level3Playable": 27,
+  "level3Open": 36,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 84,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 62,
+   "STS_W140": 61,
+   "ANM_W138": 57,
+   "NIK_S135": 56
+  }
  }
 ]

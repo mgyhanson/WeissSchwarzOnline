@@ -172,7 +172,12 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // あなたのキャラのトリガーチェックで…がでた時. The card is in the resolution zone now.
       const checked = topOf(state.zones[event.player].resolution);
       if (checked === undefined) return;
-      sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && matchesFilter(state, checked, t.filter));
+      sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && !t.ofThisCard && matchesFilter(state, checked, t.filter));
+      // このカードのトリガーチェックで…がでた時: the attacking character's own abilities.
+      const attacking = attackerInstance(state);
+      if (attacking && attacking.location.zone === 'stage') {
+        for (const found of autosOf(state, attacking, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && t.ofThisCard === true && matchesFilter(state, checked, t.filter))) wait(state, event.player, attacking, found, null);
+      }
       // このカードがトリガーした時: the abilities of the turned-over card itself, there in the resolution zone.
       const card = state.instances[checked] as CardInstance;
       for (const found of autosOf(state, card, (t) => t.on === 'THIS_TRIGGERED', [])) wait(state, event.player, card, found, null);
@@ -200,6 +205,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // あなたがこのカードの『助太刀』を使った時 (CR-10.5.3: its cost has been paid).
       const card = state.instances[event.instanceId] as CardInstance;
       const played = state.defs[card.cardId]?.abilities?.[event.ability];
+      // あなたが【起】を使った時
+      if (played?.type === 'ACT') sourcesWith(state, event.player, (t) => t.on === 'YOU_PLAYED_ACT');
       if (!played || played.type !== 'ACT' || !(played.keywords ?? []).includes('BACKUP')) return;
       for (const found of autosOf(state, card, (t) => t.on === 'USED_BACKUP', [])) wait(state, event.player, card, found, null);
       return;
