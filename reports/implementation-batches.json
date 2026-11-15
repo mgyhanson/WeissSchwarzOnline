@@ -376,5 +376,26 @@
    "ANM_W138": 73,
    "NIK_S135": 71
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B4-7 Level 3：中途 Cost、對手 Level 條件",
+  "done": "效果中途支付 Cost（そうしたら／コストを払ったなら）、對手 Level 條件、控え室選卡分配、傷害後得到能力",
+  "next": "卡組、完整 QA、PR",
+  "playable": 470,
+  "unsupported": 139,
+  "level3Playable": 38,
+  "level3Open": 25,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 94,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 76,
+   "STS_W140": 73,
+   "ANM_W138": 73,
+   "NIK_S135": 71
+  }
  }
 ]

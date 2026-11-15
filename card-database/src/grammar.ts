@@ -387,6 +387,7 @@ function parseOneCondition(text: string): Out<Condition> {
   if (text === 'あなたのCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY' }, '我方 Climax 置場有 Climax');
   if (text === '相手のCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY', opponent: true }, '對手 Climax 置場有 Climax');
   if ((m = /^あなたのレベルが(\d+)以上$/.exec(text))) return out({ if: 'LEVEL', min: n(m[1]) }, `我方 Level ${m[1]} 或以上`);
+  if ((m = /^相手のレベルが(\d+)(以上)?$/.exec(text))) return out({ if: 'LEVEL', whose: 'OPPONENT', min: n(m[1]), ...(m[2] ? {} : { max: n(m[1]) }) }, `對手 Level ${m[1]}${m[2] ? ' 或以上' : ''}`);
   if ((m = /^あなたのストックが(\d+)枚以下$/.exec(text))) return out({ if: 'STOCK', max: n(m[1]) }, `我方 Stock ${m[1]} 張或以下`);
   if ((m = /^あなたのキャラすべてが《([^》]+)》(?:か《([^》]+)》)?$/.exec(text))) {
     const traits = m[2] ? [m[1]!, m[2]] : [m[1]!];
@@ -794,6 +795,10 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     }
   }
   if (text === 'その山札をシャッフルする') return out([{ do: 'SHUFFLE' }], '洗山札');
+  if ((m = /^自分の控え室の(.+?)を(\d+)枚まで選び、(\d+)枚手札に戻し、残りのカードを(ストック置場の下|ストック置場|控え室)に置く$/.exec(text))) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    if (filter) return out([{ do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', ...(filter.data ? { filter: filter.data } : {}), min: 0, max: n(m[2]) }, { do: 'SPLIT_CHOSEN', take: n(m[3]), exact: true, to: 'HAND', rest: m[4] === 'ストック置場の下' ? 'STOCK_BOTTOM' : m[4] === 'ストック置場' ? 'STOCK' : 'WAITING_ROOM' }], `從自己控え室選最多 ${m[2]} 張${filter.zh}，其中 ${m[3]} 張加入手牌，其餘放到${m[4]}`);
+  }
   if ((m = /^自分の山札を見て(.+?)を(\d+)枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする$/.exec(text))) {
     const filter = parseFilter(m[1]!, 'ZONE');
     if (filter) {
@@ -937,7 +942,7 @@ function splitJoined(sentence: string, battle: boolean): Out<Effect[]> {
       const first = `${sentence.slice(0, m.index)}${plain}`;
       const second = sentence.slice(m.index! + m[0].length);
       // The second part must stand alone: its own subject, not "それら"/"その…" pointing back.
-      if (!/^(?:あなたは)?(?:自分の|相手の|その山札|このカード)/.test(second) || /^その(?!山札)/.test(second)) continue;
+      if (!/^(?:あなたは)?(?:自分の|相手の|その山札|このカード|そのターン中、このカード)/.test(second) || /^その(?!山札|ターン中、このカード)/.test(second)) continue;
       const a = parseEffects([first], battle);
       const b = a && parseEffects([second], battle);
       if (a && b) return out([...a.data, ...b.data], `${a.zh}，然後${b.zh}`);
@@ -1047,10 +1052,10 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
       continue;
     }
     // "(…置き、)そのターン中、このカード(のパワーを＋Nし、このカード)は次の能力を得る。『…』": this card gains the quoted ability for that time.
-    const selfGain = /^(?:(.+?置)き、)?(そのターン中|次の相手のターンの終わりまで)、このカード(?:の(.+?)し、このカード)?は次の能力を得る$/.exec(sentences[i]!);
+    const selfGain = /^(?:(.+?(?:置|与))(?:き|え)、)?(そのターン中|次の相手のターンの終わりまで)、このカード(?:の(.+?)し、このカード)?は次の能力を得る$/.exec(sentences[i]!);
     const selfQuoted = selfGain && /^『(.+?)。?』$/.exec(sentences[i + 1] ?? '');
     if (selfGain && selfQuoted) {
-      const before = selfGain[1] ? parseEffects([`${selfGain[1]}く`], battle) : out<Effect[]>([], '');
+      const before = selfGain[1] ? parseEffects([`${selfGain[1]}${selfGain[1].endsWith('与') ? 'える' : 'く'}`], battle) : out<Effect[]>([], '');
       const changes = selfGain[3] ? parseChanges(selfGain[3]) : [];
       const inner = readLine(selfQuoted[1]! + '。');
       if (!before || !changes || !inner.line || inner.line.ability.type === 'ACT') return null;
@@ -1240,7 +1245,15 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
   // The effect: after paying a cost, after choosing to ("…してよい"), or always.
   let sentences = parts.effects;
   let optional = false;
-  if (parts.cost) {
+  // "…し、あなたはコストを払ってよい。そうしたら／コストを払ったなら、…": the cost of the head is paid partway through.
+  let midPay: { then: string[]; said: 'THEN' | 'IF_PAID' } | null = null;
+  const midAt = parts.cost && sentences[0] !== 'あなたはコストを払ってよい' ? sentences.findIndex((s, k) => /、あなたはコストを払ってよい$/.test(s) && /^(そうしたら|コストを払ったなら)、/.test(sentences[k + 1] ?? '')) : -1;
+  if (midAt >= 0) {
+    const head = sentences[midAt]!.replace(/、あなたはコストを払ってよい$/, '').replace(/与え$/, '与える').replace(/(＋\d+)し$/, '$1');
+    const next = sentences[midAt + 1]!;
+    midPay = { then: [next.replace(/^(そうしたら|コストを払ったなら)、/, ''), ...sentences.slice(midAt + 2)], said: next.startsWith('そうしたら、') ? 'THEN' : 'IF_PAID' };
+    sentences = [...sentences.slice(0, midAt), head];
+  } else if (parts.cost) {
     if (sentences[0] !== 'あなたはコストを払ってよい' || !sentences[1]?.startsWith('そうしたら、')) {
       unknown.push({ part: 'SHAPE', text: 'cost without あなたはコストを払ってよい。そうしたら、' });
       return null;
@@ -1293,7 +1306,9 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
   aboutThat = trigger?.data.on === 'OTHER_FRONT_ATTACKED' || trigger?.data.on === 'OTHER_ATTACKS' || trigger?.data.on === 'OTHER_STAGE_TO_WAITING_ROOM' || (trigger?.data.on === 'EITHER' && JSON.stringify(trigger.data.of) === JSON.stringify([{ on: 'REVERSED' }, { on: 'BATTLE_OPPONENT_REVERSED' }]));
   const effects = parseEffects(sentences, battle);
   if (!effects) unknown.push(...unknownEffects(sentences, battle));
-  if (unknown.length > 0 || !trigger || !cost || !condition || !effects) return null;
+  const paidThen = midPay ? parseEffects(midPay.then, battle) : null;
+  if (midPay && !paidThen) unknown.push(...unknownEffects(midPay.then, battle));
+  if (unknown.length > 0 || !trigger || !cost || !condition || !effects || (midPay && !paidThen)) return null;
 
   const ability: AutoAbility = {
     type: 'AUTO',
@@ -1301,9 +1316,9 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
     ...(trigger.data.on === 'HOLDER_ATTACKS' ? { zone: 'MARKER' as const } : memoryZone ? { zone: 'MEMORY' as const } : {}),
     trigger: trigger.data,
     ...(condition.data ? { condition: condition.data } : {}),
-    ...(parts.cost ? { cost: cost.data } : {}),
+    ...(parts.cost && !midPay ? { cost: cost.data } : {}),
     ...(optional ? { optional: true } : {}),
-    effect: effects.data,
+    effect: midPay ? [...effects.data, { do: 'MAY_PAY', cost: cost.data, then: paidThen!.data, said: midPay.said }] : effects.data,
   };
   const zh =
     `【自】${combo ? '【CX Combo】' : ''}${parts.cost ? `[${cost.zh}] ` : ''}${trigger.zh}` +

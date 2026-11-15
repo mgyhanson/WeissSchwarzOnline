@@ -62,7 +62,7 @@ export type Condition =
   /** (他の)あなたの…のキャラがN枚以上なら */
   | { if: 'CHARACTERS'; min: number; filter?: CardFilter; other?: boolean }
   /** あなたのレベルがN以上なら */
-  | { if: 'LEVEL'; min: number }
+  | { if: 'LEVEL'; min: number; /** 相手のレベルが… */ whose?: 'OPPONENT'; max?: number }
   /** 経験: あなたのレベル置場のカードのレベルの合計がN以上なら */
   | { if: 'EXPERIENCE'; min: number }
   /** 記憶: あなたの思い出置場に…がN枚以上あるなら */

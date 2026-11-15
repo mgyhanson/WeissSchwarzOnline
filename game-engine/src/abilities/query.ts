@@ -158,8 +158,10 @@ export function evalCondition(
       ).length;
       return count >= condition.min;
     }
-    case 'LEVEL':
-      return zones.level.length >= condition.min;
+    case 'LEVEL': {
+      const level = (condition.whose === 'OPPONENT' ? state.zones[opponentOf(master)] : zones).level.length;
+      return level >= condition.min && level <= (condition.max ?? Infinity);
+    }
     case 'EXPERIENCE': {
       // CR-10.10: refers to the cards in the level zone. A face-down card has no level (CR-3.9.2.2.1).
       let total = 0;

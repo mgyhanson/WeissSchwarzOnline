@@ -211,6 +211,7 @@ function oneConditionJa(c: Condition): string {
       if (c.opponent) return c.name === undefined ? '相手のCX置場にCXがある' : fail('condition', c);
       return c.name !== undefined ? `CX置場に「${c.name}」がある` : 'あなたのCX置場にCXがある';
     case 'LEVEL':
+      if (c.whose === 'OPPONENT') return c.max === undefined ? `相手のレベルが${c.min}以上` : c.max === c.min ? `相手のレベルが${c.min}` : fail('condition', c);
       return `あなたのレベルが${c.min}以上`;
     case 'STOCK':
       return `あなたのストックが${c.max}枚以下`;
@@ -431,11 +432,17 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       }
       const split = effects[i + 1];
       if (split?.do === 'SPLIT_CHOSEN') {
-        const restPlace: Record<string, string> = { STOCK_BOTTOM: 'ストック置場の下に置く', WAITING_ROOM: '控え室に置く', MEMORY: '思い出にする' };
+        const restPlace: Record<string, string> = { STOCK_BOTTOM: 'ストック置場の下に置く', STOCK: 'ストック置場に置く', WAITING_ROOM: '控え室に置く', MEMORY: '思い出にする' };
         const rest = restPlace[split.rest] ?? fail('split', split);
         if (e.from === 'YOUR_DECK' && split.reveal && split.exact && split.to === 'HAND' && !split.inOrder && effects[i + 2]?.do === 'SHUFFLE') {
           sentences.push(`自分の山札を見て${filterJa(e.filter, 'ZONE')}を${count(e)}選び、公開し、${split.take}枚手札に加え、残りのカードを${rest}`, 'その山札をシャッフルする');
           i += 3;
+          continue;
+        }
+        if (e.from === 'YOUR_WAITING_ROOM' && split.exact && !split.inOrder && !split.reveal && split.to === 'HAND') {
+          const restWord: Record<string, string> = { STOCK_BOTTOM: 'ストック置場の下に置く', STOCK: 'ストック置場に置く', WAITING_ROOM: '控え室に置く' };
+          sentences.push(`自分の控え室の${filterJa(e.filter, 'ZONE')}を${count(e)}選び、${split.take}枚手札に戻し、残りのカードを${restWord[split.rest] ?? fail('split', split)}`);
+          i += 2;
           continue;
         }
         if (e.from === 'YOUR_WAITING_ROOM' && split.inOrder && !split.exact && !split.reveal && split.to === 'STOCK') {
@@ -543,7 +550,13 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     i++;
     if (e.do === 'DRAW' && !e.optional) sentences.push(`${e.count}枚${e.upTo ? 'まで' : ''}引く`);
     else if (e.do === 'DRAW' && e.count === 1) sentences.push('1枚まで引く');
-    else if (e.do === 'MAY_PAY') sentences.push(`［${costsJa(e.cost)}］ コストを払ってよい`, ...effectsJa(e.then).map((t, k) => (k === 0 ? `そうしたら、${t}` : t)));
+    else if (e.do === 'MAY_PAY' && e.said) {
+      // The cost of the 【自】 head, paid after the effects before it: "…し、あなたはコストを払ってよい。そうしたら、…".
+      const before = sentences.pop() ?? fail('mid cost', e);
+      const joined = before.endsWith('与える') ? `${before.slice(0, -2)}え` : /＋\d+$/.test(before) ? `${before}し` : fail('mid cost', before);
+      const then = effectsJa(e.then);
+      sentences.push(`${joined}、コストを払ってよい`, `${e.said === 'THEN' ? 'そうしたら、' : 'コストを払ったなら、'}${then[0]}`, ...then.slice(1));
+    } else if (e.do === 'MAY_PAY') sentences.push(`［${costsJa(e.cost)}］ コストを払ってよい`, ...effectsJa(e.then).map((t, k) => (k === 0 ? `そうしたら、${t}` : t)));
     else if (e.do === 'SHUFFLE') sentences.push('その山札をシャッフルする');
     else if (e.do === 'DELAYED') {
       const time = e.at.phase === 'STAND' && e.at.whose === 'YOURS' ? '次のあなたのターンの始めに' : e.at.phase === 'DRAW' && e.at.whose === 'YOURS' ? '次のあなたのドローフェイズの始めに' : e.at.step === 'ENCORE' && e.at.whose === 'ANY' ? 'アンコールステップの始めに' : e.at.phase === 'END' && e.at.whose === 'ANY' ? 'ターンの終わりに' : fail('delayed', e);
@@ -800,7 +813,9 @@ function autoJa(ability: AutoAbility): string {
   const after: Condition | undefined = rest.length === 0 ? undefined : rest.length === 1 ? rest[0] : { if: 'ALL', of: rest };
   // 思い出置場にこのカードがあ(る|り、…)なら: said before the trigger, with every condition of the ability.
   const memoryHead = ability.zone === 'MEMORY' ? (after ? `思い出置場にこのカードがあり、${conditionJa(after)}` : '思い出置場にこのカードがあるなら、') : '';
-  const head = `【自】${keywords.map((k) => KEYWORD[k] ?? fail('keyword', k)).join('')}${ability.limit !== undefined ? `【ターン${ability.limit}】` : ''}${ability.cost ? `［${costsJa(ability.cost)}］` : ''} ${memoryHead}${turn ? conditionJa(turn) : ''}${triggerJa(ability.trigger)}、${ability.zone === 'MEMORY' ? '' : conditionJa(after)}`;
+  const midCost = ability.effect.find((x): x is Extract<Effect, { do: 'MAY_PAY' }> => x.do === 'MAY_PAY' && x.said !== undefined);
+  if (midCost && ability.cost) return fail('mid cost', ability);
+  const head = `【自】${keywords.map((k) => KEYWORD[k] ?? fail('keyword', k)).join('')}${ability.limit !== undefined ? `【ターン${ability.limit}】` : ''}${midCost ? `［${costsJa(midCost.cost)}］` : ''}${ability.cost ? `［${costsJa(ability.cost)}］` : ''} ${memoryHead}${turn ? conditionJa(turn) : ''}${triggerJa(ability.trigger)}、${ability.zone === 'MEMORY' ? '' : conditionJa(after)}`;
   if (ability.cost) return ability.optional ? fail('ability', ability) : `${head}コストを払ってよい。そうしたら、${effectsJa(ability.effect).join('。')}。`;
   if (!ability.optional) return `${head}${effectsJa(ability.effect).join('。')}。`;
   // …してよい: alone; before "そうしたら、" when what follows depends on it having been done; or after drawing.
@@ -846,6 +861,7 @@ export function sameWords(text: string): string {
     .replace(/置き、/g, '置く。')
     .replace(/戻し、/g, '戻す。')
     .replace(/シャッフルし、/g, 'シャッフルする。')
+    .replace(/ダメージを与え、(?!あなたはコストを払ってよい|コストを払ってよい)/g, 'ダメージを与える。')
     .replace(/枚まで引き、/g, '枚まで引く。')
     // "次の行動を行う。『X』" (once) says the same as X itself.
     .replace(/次の行動を行う。『([^『』]+?)。?』/g, '$1')

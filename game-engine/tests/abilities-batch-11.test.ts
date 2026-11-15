@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Ability, type Cost, type Effect, getInstance, getPower, stageSlot } from '../src/index';
+import { type Ability, type Cost, type Effect, evalCondition, getInstance, getPower, stageSlot } from '../src/index';
 import { DRAW_ONE, activate, cards, played } from './ability-helpers';
 import { EVENT, answer, card, oid, pending, put, scenario } from './helpers';
 
@@ -140,5 +140,33 @@ describe('batch 4 part 6', () => {
     expect(state.zones[0].hand).toEqual([card(0, 49)]);
     expect(state.zones[0].stock).toEqual([card(0, 48)]);
     expect(state.zones[0].waitingRoom).toEqual([card(0, 47)]);
+  });
+});
+
+describe('batch 4 part 7', () => {
+  it('相手のレベルが3以上なら / 相手のレベルが2なら', () => {
+    const state = scenario({ step: 'MAIN_START' }, (ctx) => {
+      put(ctx, card(1, 30), { player: 1, zone: 'level' });
+      put(ctx, card(1, 31), { player: 1, zone: 'level' });
+    }).state;
+    expect(evalCondition(state, 0, card(0, 0), { if: 'LEVEL', whose: 'OPPONENT', min: 2, max: 2 })).toBe(true);
+    expect(evalCondition(state, 0, card(0, 0), { if: 'LEVEL', whose: 'OPPONENT', min: 3 })).toBe(false);
+    expect(evalCondition(state, 0, card(0, 0), { if: 'LEVEL', min: 1 })).toBe(false);
+  });
+
+  it('相手に1ダメージを与え、あなたはコストを払ってよい。コストを払ったなら、相手に1ダメージを与える: the first damage is not paid for', () => {
+    const burn: Ability = { type: 'AUTO', trigger: { on: 'ATTACKS' }, effect: [{ do: 'DAMAGE', amount: 1 }, { do: 'MAY_PAY', cost: [{ pay: 'STOCK', count: 1 }], then: [{ do: 'DAMAGE', amount: 1 }], said: 'IF_PAID' }] };
+    const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:0': { abilities: [burn] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 20), { player: 0, zone: 'stock' });
+      for (const p of [0, 1] as const) for (const k of [42, 43, 44, 45, 46, 47, 48, 49]) put(ctx, card(p, k), { player: p, zone: 'memory' });
+    }).state;
+    const asked = answer(start, { kind: 'ATTACK', attack: { attacker: oid(start, card(0, 0)), type: 'DIRECT' } }).state;
+    // One damage dealt already; now the payment is asked.
+    expect(asked.zones[1].clock).toHaveLength(1);
+    expect(pending(asked, 'CONFIRM')).toBeDefined();
+    const paid = answer(asked, { kind: 'CONFIRM', accept: true }).state;
+    expect(paid.zones[0].stock).not.toContain(card(0, 20));
+    expect(paid.zones[1].clock.length).toBeGreaterThanOrEqual(2);
   });
 });

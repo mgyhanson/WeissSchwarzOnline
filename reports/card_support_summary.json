@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 466,
- "unsupported": 143,
+ "playable": 470,
+ "unsupported": 139,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 93,
+   "playable": 94,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 77
+     "playable": 78
     },
     "EVENT": {
      "total": 4,
@@ -92,7 +92,7 @@
    },
    "level3": {
     "total": 12,
-    "playable": 8
+    "playable": 9
    }
   },
   {
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 74,
+   "playable": 76,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 62
+     "playable": 64
     },
     "EVENT": {
      "total": 3,
@@ -138,17 +138,17 @@
    },
    "level3": {
     "total": 16,
-    "playable": 10
+    "playable": 12
    }
   },
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 72,
+   "playable": 73,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 59
+     "playable": 60
     },
     "EVENT": {
      "total": 4,
@@ -161,7 +161,7 @@
    },
    "level3": {
     "total": 9,
-    "playable": 3
+    "playable": 4
    }
   },
   {
@@ -213,13 +213,13 @@
  ],
  "level3": {
   "total": 63,
-  "playable": 34
+  "playable": 38
  },
  "classes": {
   "A": 39,
   "B": 1,
-  "C": 57,
-  "D": 46,
+  "C": 55,
+  "D": 44,
   "E": 0
  },
  "topParts": [
@@ -230,11 +230,6 @@
   },
   {
    "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
-   "unlocks": 2,
-   "cards": 2
-  },
-  {
-   "part": "SHAPE: cost without あなたはコストを払ってよい。そうしたら、",
    "unlocks": 2,
    "cards": 2
   },
@@ -270,6 +265,11 @@
   },
   {
    "part": "EVENT: あなたは相手の山札を上からN枚見て、山札の上か控え室に置き、自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする。",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "COST: か手札の「…」をN枚控え室に置く",
    "unlocks": 1,
    "cards": 1
   }
