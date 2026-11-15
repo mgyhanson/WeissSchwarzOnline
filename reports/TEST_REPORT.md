@@ -29,7 +29,7 @@
 | `npm run soak` | 4000 局全部通過（INV-01 至 INV-07） |
 | `npm run cards:validate` | 609 張卡、609 張圖片，缺少 0、問題 0（沒有重新下載或改動圖片） |
 | `npm run qa:ui` | 25/25 |
-| `npm run qa:online` | 見下 |
+| `npm run qa:online` | 41/41 全部通過 |
 
 ### Batch 4 新增及改動的測試
 
