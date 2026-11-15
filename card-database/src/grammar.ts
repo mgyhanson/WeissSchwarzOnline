@@ -19,7 +19,7 @@
  *  - the compiled cards are played in complete games.
  */
 
-import type { Ability, AutoAbility, CardFilter, Condition, ContinuousAbility, Cost, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
+import type { Ability, AutoAbility, CardFilter, Condition, ContinuousAbility, Cost, DelayedTime, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
 import { encore } from '@wso/game-engine';
 import { type LineParts, outsideNames, splitCost, splitLine } from './fragments';
 import { TRIGGER_ICONS } from './official';
@@ -469,6 +469,7 @@ const ORIENTATIONS: Record<string, ['STAND' | 'REST' | 'REVERSE', string]> = { '
 /** What is done to a target: moved, turned, or its numbers changed for a while. */
 function parseAction(text: string, target: Target, noun: string): Out<Effect[]> {
   if (DESTINATIONS[text]) return out([{ do: 'MOVE', target, to: DESTINATIONS[text]![0] }], `把${noun}${DESTINATIONS[text]![1]}`);
+  if (text === '舞台のキャラのいない枠に置く' && target.who === 'CHOSEN') return out([{ do: 'PLACE_IN_EMPTY_SLOT', target }], `把${noun}放到其主人舞台上沒有角色的枠（自己選）`);
   if (ORDERED[text]) return out([{ do: 'MOVE', target, to: ORDERED[text]![0], inOrder: true }], `把${noun}${ORDERED[text]![1]}`);
   const either = /^(.+?す)か(.+)$/.exec(text);
   if (either && DESTINATIONS[either[1]!] && DESTINATIONS[either[2]!]) {
@@ -560,9 +561,9 @@ function splitQuotes(text: string): string[] {
 
 /** 「…してよい」 put back into its plain form; null when the sentence is not optional. */
 function plainForm(sentence: string): string | null {
-  const m = /^(.*?)(置いて|戻して|動かして|して|引いて|加えて|行って)よい$/.exec(sentence);
+  const m = /^(.*?)(置いて|戻して|動かして|入れ替えて|して|引いて|加えて|行って)よい$/.exec(sentence);
   if (!m) return null;
-  const verb = { 置いて: '置く', 戻して: '戻す', 動かして: '動かす', して: 'する', 引いて: '引く', 加えて: '加える', 行って: '行う' }[m[2]!]!;
+  const verb = { 置いて: '置く', 戻して: '戻す', 動かして: '動かす', 入れ替えて: '入れ替える', して: 'する', 引いて: '引く', 加えて: '加える', 行って: '行う' }[m[2]!]!;
   return m[1]! + verb;
 }
 
@@ -596,6 +597,10 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
         `選我方${m[1] ? '其他 ' : ''}${countZh(m[3], m[4])}${filter.zh}，${action.zh}`,
       );
     }
+  }
+  if ((m = new RegExp(`^自分の控え室のその手札に戻したキャラと同じカード名のキャラを${COUNT}選び、(.+)$`).exec(text))) {
+    const action = parseAction(m[3]!, { who: 'CHOSEN' }, '');
+    if (action) return out([{ do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, sameNameAsMoved: true, ...range(m[1], m[2]) }, ...action.data], `從自己的控え室選${countZh(m[1], m[2])}與剛才放回手牌的角色同名的角色，${action.zh}`);
   }
   if ((m = new RegExp(`^自分の控え室の(.+?)を${COUNT}選び、(.+)$`).exec(text))) {
     const filter = parseFilter(m[1]!, 'ZONE');
@@ -638,6 +643,29 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     const action = parseAction(m[3]!, { who: 'CHOSEN' }, '');
     if (action) return out([{ do: 'CHOOSE', from: 'YOUR_CLOCK', ...range(m[1], m[2]) }, ...action.data], `選自己 Clock 的${countZh(m[1], m[2])}卡，${action.zh}`);
   }
+  if ((m = new RegExp(`^相手のキャラを${COUNT}選び、思い出にし、(アンコールステップの始めに、)?相手は自分の思い出置場のそのキャラを、舞台の好きな枠に置く$`).exec(text))) {
+    const back: Effect = { do: 'OWNER_PLACES', target: { who: 'MOVED', where: 'MEMORY' } };
+    return out(
+      [{ do: 'CHOOSE', from: 'OPPONENT_STAGE', ...range(m[1], m[2]) }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'MEMORY' }, m[3] ? { do: 'DELAYED', at: { step: 'ENCORE', whose: 'ANY' }, effects: [back] } : back],
+      `選對手${countZh(m[1], m[2])}角色放到思い出，${m[3] ? '這回合的 Encore 步驟開始時，' : ''}對手把該角色從思い出放到自己舞台上自己選的枠`,
+    );
+  }
+  if ((m = new RegExp(`^相手のキャラを2枚選び、それぞれを【スタンド】して入れ替える$`).exec(text))) {
+    return out([{ do: 'CHOOSE', from: 'OPPONENT_STAGE', min: 2, max: 2 }, { do: 'SWAP_CHOSEN' }], '選對手 2 張角色，各自 Stand 後互換位置');
+  }
+  if ((m = new RegExp(`^自分の(.+?)を1枚とこのカードを選び、それぞれを【スタンド】して入れ替える$`).exec(text))) {
+    const filter = parseFilter(m[1]!, 'STAGE');
+    if (filter && (!filter.data || filter.data.kind === 'CHARACTER')) {
+      return out([{ do: 'CHOOSE', from: 'YOUR_STAGE', other: true, ...(filter.data ? { filter: filter.data } : {}), min: 1, max: 1 }, { do: 'SWAP_CHOSEN', withSelf: true }], `選我方另外 1 張${filter.zh}和這張卡，各自 Stand 後互換位置`);
+    }
+  }
+  if (text === '自分のレベル置場のカードと控え室のカードを1枚ずつ選び、入れ替える') return out([{ do: 'EXCHANGE_LEVEL_WAITING_ROOM', count: 1 }], '選自己 Level 置場和控え室各 1 張互換');
+  if (text === '自分の山札を見てCXを1枚まで選んで公開し、自分の手札のCXを1枚まで選んで公開し、それらのCXを入れ替え、その山札をシャッフルする') {
+    return out([{ do: 'SWAP_DECK_HAND', filter: { kind: 'CLIMAX' } }, { do: 'SHUFFLE' }], '從山札選最多 1 張 Climax 公開、從手牌選最多 1 張 Climax 公開，兩張都有的話互換，然後洗山札');
+  }
+  // そのキャラ in a zone: the card the last move put there.
+  if ((m = /^自分の思い出置場のそのキャラを、(.+)$/.exec(text))) return parseAction(m[1]!, { who: 'MOVED', where: 'MEMORY' }, '那張角色');
+  if (text === 'この効果で舞台に置かれたキャラを控え室に置く') return out([{ do: 'MOVE', target: { who: 'PLACED' }, to: 'WAITING_ROOM' }], '把這個效果放到舞台的角色放到控え室');
   if ((m = new RegExp(`^相手の(前列の|後列の)?(.+?)を${COUNT}選び、(.+)$`).exec(text))) {
     const filter = parseFilter(m[2]!, 'STAGE');
     const action = filter && parseAction(m[5]!, { who: 'CHOSEN' }, '');
@@ -942,6 +970,21 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
       effects.push({ do: 'BRAINSTORM', count: n(brainstorm[1]), per: per.data, each: inner.data, ...(joined ? { joined: true } : {}) });
       zh.push(`翻開山札頂 ${brainstorm[1]} 張放到控え室，其中每有 1 張${per.zh}，${inner.zh}`);
       i += quotedAction ? 2 : 1;
+      continue;
+    }
+    // A delayed ability: "次のあなたのターンの始めに、…" and the like (a time, then what is done then).
+    const later = /^(次のあなたのターンの始めに|次のあなたのドローフェイズの始めに|アンコールステップの始めに|ターンの終わりに)、(.+)$/.exec(sentences[i]!);
+    if (later) {
+      const times: Record<string, DelayedTime> = {
+        次のあなたのターンの始めに: { phase: 'STAND', whose: 'YOURS' },
+        次のあなたのドローフェイズの始めに: { phase: 'DRAW', whose: 'YOURS' },
+        アンコールステップの始めに: { step: 'ENCORE', whose: 'ANY' },
+        ターンの終わりに: { phase: 'END', whose: 'ANY' },
+      };
+      const then = parseEffects([later[2]!], battle);
+      if (!then) return null;
+      effects.push({ do: 'DELAYED', at: times[later[1]!]!, effects: then.data });
+      zh.push(`${later[1]!.replace('次のあなたのターンの始めに', '我方下一個回合開始時').replace('次のあなたのドローフェイズの始めに', '我方下一個抽牌階段開始時').replace('アンコールステップの始めに', '這回合的 Encore 步驟開始時').replace('ターンの終わりに', '這回合結束時')}，${then.zh}`);
       continue;
     }
     // "N枚引いたなら、…": after an optional draw of N, only if it was done.

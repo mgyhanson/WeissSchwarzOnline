@@ -2,17 +2,17 @@
 
 > 由 `npm run cards:worklist` 產生。請勿手改。
 
-資料庫 609 張卡：可對戰 417（人手 128、自動 289），未支援 192。
+資料庫 609 張卡：可對戰 432（人手 128、自動 304），未支援 177。
 
 ## 自動產生的卡用到的句式
 
 | 句式 | 卡數 |
 |---|---:|
-| 句子文法（GRAMMAR：由已知片段組成的句子） | 235 |
+| 句子文法（GRAMMAR：由已知片段組成的句子） | 250 |
 | CLIMAX_POWER_SOUL | 43 |
 | CLIMAX_SOUL | 2 |
 | ASSIST | 1 |
-| YOUR_TURN_POWER | 7 |
+| YOUR_TURN_POWER | 8 |
 | OPPONENT_TURN_POWER | 0 |
 | EXPERIENCE_POWER | 0 |
 | ENCORE_DISCARD_CHARACTER | 1 |
@@ -20,7 +20,7 @@
 | POWER_WITH_OTHER_TRAIT | 10 |
 | POWER_ALL_TRAIT | 6 |
 | POWER_PER_OTHER_TRAIT | 4 |
-| YOUR_TURN_OTHERS_TRAIT_POWER | 2 |
+| YOUR_TURN_OTHERS_TRAIT_POWER | 3 |
 | CX_PHASE_TRAIT_BOOST | 3 |
 | PLACED_SELF_POWER | 4 |
 | ATTACK_SELF_POWER_WITH_OTHER_TRAIT | 2 |
@@ -31,7 +31,7 @@
 
 ## 片段出現次數（全部 609 張卡的角色及 Climax 文字；「已認識」指文法認識這個片段）
 
-### 效果句子：606 種，已認識 480 種
+### 效果句子：606 種，已認識 488 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|

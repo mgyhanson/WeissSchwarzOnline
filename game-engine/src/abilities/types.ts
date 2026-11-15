@@ -169,9 +169,20 @@ export type Target =
   /** このマーカーを持つ舞台の…キャラ: the character in the slot whose marker zone this card is in. */
   | { who: 'MARKER_HOLDER'; filter?: CardFilter }
   /** このカードのバトル相手 (CR-7.2.1.5.1; last known per CR-8.11.2) */
-  | { who: 'BATTLE_OPPONENT' };
+  | { who: 'BATTLE_OPPONENT' }
+  /** (思い出置場の)そのキャラ: the cards the most recent MOVE of this resolution moved, where they went (`where`: how the text names that zone). */
+  | { who: 'MOVED'; where?: 'MEMORY' }
+  /** この効果で舞台に置かれたキャラ: the cards this resolution put on the stage. */
+  | { who: 'PLACED' };
 
 /** Where a CHOOSE picks from. The player resolving the effect chooses (CR-8.6.5). */
+/** When a delayed ability triggers: the start of the next such phase or step of whose turn (the turn start is the stand phase start, CR-6.2.1.1). */
+export interface DelayedTime {
+  phase?: Phase;
+  step?: AttackStepName;
+  whose: 'YOURS' | 'OPPONENT' | 'ANY';
+}
+
 export type ChooseFrom =
   | 'YOUR_STAGE'
   | 'OPPONENT_STAGE'
@@ -236,7 +247,7 @@ export type Effect =
    * …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1).
    * `add`: …をN枚までと…をN枚まで選び — these are chosen in addition to the cards of the previous CHOOSE.
    */
-  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; add?: boolean }
+  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; /** その手札に戻したキャラと同じカード名の: only cards with the name of a card the most recent MOVE moved */ sameNameAsMoved?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
   | { do: 'MOVE'; target: Target; to: Destination; /** …に好きな順番で置く: the player chooses the order the cards go there in. */ inOrder?: boolean; reveal?: boolean; rested?: boolean; /** for UNDER_SELF / UNDER_THAT: 表向き or 裏向き */ face?: 'UP' | 'DOWN'; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**
@@ -277,7 +288,7 @@ export type Effect =
    * it stays the same card and keeps its state). Nothing happens without such
    * a slot or when the card cannot be moved (このカードは他の枠に動かせない).
    */
-  | { do: 'MOVE_TO_SLOT'; target: Target; row: 'FRONT' | 'BACK' }
+  | { do: 'MOVE_TO_SLOT'; target: Target; row: 'FRONT' | 'BACK' | 'ANY' }
   /** 自分のクロックの上から1枚を、控え室に置く; `whose: 'OPPONENT'`: 相手のクロックの上から1枚を… */
   | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' | 'STOCK'; whose?: 'OPPONENT'; /** 1枚までを: the player may leave it. */ optional?: boolean }
   /**
@@ -296,7 +307,23 @@ export type Effect =
    * (in the order the player chooses, with `inOrder`), the rest to `rest`. 1枚手札に加え、残りのカードを…
    */
   | { do: 'SPLIT_CHOSEN'; take: number; exact?: boolean; to: Destination; inOrder?: boolean; rest: Destination; reveal?: boolean }
-  /** …してよい inside an effect: the player is asked; the effects happen only if they accept (and `did` records it). */
+  /**
+   * A delayed ability (CR-8.? 遅延): 次のあなたのターンの始めに／次のあなたのドローフェイズの始めに／アンコールステップの始めに／
+   * ターンの終わりに, …. It triggers once, the next time that phase or step begins (`whose` turn), with this
+   * resolution's chosen, moved and placed cards, and is then gone.
+   */
+  | { do: 'DELAYED'; at: DelayedTime; effects: Effect[] }
+  /** 相手は自分の思い出置場のそのキャラを、舞台の好きな枠に置く: the owner of each target puts it in a slot of their stage they choose. */
+  | { do: 'OWNER_PLACES'; target: Target }
+  /** …を選び、舞台のキャラのいない枠に置く: the master chooses an empty slot of the target's owner's stage for it. */
+  | { do: 'PLACE_IN_EMPTY_SLOT'; target: Target }
+  /** それぞれを【スタンド】して入れ替える: the two chosen characters (or the chosen one and this card) stand and change slots. */
+  | { do: 'SWAP_CHOSEN'; withSelf?: boolean }
+  /** 自分のレベル置場のカードと控え室のカードをN枚ずつ選び、入れ替える */
+  | { do: 'EXCHANGE_LEVEL_WAITING_ROOM'; count: number }
+  /** 山札を見て…を1枚まで選んで公開し、自分の手札の…を1枚まで選んで公開し、それらを入れ替え: only when one of each is chosen. */
+  | { do: 'SWAP_DECK_HAND'; filter: CardFilter; handFilter?: CardFilter }
+
   | { do: 'MAY'; effects: Effect[] }
   /**
    * (自分|相手)の山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置き(、残りのカードを控え室に置く).
@@ -444,7 +471,7 @@ export interface ContinuousAbility {
   greatPerformance?: boolean;
   condition?: Condition;
   apply: {
-    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' }>;
+    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' } | { who: 'MOVED' } | { who: 'PLACED' }>;
     stat: 'POWER' | 'SOUL' | 'LEVEL';
     amount: number;
     per?: PerCharacter;
@@ -458,7 +485,7 @@ export interface ContinuousAbility {
     onlyIf?: Condition;
   }[];
   /** …に『…』を与える: automatic abilities given to the targets while this ability is active. */
-  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' }>; ability: AutoAbility }[];
+  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' } | { who: 'MOVED' } | { who: 'PLACED' }>; ability: AutoAbility }[];
 }
 
 /** 【自】 (CR-8.1.1.2) */
@@ -572,6 +599,10 @@ export interface EffectContext {
   slot?: SlotId | null;
   /** Instance ids moved by the most recent DECK_TOP (for それらのカードに…があるなら). */
   moved?: number[];
+  /** Object ids, after the move, of the cards the most recent MOVE moved (target MOVED). */
+  lastMoved?: number[];
+  /** Object ids of the cards this resolution put on the stage (target PLACED). */
+  placed?: number[];
   /** Whether the most recent MOVE or CLOCK_TOP moved a card (for そうしたら). */
   did?: boolean;
   /** Object id of the card the ability is about (その舞台に置かれたキャラ), when its trigger named one. */

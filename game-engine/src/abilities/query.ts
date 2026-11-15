@@ -557,6 +557,12 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       return target.slots
         .flatMap((slot) => state.zones[context.master].stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source));
+    case 'MOVED':
+    case 'PLACED':
+      return (target.who === 'MOVED' ? (context.lastMoved ?? []) : (context.placed ?? [])).flatMap((objectId) => {
+        const inst = byObjectId(state, objectId);
+        return inst ? [inst.instanceId] : [];
+      });
     case 'CHOSEN':
       return context.chosen.flatMap((objectId) => {
         const inst = byObjectId(state, objectId);

@@ -294,6 +294,7 @@ function actionJa(effects: readonly Effect[], i: number, target: Target): { text
     const move = effects[i + 1];
     return move?.do === 'MOVE' && move.to === 'CHOSEN_SLOT' && sameTarget(move.target, target) ? { text: move.rested ? '舞台の好きな枠に【レスト】して置く' : '舞台の好きな枠に置く', used: 2 } : fail('slot', effects);
   }
+  if (e.do === 'PLACE_IN_EMPTY_SLOT' && sameTarget(e.target, target)) return { text: '舞台のキャラのいない枠に置く', used: 1 };
   if (e.do === 'MOVE' && sameTarget(e.target, target) && e.inOrder && (e.to === 'STOCK' || e.to === 'STOCK_BOTTOM') && !e.reveal && !e.rested) return { text: e.to === 'STOCK' ? 'ストック置場に好きな順番で置く' : 'ストック置場の下に好きな順番で置く', used: 1 };
   if (e.do === 'MOVE' && sameTarget(e.target, target) && e.to === 'DECK' && effects[i + 1]?.do === 'SHUFFLE') return { text: '山札に戻し、その山札をシャッフルする', used: 2 };
   if (e.do === 'MOVE' && sameTarget(e.target, target) && e.to === 'UNDER_SELF') return { text: `このカードの下にマーカーとして${e.face === 'UP' ? '表' : '裏'}向きに置く`, used: 1 };
@@ -367,6 +368,30 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       continue;
     }
     if (e.do === 'CHOOSE') {
+      const after = effects[i + 1];
+      const back = effects[i + 2];
+      if (e.from === 'OPPONENT_STAGE' && !e.filter && after?.do === 'MOVE' && after.to === 'MEMORY' && after.target.who === 'CHOSEN') {
+        const owner = back?.do === 'OWNER_PLACES' ? back : back?.do === 'DELAYED' && back.at.step === 'ENCORE' && back.effects.length === 1 && back.effects[0]!.do === 'OWNER_PLACES' ? back.effects[0] : null;
+        if (owner) {
+          sentences.push(`相手のキャラを${count(e)}選び、思い出にし、${back!.do === 'DELAYED' ? 'アンコールステップの始めに、' : ''}相手は自分の思い出置場のそのキャラを、舞台の好きな枠に置く`);
+          i += 3;
+          continue;
+        }
+      }
+      if (after?.do === 'SWAP_CHOSEN') {
+        if (after.withSelf && e.from === 'YOUR_STAGE' && e.other && e.min === 1 && e.max === 1) sentences.push(`自分の${filterJa(e.filter, 'STAGE')}を1枚とこのカードを選び、それぞれを【スタンド】して入れ替える`);
+        else if (!after.withSelf && e.from === 'OPPONENT_STAGE' && !e.filter && e.min === 2 && e.max === 2) sentences.push('相手のキャラを2枚選び、それぞれを【スタンド】して入れ替える');
+        else fail('swap', after);
+        i += 2;
+        continue;
+      }
+      if (e.sameNameAsMoved) {
+        if (e.from !== 'YOUR_WAITING_ROOM' || Object.keys(e.filter ?? {}).join() !== 'kind') fail('same name', e);
+        const action = actionJa(effects, i + 1, { who: 'CHOSEN' });
+        sentences.push(`自分の控え室のその手札に戻したキャラと同じカード名のキャラを${count(e)}選び、${action.text}`);
+        i += 1 + action.used;
+        continue;
+      }
       const split = effects[i + 1];
       if (split?.do === 'SPLIT_CHOSEN') {
         const restPlace: Record<string, string> = { STOCK_BOTTOM: 'ストック置場の下に置く', WAITING_ROOM: '控え室に置く', MEMORY: '思い出にする' };
@@ -448,6 +473,17 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     else if (e.do === 'DRAW' && e.count === 1) sentences.push('1枚まで引く');
     else if (e.do === 'MAY_PAY') sentences.push(`［${costsJa(e.cost)}］ コストを払ってよい`, ...effectsJa(e.then).map((t, k) => (k === 0 ? `そうしたら、${t}` : t)));
     else if (e.do === 'SHUFFLE') sentences.push('その山札をシャッフルする');
+    else if (e.do === 'DELAYED') {
+      const time = e.at.phase === 'STAND' && e.at.whose === 'YOURS' ? '次のあなたのターンの始めに' : e.at.phase === 'DRAW' && e.at.whose === 'YOURS' ? '次のあなたのドローフェイズの始めに' : e.at.step === 'ENCORE' && e.at.whose === 'ANY' ? 'アンコールステップの始めに' : e.at.phase === 'END' && e.at.whose === 'ANY' ? 'ターンの終わりに' : fail('delayed', e);
+      const inner = effectsJa(e.effects);
+      sentences.push(`${time}、${inner[0]}`, ...inner.slice(1));
+    } else if (e.do === 'OWNER_PLACES' && e.target.who === 'MOVED' && e.target.where === 'MEMORY') sentences.push('相手は自分の思い出置場のそのキャラを、舞台の好きな枠に置く');
+    else if (e.do === 'EXCHANGE_LEVEL_WAITING_ROOM' && e.count === 1) sentences.push('自分のレベル置場のカードと控え室のカードを1枚ずつ選び、入れ替える');
+    else if (e.do === 'SWAP_DECK_HAND' && effects[i]?.do === 'SHUFFLE' && Object.keys(e.filter).join() === 'kind' && e.filter.kind === 'CLIMAX' && !e.handFilter) {
+      sentences.push('自分の山札を見てCXを1枚まで選んで公開し、自分の手札のCXを1枚まで選んで公開し、それらのCXを入れ替え、その山札をシャッフルする');
+      i++;
+    } else if (e.do === 'MOVE' && e.target.who === 'MOVED' && e.target.where === 'MEMORY') sentences.push(`自分の思い出置場のそのキャラを、${actionJa(effects, i - 1, e.target).text}`);
+    else if (e.do === 'MOVE' && e.target.who === 'PLACED' && e.to === 'WAITING_ROOM') sentences.push('この効果で舞台に置かれたキャラを控え室に置く');
     else if (e.do === 'MAY') {
       const inner = effectsJa(e.effects);
       sentences.push(...inner.slice(0, -1), may(inner[inner.length - 1]!));
@@ -554,6 +590,8 @@ function quotedJa(option: readonly Effect[]): string {
 const may = (sentence: string): string =>
   sentence.endsWith('置く')
     ? `${sentence.slice(0, -1)}いてよい`
+    : sentence.endsWith('入れ替える')
+      ? `${sentence.slice(0, -1)}てよい`
     : sentence.endsWith('戻す') || sentence.endsWith('動かす') || sentence.endsWith('する')
       ? `${sentence.slice(0, -1)}してよい`.replace(/すしてよい$/, 'してよい').replace(/戻してよい$/, '戻してよい')
       : sentence.endsWith('引く')

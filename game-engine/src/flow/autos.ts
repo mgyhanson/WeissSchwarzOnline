@@ -7,6 +7,7 @@
 
 import { canPayCost, countUse, limitReached, playAbility } from '../abilities/effects';
 import { activeSources, evalCondition, grantedAutos, matchesFilter } from '../abilities/query';
+import type { DelayedTime } from '../abilities/types';
 import type { AutoAbility, EffectContext, Trigger } from '../abilities/types';
 import type { AbilityOption } from '../decisions';
 import type { GameEvent } from '../events';
@@ -115,6 +116,21 @@ function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger
       if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
     }
   }
+}
+
+/** Delayed abilities whose time has come trigger (once) and are gone. */
+function fireDelayed(state: GameState, due: (at: DelayedTime, master: PlayerId) => boolean): void {
+  if (!state.delayed?.length) return;
+  const keep: NonNullable<GameState['delayed']> = [];
+  for (const delayed of state.delayed) {
+    if (!due(delayed.at, delayed.master)) {
+      keep.push(delayed);
+      continue;
+    }
+    const ability: AutoAbility = { type: 'AUTO', trigger: { on: 'PHASE_START', phase: 'END', turn: 'ANY' }, effect: delayed.effects };
+    state.waiting.push({ id: state.nextWaitingId++, kind: 'CARD', master: delayed.master, instanceId: delayed.instanceId, objectId: delayed.objectId, ability: -1, battleOpponent: null, slot: null, granted: ability, carried: delayed.carried });
+  }
+  state.delayed = keep;
 }
 
 /** Trigger conditions of card abilities met by one event. */
@@ -269,6 +285,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       return;
     }
     case 'PHASE_STARTED':
+      fireDelayed(state, (at, master) => at.phase === event.phase && at.step === undefined && (at.whose === 'ANY' || (at.whose === 'YOURS') === (master === event.player)));
       // (あなたの/相手の)…フェイズの始めに
       sourcesWith(state, 'ANY', (t, master) => {
         const whose = master === event.player ? 'YOURS' : 'OPPONENT';
@@ -276,6 +293,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       });
       return;
     case 'STEP_STARTED':
+      fireDelayed(state, (at, master) => at.step === event.step && (at.whose === 'ANY' || (at.whose === 'YOURS') === (master === event.player)));
       // (あなたの/相手の)…ステップの始めに
       sourcesWith(state, 'ANY', (t, master) => {
         const whose = master === event.player ? 'YOURS' : 'OPPONENT';
@@ -427,6 +445,7 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
     chosen: [],
     battleOpponent: waiting.battleOpponent,
     about: waiting.about ?? null,
+    ...(waiting.carried ? { chosen: [...waiting.carried.chosen], lastMoved: [...waiting.carried.lastMoved], placed: [...waiting.carried.placed] } : {}),
     sourceSlot: waiting.slot ?? (sourceLocation.zone === 'stage' ? { player: sourceLocation.player, slot: sourceLocation.slot } : null),
     ...(ability.keywords ? { keywords: [...ability.keywords] } : {}),
   };

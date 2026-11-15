@@ -405,7 +405,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'CHOOSE': {
       if (frame.step === 0) {
+        // その手札に戻したキャラと同じカード名の: names of the cards the last MOVE moved.
+        const sameNames = effect.sameNameAsMoved ? (context.lastMoved ?? []).flatMap((objectId) => state.instances.filter((inst) => inst.objectId === objectId).map((inst) => getDef(state, inst.instanceId).name)) : null;
         let candidates = chooseCandidates(state, context, effect.from, effect.filter, effect.other);
+        if (sameNames) candidates = candidates.filter((id) => sameNames.includes(getDef(state, id).name));
         // レベルＸ以下: X set earlier in this resolution, 0 when nothing set it.
         if (effect.levelMaxX) candidates = candidates.filter((id) => (getDef(state, id).level ?? 0) <= (context.x ?? 0));
         if (candidates.length === 0) {
@@ -540,6 +543,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       });
       context.did = moves.length > 0;
       moveBatch(ctx, moves);
+      // For そのキャラ (MOVED) and この効果で舞台に置かれたキャラ (PLACED) later in this resolution.
+      context.lastMoved = moves.map((m) => getInstance(state, m.instanceId).objectId);
+      const onStage = moves.filter((m) => m.to.zone === 'stage').map((m) => getInstance(state, m.instanceId).objectId);
+      if (onStage.length > 0) context.placed = [...(context.placed ?? []), ...onStage];
       return;
     }
 
@@ -676,13 +683,141 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'DELAYED': {
+      next();
+      const source = getInstance(state, context.source);
+      state.delayed = [
+        ...(state.delayed ?? []),
+        { id: state.nextWaitingId++, master, instanceId: source.instanceId, objectId: context.sourceObjectId, at: effect.at, effects: effect.effects, carried: { chosen: [...context.chosen], lastMoved: [...(context.lastMoved ?? [])], placed: [...(context.placed ?? [])] } },
+      ];
+      return;
+    }
+
+    case 'OWNER_PLACES': {
+      const [id] = resolveTarget(state, context, effect.target);
+      if (id === undefined) {
+        next();
+        return;
+      }
+      const owner = getInstance(state, id).owner;
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_SLOT', player: owner, prompt: 'EFFECT_SLOT', slots: [...SLOTS] });
+        return;
+      }
+      const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      next();
+      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT' });
+      context.placed = [...(context.placed ?? []), getInstance(state, id).objectId];
+      return;
+    }
+
+    case 'PLACE_IN_EMPTY_SLOT': {
+      const [id] = resolveTarget(state, context, effect.target);
+      const owner = id === undefined ? master : getInstance(state, id).owner;
+      const empty = SLOTS.filter((slot) => state.zones[owner].stage[slot].length === 0);
+      if (id === undefined || empty.length === 0) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_SLOT', player: master, prompt: 'EFFECT_SLOT', slots: empty });
+        return;
+      }
+      const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      next();
+      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT' });
+      context.placed = [...(context.placed ?? []), getInstance(state, id).objectId];
+      return;
+    }
+
+    case 'SWAP_CHOSEN': {
+      next();
+      const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
+      const self = sourceIfUnchanged(state, context);
+      const pair = effect.withSelf ? [chosen[0], self?.instanceId] : [chosen[0], chosen[1]];
+      if (pair.some((id) => id === undefined) || pair[0] === pair[1]) return;
+      const [a, b] = pair.map((id) => getInstance(state, id!));
+      if (a!.location.zone !== 'stage' || b!.location.zone !== 'stage' || a!.location.player !== b!.location.player) return;
+      for (const inst of [a!, b!]) setOrientation(ctx, inst.instanceId, 'STAND');
+      if (cannotMove(state, a!.instanceId) || cannotMove(state, b!.instanceId)) return;
+      swapSlots(ctx, a!.location.player, a!.location.slot, b!.location.slot);
+      return;
+    }
+
+    case 'EXCHANGE_LEVEL_WAITING_ROOM': {
+      const zones = state.zones[master];
+      const count = Math.min(effect.count, zones.level.length, zones.waitingRoom.length);
+      if (count === 0) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: zones.level.map((id) => getInstance(state, id).objectId), min: count, max: count });
+        return;
+      }
+      if (frame.step === 1) {
+        frame.scratch = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+        frame.step = 2;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: zones.waitingRoom.map((id) => getInstance(state, id).objectId), min: count, max: count });
+        return;
+      }
+      const fromWaitingRoom = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+      const fromLevel = frame.scratch;
+      next();
+      // Both move at once; a card put into the level zone is face up (CR-3.9.2.1).
+      moveBatch(ctx, [
+        ...fromLevel.map((instanceId) => ({ instanceId, to: { player: master, zone: 'waitingRoom' as const }, opts: { reason: 'EFFECT' as const } })),
+        ...fromWaitingRoom.map((instanceId) => ({ instanceId, to: { player: master, zone: 'level' as const }, opts: { reason: 'EFFECT' as const } })),
+      ]);
+      return;
+    }
+
+    case 'SWAP_DECK_HAND': {
+      const zones = state.zones[master];
+      if (frame.step === 0) {
+        const pool = zones.deck.filter((id) => matchesFilter(state, id, effect.filter));
+        frame.step = 1;
+        if (pool.length === 0) return;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: pool.map((id) => getInstance(state, id).objectId), min: 0, max: 1, look: lookMap(state, pool) });
+        return;
+      }
+      if (frame.step === 1) {
+        const picked = zones.deck.filter((id) => matchesFilter(state, id, effect.filter)).length > 0 ? takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId) : [];
+        for (const id of picked) revealCard(ctx, id);
+        frame.scratch = picked;
+        const hand = zones.hand.filter((id) => matchesFilter(state, id, effect.handFilter ?? effect.filter));
+        frame.step = 2;
+        if (hand.length === 0) return;
+        frame.step = 3;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: hand.map((id) => getInstance(state, id).objectId), min: 0, max: 1 });
+        return;
+      }
+      const fromHand = frame.step === 3 ? takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId) : [];
+      for (const id of fromHand) revealCard(ctx, id);
+      const fromDeck = frame.scratch;
+      next();
+      // それらを入れ替え: an exchange needs one of each.
+      if (fromDeck.length === 1 && fromHand.length === 1) {
+        moveBatch(ctx, [
+          { instanceId: fromDeck[0]!, to: { player: master, zone: 'hand' }, opts: { reason: 'EFFECT' } },
+          { instanceId: fromHand[0]!, to: { player: master, zone: 'deck' }, opts: { reason: 'EFFECT' } },
+        ]);
+      } else {
+        for (const id of [...fromDeck, ...fromHand]) getInstance(state, id).revealed = false;
+      }
+      return;
+    }
+
     case 'MOVE_TO_SLOT': {
       if (frame.step === 0) {
         const [id] = resolveTarget(state, context, effect.target).filter((candidate) => getInstance(state, candidate).location.zone === 'stage');
         const inst = id === undefined ? undefined : getInstance(state, id);
         const slots =
           inst && inst.location.zone === 'stage' && !cannotMove(state, inst.instanceId)
-            ? (effect.row === 'FRONT' ? FRONT_SLOTS : BACK_SLOTS).filter((slot) => state.zones[inst.location.player].stage[slot].length === 0)
+            ? (effect.row === 'FRONT' ? FRONT_SLOTS : effect.row === 'BACK' ? BACK_SLOTS : SLOTS).filter((slot) => state.zones[inst.location.player].stage[slot].length === 0)
             : [];
         if (!inst || slots.length === 0) {
           next();

@@ -8,7 +8,7 @@
  * hashed, sent to another process and replayed.
  */
 
-import type { Ability, AutoAbility, ContinuousAbility, Effect } from './abilities/types';
+import type { Ability, AutoAbility, ContinuousAbility, DelayedTime, Effect } from './abilities/types';
 import type { Choice, Decision } from './decisions';
 import type { Frame } from './flow/frames';
 
@@ -241,6 +241,8 @@ export type WaitingAuto =
       granted?: AutoAbility;
       /** The card the ability is about, when its trigger named one (その舞台に置かれたキャラ). */
       about?: number;
+      /** A delayed ability: the cards its effect refers back to. */
+      carried?: { chosen: number[]; lastMoved: number[]; placed: number[] };
     };
 
 /** CR-4.14.2.7: a shot trigger waiting for the next damage dealt by the attacking character. */
@@ -313,6 +315,8 @@ export interface GameState {
   waiting: WaitingAuto[];
   nextWaitingId: number;
   shotWatchers: ShotWatcher[];
+  /** Delayed abilities created by effects, waiting for their time (DELAYED). */
+  delayed?: { id: number; master: PlayerId; instanceId: number; objectId: number; at: DelayedTime; effects: Effect[]; carried: { chosen: number[]; lastMoved: number[]; placed: number[] } }[];
   /**
    * Greater than 0 while the cost of an ability is being paid; refresh and
    * level up wait until it is back to 0 (CR-8.4.2.1, CR-9.2.3, CR-9.3.3).
