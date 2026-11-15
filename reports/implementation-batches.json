@@ -40,5 +40,26 @@
    "ANM_W138": 29,
    "NIK_S135": 36
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "L3-3 山札排列及 Stock 重置",
+  "done": "按喜歡的次序放回山札頂（可選留下幾張）、對手 Stock 重置、一句中的「A 或 B」、我方全部角色一段時間的效果、一句兩個效果、按我方角色張數的Ｘ、手牌中 Level 不高於自己的角色",
+  "next": "見 CARD_WORKLIST.md 首項",
+  "playable": 282,
+  "unsupported": 327,
+  "level3Playable": 17,
+  "level3Open": 46,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 53,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 43,
+   "STS_W140": 30,
+   "ANM_W138": 35,
+   "NIK_S135": 38
+  }
  }
 ]

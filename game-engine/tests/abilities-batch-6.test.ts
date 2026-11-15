@@ -366,3 +366,86 @@ describe('Ｘ from the cards just put into the waiting room, or from a shown car
     expect(answer(atAsk, { kind: 'CONFIRM', accept: false }).state.zones[0].clock).toEqual([card(0, 5)]);
   });
 });
+
+describe('山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置く', () => {
+  const start = (effect: Effect) =>
+    scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act([effect])] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+  const look = (state: ReturnType<typeof start>, times: number) => {
+    let s = state;
+    for (let k = 0; k < times; k++) s = answer(s, { kind: 'CONFIRM', accept: true }).state;
+    return s;
+  };
+
+  it('looks one card at a time (may stop), then puts them back in the chosen order, the first chosen on top', () => {
+    // Player 0's deck: card 49 on top, then 48, 47, ...
+    const atOrder = look(activate(start({ do: 'REORDER_TOP', upTo: 3 }), card(0, 0)).state, 3);
+    expect(pending(atOrder, 'SELECT_CARDS')).toMatchObject({ prompt: 'EFFECT_ORDER', min: 1, max: 1 });
+    // The cards looked at are shown to the player who looks (and only in that decision).
+    expect(Object.values(pending(atOrder, 'SELECT_CARDS').look ?? {})).toHaveLength(3);
+    const second = answer(atOrder, { kind: 'SELECT_CARDS', cards: [oid(atOrder, card(0, 47))] }).state;
+    const done = answer(second, { kind: 'SELECT_CARDS', cards: [oid(second, card(0, 49))] }).state;
+    const deck = done.zones[0].deck;
+    expect(deck.slice(-3).reverse()).toEqual([card(0, 47), card(0, 49), card(0, 48)]);
+    expect(deck).toHaveLength(50 - 1);
+    assertInvariants(done);
+  });
+
+  it('stopping after one card leaves it where it was; nothing is asked about its order', () => {
+    const atNext = look(activate(start({ do: 'REORDER_TOP', upTo: 3 }), card(0, 0)).state, 1);
+    const done = answer(atNext, { kind: 'CONFIRM', accept: false }).state;
+    expect(done.pending?.kind).toBe('MAIN');
+    expect(done.zones[0].deck[done.zones[0].deck.length - 1]).toBe(card(0, 49));
+  });
+
+  it('カードを1枚まで選び、山札の上に…置き、残りのカードを控え室に置く', () => {
+    const atKeep = look(activate(start({ do: 'REORDER_TOP', upTo: 2, keep: 1 }), card(0, 0)).state, 2);
+    expect(pending(atKeep, 'SELECT_CARDS')).toMatchObject({ prompt: 'EFFECT_KEEP', min: 0, max: 1 });
+    const done = answer(atKeep, { kind: 'SELECT_CARDS', cards: [oid(atKeep, card(0, 48))] }).state;
+    expect(done.zones[0].deck[done.zones[0].deck.length - 1]).toBe(card(0, 48));
+    expect(done.zones[0].waitingRoom).toEqual([card(0, 49)]);
+  });
+
+  it('相手の山札を…: the opponent’s deck; its cards stay hidden from the opponent', () => {
+    const atLook = activate(start({ do: 'REORDER_TOP', upTo: 2, whose: 'OPPONENT' }), card(0, 0)).state;
+    const atOrder = look(atLook, 2);
+    expect(pending(atOrder, 'SELECT_CARDS').player).toBe(0);
+    const done = answer(atOrder, { kind: 'SELECT_CARDS', cards: [oid(atOrder, card(1, 48))] }).state;
+    expect(done.zones[1].deck.slice(-2).reverse()).toEqual([card(1, 48), card(1, 49)]);
+    expect(done.zones[0].deck).toHaveLength(49);
+  });
+});
+
+describe('相手は自分のストックすべてを、控え室に置き(山札に戻し、その山札をシャッフルし)、自分の山札の上から同じ枚数をストック置場に置く', () => {
+  it.each(['WAITING_ROOM', 'DECK'] as const)('via %s: the opponent’s stock is replaced by as many cards from the top of their deck', (via) => {
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act([{ do: 'OPPONENT_STOCK_RESET', via }])] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      for (const i of [1, 2, 3]) put(ctx, card(1, i), { player: 1, zone: 'stock' });
+    }).state;
+    const top = start.zones[1].deck.slice(-3);
+    const { state, events } = activate(start, card(0, 0));
+    expect(state.zones[1].stock).toHaveLength(3);
+    if (via === 'WAITING_ROOM') {
+      expect(state.zones[1].waitingRoom.sort()).toEqual([card(1, 1), card(1, 2), card(1, 3)]);
+      expect([...state.zones[1].stock].sort()).toEqual([...top].sort());
+    } else {
+      expect(events.some((e) => e.type === 'DECK_SHUFFLED' && e.player === 1)).toBe(true);
+      expect(state.zones[1].waitingRoom).toEqual([]);
+    }
+    expect(state.zones[0].stock).toEqual([]);
+    assertInvariants(state);
+  });
+});
+
+describe('自分の手札の自分のレベル以下のレベルのキャラを1枚まで選び、舞台の好きな枠に置く', () => {
+  it('compares each card’s level with the level of the player who has it', () => {
+    const effect: Effect[] = [{ do: 'CHOOSE', from: 'YOUR_HAND', filter: { kind: 'CHARACTER', levelAtMostOwnLevel: true }, min: 0, max: 1 }, { do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'CHOSEN_SLOT' }];
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act(effect)] }, '0:1': { level: 1 }, '0:2': { level: 2 } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      for (const i of [1, 2, 3, 45]) put(ctx, card(0, i), { player: 0, zone: 'hand' });
+      put(ctx, card(0, 30), { player: 0, zone: 'level' });
+    }).state;
+    const offered = pending(activate(start, card(0, 0)).state, 'SELECT_CARDS').cards.sort((a, b) => a - b);
+    // Level 1 player: the level 0 and level 1 characters; not the level 2 one, not the climax.
+    expect(offered).toEqual([oid(start, card(0, 1)), oid(start, card(0, 3))].sort((a, b) => a - b));
+  });
+});

@@ -421,6 +421,12 @@ describe('sentence patterns', () => {
     for (const card of handVerified) {
       const compiled = compileText(card.official);
       if (!compiled) continue;
+      // An event read by the sentence grammar: its effect, compared in grammar.test.ts as well.
+      if (card.def.kind === 'EVENT') {
+        expect(compiled.effect, card.record.cardId).toEqual(card.record.effect);
+        checked.push(card.record.cardId);
+        continue;
+      }
       expect(card.record.effect, card.record.cardId).toBeUndefined();
       expect(compiled.abilities ?? [], card.record.cardId).toEqual(card.record.abilities ?? []);
       checked.push(card.record.cardId);

@@ -126,6 +126,8 @@ export const PROMPT_ZH: Record<PromptId, string> = {
   EFFECT_PLAYER: '這個效果可以用在自己或對手身上，請選擇。',
   EFFECT_OPTION: '這個能力有多個效果，請選擇執行哪一個（可按卡牌查看原文及說明）。',
   EFFECT_DESTINATION: '請選擇把卡放到哪裡。',
+  EFFECT_ORDER: '請按次序選擇放回山札頂的卡：先選的放在最上面。',
+  EFFECT_KEEP: '請選擇要放回山札頂的卡，其餘放到控え室。',
   LOOK_NEXT: '要再查看山札頂的下一張卡嗎？',
   EFFECT_SLOT: '請選擇要把卡放到哪一個枠。',
   TRIGGER_ORDER: '翻出的卡有多個 Trigger 圖示，請選擇先執行哪一個。',

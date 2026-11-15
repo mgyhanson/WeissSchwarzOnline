@@ -21,7 +21,7 @@ const BDY = id('BDY/W135');
 
 type SetName = 'ANM_W138' | 'NIK_S135' | 'STS_W140' | 'GUP_W141' | 'BDY_W135';
 const game = (set: SetName, options: Omit<RealScenario, 'sets'>, arrange: (ctx: Ctx) => void = () => {}) =>
-  scenario({ ...options, sets: [`${set}:ALL`, `${set}:ALL`] }, arrange).state;
+  scenario({ ...options, sets: [`${set}:ALL`, `${set}:ALL`], plain: bodies(set) }, arrange).state;
 
 const at = (state: GameState, player: PlayerId, slot: SlotId): number => state.zones[player].stage[slot][0]!;
 const idsIn = (state: GameState, ids: readonly number[]): string[] => ids.map((i) => getInstance(state, i).cardId);
@@ -107,6 +107,16 @@ const PLAIN: Record<SetName, { zero: [string, string, string]; one: string; two:
   GUP_W141: { zero: [GUP(29), GUP(58), GUP(2)], one: GUP(89), two: GUP(90), three: GUP(85), climax: GUP(26) },
   BDY_W135: { zero: [BDY(1), BDY(33), BDY(77)], one: BDY(72), two: BDY(79), three: BDY(2), climax: BDY(26) },
 };
+
+/**
+ * The cards these tests use only as bodies (see RealScenario.plain): the PLAIN cards of the set, and the
+ * cards named in the scenarios for their printed numbers or traits only.
+ */
+function bodies(set: SetName): string[] {
+  const p = PLAIN[set];
+  const extra: Record<SetName, string[]> = { ANM_W138: [ANM(32)], NIK_S135: [], STS_W140: [], GUP_W141: [], BDY_W135: [BDY(15), BDY(7)] };
+  return [...p.zero, p.one, p.two, p.three, ...extra[set]];
+}
 
 /** Plain cards on top of both decks, so that trigger checks and damage turn over nothing with an effect. */
 function calm(ctx: Ctx, set: SetName): void {

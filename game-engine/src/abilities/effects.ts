@@ -549,6 +549,35 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'REORDER_TOP':
+      stepReorderTop(ctx, frame, effect, next);
+      return;
+
+    case 'OPPONENT_STOCK_RESET': {
+      const opponent = opponentOf(master);
+      if (frame.step === 0) {
+        // Every stock card leaves at once; then as many come from the top of the deck, one at a time (a refresh in between happens in place).
+        frame.step = 1;
+        const stock = [...state.zones[opponent].stock];
+        frame.scratch[0] = stock.length;
+        frame.scratch[1] = 0;
+        if (effect.via === 'WAITING_ROOM') moveCards(ctx, stock, { player: opponent, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+        else {
+          moveCards(ctx, stock, { player: opponent, zone: 'deck' }, { reason: 'EFFECT' });
+          shuffleDeck(ctx, opponent);
+        }
+        return;
+      }
+      const top = topOf(state.zones[opponent].deck);
+      if ((frame.scratch[1] ?? 0) >= (frame.scratch[0] ?? 0) || top === undefined) {
+        next();
+        return;
+      }
+      frame.scratch[1] = (frame.scratch[1] ?? 0) + 1;
+      moveCard(ctx, top, { player: opponent, zone: 'stock' }, { reason: 'EFFECT' });
+      return;
+    }
+
     case 'SHOW_TOP': {
       const top = topOf(state.zones[master].deck);
       next();
@@ -596,6 +625,81 @@ function lookMap(state: GameState, instanceIds: readonly number[]): Record<numbe
   const look: Record<number, string> = {};
   for (const id of instanceIds) look[getInstance(state, id).objectId] = getInstance(state, id).cardId;
   return look;
+}
+
+/**
+ * 山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置き(、残りのカードを控え室に置く).
+ * scratch[0..k): the cards looked at, top first (they stay in the deck while being looked at). Steps:
+ * 0/1 look at the next card or stop; 2 choose the cards to keep (with `keep`); 3/4 choose the order one card at a
+ * time; 5 the rest to the waiting room and the kept cards back on top, the first chosen on the very top.
+ * frame.scratch holds [looked..., -1, kept in chosen order...] after step 2.
+ */
+function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effect: Extract<Effect, { do: 'REORDER_TOP' }>, next: () => void): void {
+  const state = ctx.state;
+  const { master } = frame.context;
+  const whose = effect.whose === 'OPPONENT' ? opponentOf(master) : master;
+  const deck = state.zones[whose].deck;
+  const split = frame.scratch.indexOf(-1);
+  const looked = split < 0 ? frame.scratch : frame.scratch.slice(0, split);
+  const ordered = split < 0 ? [] : frame.scratch.slice(split + 1);
+  const objects = (ids: readonly number[]) => ids.map((id) => getInstance(state, id).objectId);
+
+  if (frame.step === 0) {
+    if (looked.length >= effect.upTo || looked.length >= deck.length) {
+      frame.step = 2;
+      return;
+    }
+    frame.step = 1;
+    ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'LOOK_NEXT', look: lookMap(state, looked) });
+    return;
+  }
+  if (frame.step === 1) {
+    if (takeAnswer(ctx, 'CONFIRM').accept) {
+      frame.scratch.push(deck[deck.length - 1 - looked.length] as number);
+      frame.step = 0;
+    } else frame.step = 2;
+    return;
+  }
+  if (frame.step === 2) {
+    if (effect.keep !== undefined && looked.length > 0) {
+      frame.step = 3;
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_KEEP', cards: objects(looked), min: 0, max: Math.min(effect.keep, looked.length), look: lookMap(state, looked) });
+      return;
+    }
+    frame.scratch = [...looked, -1];
+    frame.step = 4;
+    return;
+  }
+  if (frame.step === 3) {
+    const kept = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+    // The cards not kept stay in the list before the marker; the kept ones wait to be ordered.
+    frame.scratch = [...looked, -1];
+    frame.context.chosen = objects(kept);
+    frame.step = 4;
+    return;
+  }
+  // The cards still to be ordered: all looked at, or the kept ones.
+  const pool = (effect.keep !== undefined ? frame.context.chosen.map((objectId) => findObject(state, objectId).instanceId) : looked).filter((id) => !ordered.includes(id));
+  if (frame.step === 4 && pool.length > 1) {
+    frame.step = 5;
+    ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_ORDER', cards: objects(pool), min: 1, max: 1, look: lookMap(state, [...looked]) });
+    return;
+  }
+  if (frame.step === 5) {
+    const pickedId = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+    frame.scratch.push(pickedId);
+    frame.step = 4;
+    return;
+  }
+  // Done: the last card to order goes last; the rest go to the waiting room; the order is set on top of the deck.
+  const finalOrder = [...ordered, ...pool];
+  const rest = looked.filter((id) => !finalOrder.includes(id));
+  next();
+  if (rest.length > 0) moveCards(ctx, rest, { player: whose, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+  // They stay in the deck: only their order changes (first chosen on the very top). Hidden from both players
+  // except as looked at, so no event; the cards keep their object ids (they do not change zone, CR-3.1.4).
+  const remaining = deck.filter((id) => !finalOrder.includes(id));
+  deck.splice(0, deck.length, ...remaining, ...[...finalOrder].reverse());
 }
 
 /**

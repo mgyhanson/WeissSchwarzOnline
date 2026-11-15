@@ -56,6 +56,10 @@ export type PromptId =
   | 'EFFECT_PLAYER'
   /** 次のNつの効果のうち…: choose which of the effects to perform (options EFFECT_1, EFFECT_2, ...). */
   | 'EFFECT_OPTION'
+  /** Put back on top of the deck: choose the card to go on top next (the first one chosen ends up on top). */
+  | 'EFFECT_ORDER'
+  /** Choose the cards looked at to put back on top of the deck; the rest go to the waiting room. */
+  | 'EFFECT_KEEP'
   /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */

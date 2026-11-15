@@ -58,6 +58,7 @@ function parseOneFilter(text: string, bare: 'STAGE' | 'ZONE'): Out<CardFilter | 
   const includes = /^カード名に「([^」]+)」を含むキャラ$/.exec(text);
   if (includes) return out(bare === 'STAGE' ? { nameIncludes: includes[1]! } : { kind: 'CHARACTER', nameIncludes: includes[1]! }, `卡名含有「${includes[1]}」的角色`);
   if (/^、?レベルが相手のレベルより高いキャラ$/.test(text)) return out({ levelAboveMasterLevel: true }, 'Level 高於對手玩家 Level 的角色');
+  if (/^自分のレベル以下のレベルのキャラ$/.test(text)) return out({ kind: 'CHARACTER', levelAtMostOwnLevel: true }, 'Level 不高於自己 Level 的角色');
   const m = FILTER.exec(text);
   if (!m) return null;
   const [, stat, value, bound, traitA, traitB, noun] = m;
@@ -439,6 +440,11 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
       );
     }
   }
+  if ((m = new RegExp(`^自分の手札の(.+?)を${COUNT}選び、(.+)$`).exec(text))) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    const action = filter?.data && parseAction(m[4]!, { who: 'CHOSEN' }, '');
+    if (filter?.data && action) return out([{ do: 'CHOOSE', from: 'YOUR_HAND', filter: filter.data, ...range(m[2], m[3]) }, ...action.data], `選自己手牌${countZh(m[2], m[3])}${filter.zh}，${action.zh}`);
+  }
   if ((m = new RegExp(`^自分の手札を${COUNT}選び、(.+)$`).exec(text))) {
     const action = parseAction(m[3]!, { who: 'CHOSEN' }, '');
     if (action) return out([{ do: 'CHOOSE', from: 'YOUR_HAND', ...range(m[1], m[2]) }, ...action.data], `選自己${countZh(m[1], m[2])}手牌，${action.zh}`);
@@ -514,6 +520,46 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   if ((m = /^自分の山札を上から(\d+)枚まで見て、カードを1枚まで選び、手札に加え、残りのカードを控え室に置く$/.exec(text))) {
     return out([{ do: 'LOOK_TOP', upTo: n(m[1]) }], `查看自己山札頂最多 ${m[1]} 張，選最多 1 張加入手牌，其餘放到控え室`);
   }
+  // Looking at the top of a deck and putting cards back in any order.
+  if ((m = /^(自分|相手)の山札を上から(\d+)枚まで見て、(?:カードを(\d+)枚まで選び、)?山札の上に好きな順番で置(?:く|き、残りのカードを控え室に置く)$/.exec(text))) {
+    const keep = m[3] !== undefined;
+    if (keep !== text.endsWith('残りのカードを控え室に置く')) return null;
+    return out(
+      [{ do: 'REORDER_TOP', upTo: n(m[2]), ...(m[1] === '相手' ? { whose: 'OPPONENT' as const } : {}), ...(keep ? { keep: n(m[3]) } : {}) }],
+      `查看${m[1] === '相手' ? '對手' : '自己'}山札頂最多 ${m[2]} 張，${keep ? `選最多 ${m[3]} 張按自己喜歡的次序放回山札頂，其餘放到控え室` : '按自己喜歡的次序放回山札頂'}`,
+    );
+  }
+  if (text === '相手は自分のストックすべてを、控え室に置き、自分の山札の上から同じ枚数をストック置場に置く') {
+    return out([{ do: 'OPPONENT_STOCK_RESET', via: 'WAITING_ROOM' }], '對手把自己全部 Stock 放到控え室，再把自己山札頂同樣張數放到 Stock');
+  }
+  if (text === '相手は自分のストックすべてを、山札に戻し、その山札をシャッフルし、自分の山札の上から同じ枚数をストック置場に置く') {
+    return out([{ do: 'OPPONENT_STOCK_RESET', via: 'DECK' }], '對手把自己全部 Stock 放回山札並洗牌，再把自己山札頂同樣張數放到 Stock');
+  }
+  if (text === '自分のクロックの上から1枚までを、控え室に置く') return out([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', optional: true }], '可以把自己 Clock 最上面 1 張放到控え室');
+  // Effects on all of your characters for a while.
+  if ((m = /^(他の)?あなたの(.+?)すべてに、((?:そのターン中|次の相手のターンの終わりまで)、.+)$/.exec(text))) {
+    const filter = parseFilter(m[2]!, 'STAGE');
+    if (filter && (!filter.data || filter.data.kind === 'CHARACTER')) {
+      const target: Target = { who: 'ALL_YOURS', ...(filter.data ? { filter: filter.data } : {}), ...(m[1] ? { other: true } : {}) };
+      const action = parseAction(m[3]!, target, `我方${m[1] ? '其他' : '所有'}${filter.zh}`);
+      if (action) return action;
+    }
+  }
+  // "Aするか、B": one of two effects, chosen by the player.
+  for (let i = text.indexOf('か、'); i > 0; i = text.indexOf('か、', i + 1)) {
+    if (!/[るすく]$/.test(text.slice(0, i))) continue;
+    const a = parseSentence(text.slice(0, i), battle);
+    const b = parseSentence(text.slice(i + 2), battle);
+    if (a && b) return out([{ do: 'CHOOSE_ONE', options: [a.data, b.data], said: 'OR' }], `${a.zh}，或${b.zh}（自己選）`);
+  }
+  // "AしB": two effects in one sentence, done in order. Tried last, so a known whole sentence is never split.
+  for (const join of ['置き、', '戻し、']) {
+    for (let i = text.indexOf(join); i > 0; i = text.indexOf(join, i + 1)) {
+      const a = parseSentence(`${text.slice(0, i)}${join === '置き、' ? '置く' : '戻す'}`, battle);
+      const b = a && parseSentence(text.slice(i + join.length), battle);
+      if (a && b) return out([...a.data, ...b.data], `${a.zh}，然後${b.zh}`);
+    }
+  }
   return null;
 }
 
@@ -568,6 +614,21 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
   const effects: Effect[] = [];
   const zh: string[] = [];
   // "Ｘは…に等しい": where X comes from, said after the sentence that uses it.
+  // "Ｘはあなたの…の枚数×Nに等しい": Ｘ is N per character of yours that matches (the engine's per).
+  const perDef = all.map((s) => /^Ｘは(他の)?あなたの(.+?)の枚数×(\d+)に等しい$/.exec(s)).find((m) => m);
+  if (perDef) {
+    const filter = parseFilter(perDef[2]!, 'STAGE');
+    const rest = all.filter((s) => s !== perDef[0]).map((s) => s.replace('＋Ｘ', `＋${perDef[3]}`));
+    if (!filter || (filter.data && filter.data.kind !== 'CHARACTER') || rest.length !== all.length - 1 || all.filter((s) => s.includes('＋Ｘ')).length !== 1) return null;
+    const plain = parseEffects(rest, battle);
+    const modifies = plain?.data.filter((e) => e.do === 'MODIFY') ?? [];
+    if (!plain || modifies.length !== 1) return null;
+    const per = { ...(filter.data ? { filter: filter.data } : {}), ...(perDef[1] ? { other: true } : {}) };
+    return out(
+      plain.data.map((e) => (e.do === 'MODIFY' ? { ...e, per } : e)),
+      `${plain.zh}（數值改為：我方${perDef[1] ? '其他' : ''}${filter.zh}每張 ${perDef[3]}）`,
+    );
+  }
   const xDef = all.map((s) => /^Ｘは(それらのカードのレベルの合計|公開されたカードのレベル)(?:×(\d+))?に等しい$/.exec(s)).find((m) => m);
   const sentences = xDef ? all.filter((s) => s !== xDef[0]) : all;
   if (xDef) {

@@ -81,6 +81,10 @@ export function matchesFilter(
   if (filter.nameIncludes !== undefined && !def.name.includes(filter.nameIncludes)) return false;
   if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => def.name.includes(part))) return false;
   if (filter.names !== undefined && !filter.names.includes(def.name)) return false;
+  if (filter.levelAtMostOwnLevel) {
+    const location = getInstance(state, instanceId).location;
+    if (levelOf(state, instanceId) > state.zones[location.player].level.length) return false;
+  }
   if (filter.levelAboveMasterLevel) {
     // The player whose card it is: where it is now (CR-4.3.2), i.e. the side of the stage it is on.
     const location = getInstance(state, instanceId).location;

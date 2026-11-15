@@ -19,7 +19,9 @@ const PLAIN = { yellow: B(1), red: B(33), blue: B(77), level1: B(7) };
 const LOVE = B(26); // 愛は衝動 (yellow climax)
 const TEAR = B(62); // TearJerker (red climax)
 
-const bdy = (options: Omit<RealScenario, 'sets'>, arrange: (ctx: Ctx) => void = () => {}) => scenario({ ...options, sets: [BDY, HARUHI] }, arrange);
+/** Cards used only as bodies (see RealScenario.plain). */
+const BODIES = [...Object.values(PLAIN), B(72)];
+const bdy = (options: Omit<RealScenario, 'sets'>, arrange: (ctx: Ctx) => void = () => {}) => scenario({ ...options, sets: [BDY, HARUHI], plain: BODIES }, arrange);
 
 const at = (state: GameState, player: PlayerId, slot: SlotId): number => state.zones[player].stage[slot][0]!;
 const idsIn = (state: GameState, ids: readonly number[]): string[] => ids.map((id) => getInstance(state, id).cardId);

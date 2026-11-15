@@ -30,6 +30,8 @@ export interface CardFilter {
   anyOf?: CardFilter[];
   /** レベルが相手のレベルより高い: the card's level is higher than the level of the player whose card it is. */
   levelAboveMasterLevel?: boolean;
+  /** 自分のレベル以下のレベルの: the card's level is at most the level of the player whose zone it is in. */
+  levelAtMostOwnLevel?: boolean;
   levelMax?: number;
   levelMin?: number;
   costMax?: number;
@@ -224,12 +226,23 @@ export type Effect =
    * taken stays where it was (元に戻す) and is no longer shown.
    */
   | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean }
+  /**
+   * (自分|相手)の山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置き(、残りのカードを控え室に置く).
+   * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to
+   * put back (the rest go to the waiting room); then puts them back on top in the order they choose.
+   */
+  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number }
+  /**
+   * 相手は自分のストックすべてを、控え室に置き(山札に戻し、その山札をシャッフルし)、自分の山札の上から同じ枚数を
+   * ストック置場に置く.
+   */
+  | { do: 'OPPONENT_STOCK_RESET'; via: 'WAITING_ROOM' | 'DECK' }
   /** 自分の山札の上から1枚を公開し、… Ｘは公開されたカードのレベルに等しい: shown to both players and put back; X is its level (a climax counts as 0). */
   | { do: 'SHOW_TOP' }
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
   | { do: 'TRIGGER_CHECKS'; count: number }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
-  | { do: 'CHOOSE_ONE'; options: Effect[][] }
+  | { do: 'CHOOSE_ONE'; options: Effect[][]; /** How the card says it: 'OR' for "Aするか、B" in one sentence (text only). */ said?: 'OR' }
   /** ［cost］ あなたはコストを払ってよい。そうしたら、… inside an effect: an optional payment, then what it buys. */
   | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[] }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */

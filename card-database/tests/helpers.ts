@@ -51,11 +51,22 @@ export interface RealScenario {
   turnNumber?: number;
   /** The set each player's deck is made of. Default: player 0 Haruhi, player 1 Ichika. */
   sets?: [string, string];
+  /**
+   * Cards a test uses only as bodies: printed level, colour, cost, power, soul and traits, without their
+   * abilities. So the test does not change when such a card's own abilities are added to the database later.
+   */
+  plain?: readonly string[];
 }
 
-export function realState(sets: [string, string] = [HARUHI, ICHIKA]): GameState {
+export function realState(sets: [string, string] = [HARUHI, ICHIKA], plain: readonly string[] = []): GameState {
   const decks: [string[], string[]] = [0, 1].map((p) => setCards(sets[p]!).flatMap((id) => [id, id, id])) as [string[], string[]];
-  return createInitialState({ defs: defsFor(new Set([...decks[0], ...decks[1]])), decks }, 'card-tests');
+  const defs = defsFor(new Set([...decks[0], ...decks[1]]));
+  for (const id of plain) {
+    if (!defs[id]) throw new Error(`${id} is not in the test decks`);
+    const { abilities: _abilities, effect: _effect, ...printed } = defs[id]!;
+    defs[id] = printed;
+  }
+  return createInitialState({ defs, decks }, 'card-tests');
 }
 
 /** Moves a copy of the card that is still in its owner's deck to a zone, and returns its instance id. */
@@ -90,7 +101,7 @@ export function onlyInDeck(ctx: Ctx, player: PlayerId, cardIds: readonly string[
 }
 
 export function scenario(options: RealScenario, arrange: (ctx: Ctx) => void = () => {}): StepResult {
-  const state = realState(options.sets);
+  const state = realState(options.sets, options.plain);
   arrange(createCtx(state));
   state.firstPlayer = 0;
   state.turn = { number: options.turnNumber ?? 3, player: options.turnPlayer ?? 0, phase: 'STAND', attackCount: 0 };
