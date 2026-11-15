@@ -127,7 +127,7 @@ export type Cost =
   /** 自分の山札の上から1枚をクロック置場に置く (the cost of 加速, CR-10.12) */
   | { pay: 'DECK_TOP_TO_CLOCK' }
   /** このカードをクロック置場に置く */
-  | { pay: 'SELF_TO_CLOCK' }
+  | { pay: 'SELF_TO_CLOCK'; standing?: boolean }
   /** (他の)あなたの(【スタンド】している)…のキャラをN枚【レスト】する: the player chooses standing characters. */
   | { pay: 'REST_CHARACTERS'; count: number; filter?: CardFilter; other?: boolean }
   /** あなたのレベル置場の表向きのカードをN枚裏向きにする (CR-3.9.2.2: a face-down level card has no information) */
@@ -168,12 +168,12 @@ export type Target =
   | { who: 'YOUR_SLOT'; slots: SlotId[]; other?: boolean }
   /** The cards chosen by the most recent CHOOSE of this resolution. */
   | { who: 'CHOSEN' }
-  /** その(舞台に置かれた)キャラ: the card the ability is about (its trigger named it). */
-  | { who: 'THAT' }
+  /** その(舞台に置かれた)キャラ: the card the ability is about (its trigger named it). `as`: text only (そのアタックしているキャラ). */
+  | { who: 'THAT'; as?: 'ATTACKING' }
   /** このマーカーを持つ舞台の…キャラ: the character in the slot whose marker zone this card is in. */
   | { who: 'MARKER_HOLDER'; filter?: CardFilter }
   /** このカードのバトル相手 (CR-7.2.1.5.1; last known per CR-8.11.2) */
-  | { who: 'BATTLE_OPPONENT' }
+  | { who: 'BATTLE_OPPONENT'; /** text only: そのバトル相手 rather than そのキャラ */ said?: 'BATTLE_OPPONENT' }
   /** (思い出置場の)そのキャラ: the cards the most recent MOVE of this resolution moved, where they went (`where`: how the text names that zone). */
   | { who: 'MOVED'; where?: 'MEMORY' }
   /** この効果で舞台に置かれたキャラ: the cards this resolution put on the stage. */
@@ -210,7 +210,9 @@ export type ChooseFrom =
   /** 他のあなたの舞台の…キャラ, for putting under this card: as YOUR_STAGE. */
   | 'YOUR_OTHER_STAGE'
   /** 自分のバトル中のキャラ: your character in the current battle */
-  | 'YOUR_BATTLING';
+  | 'YOUR_BATTLING'
+  /** バトル中のキャラ: either character of the current battle */
+  | 'BATTLING';
 
 export type Destination =
   | 'HAND'
@@ -301,7 +303,7 @@ export type Effect =
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
-  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number }
+  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number; /** カードをN枚まで選び、ストック置場に置き: of the rest, up to N to the stock (the others to the waiting room) */ toStock?: number }
   /**
    * 自分の山札の上から1枚を公開する。そのカードが…なら(手札に加え、)…。 The top card of your deck is shown to
    * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
@@ -398,7 +400,7 @@ export type Trigger =
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
   | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean; /** あなたのCXフェイズ中、… */ duringClimaxPhase?: boolean }
   /** 他のあなたの…のキャラがフロントアタックされた時: the ability is about that character (THAT). */
-  | { on: 'OTHER_FRONT_ATTACKED'; filter?: CardFilter }
+  | { on: 'OTHER_FRONT_ATTACKED'; filter?: CardFilter; /** 前列の中央の枠の…: only a character in these slots */ slots?: SlotId[] }
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */
@@ -464,6 +466,10 @@ export interface ContinuousAbility {
   playOnlyIf?: Condition;
   /** このカードはあなたのスタンドフェイズに【スタンド】しない (also given: そのキャラは次の相手のスタンドフェイズに【スタンド】しない) */
   noStand?: boolean;
+  /** このカードはプレイヤーにダメージを与えることができない */
+  noDamageToPlayers?: boolean;
+  /** …すべてに、『【永】 …』を与える: continuous abilities given to those characters while this one is in force. */
+  grantConts?: { target: Extract<Target, { who: 'ALL_YOURS' } | { who: 'YOUR_SLOT' }>; ability: ContinuousAbility }[];
   /** このカードは他の枠に動かせない: this card cannot be moved to another slot. */
   cannotMove?: boolean;
   /** このカードのバトル中、相手は(イベントと)『助太刀』を手札からプレイできない */
@@ -481,7 +487,7 @@ export interface ContinuousAbility {
   /** あなたの手札の「…」のレベルを－N: the level of matching cards in the master's hand changes by `level`. */
   handCards?: { filter: CardFilter; level: number };
   /** …このカードは次の能力を得る。『【永】 …』: continuous abilities this card has while this one is in force. */
-  gains?: ContinuousAbility[];
+  gains?: (ContinuousAbility | ActivatedAbility)[];
   /**
    * あなたの手札のこのカードの…: the ability works while this card is in its master's hand, and only there
    * (CR-2.12.2.3). It applies to this card itself.

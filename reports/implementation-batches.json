@@ -355,5 +355,26 @@
    "ANM_W138": 69,
    "NIK_S135": 70
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B4-6 得到起動能力、給予應援、不能造成傷害",
+  "done": "得到【起】能力、給予後列角色應援、不能對玩家造成傷害、戰鬥中的角色、前列中央被攻擊時、Stand 中的 Clock Cost、山札頂分配到手牌及 Stock、山札搜尋放控え室、那張戰鬥對手、攻擊中的角色",
+  "next": "其餘長尾片段",
+  "playable": 466,
+  "unsupported": 143,
+  "level3Playable": 34,
+  "level3Open": 29,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 93,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 74,
+   "STS_W140": 72,
+   "ANM_W138": 73,
+   "NIK_S135": 71
+  }
  }
 ]

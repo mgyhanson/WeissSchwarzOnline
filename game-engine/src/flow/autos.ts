@@ -259,7 +259,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
         for (const source of activeSources(state)) {
           if (source.master === event.player || source.instanceId === defender.instanceId) continue;
           const sourceCard = state.instances[source.instanceId] as CardInstance;
-          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_FRONT_ATTACKED' && matchesFilter(state, defender.instanceId, t.filter))) {
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_FRONT_ATTACKED' && matchesFilter(state, defender.instanceId, t.filter) && (!t.slots || (defender.location.zone === 'stage' && t.slots.includes(defender.location.slot))))) {
             if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, defender.objectId);
           }
         }

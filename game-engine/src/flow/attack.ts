@@ -9,7 +9,7 @@
  * the attack" (CR-7.5.1.4, CR-7.6.1.5). Its check timing is in place.
  */
 
-import { cannotBeReversed, triggerIconsOf } from '../abilities/query';
+import { cannotBeReversed, cannotDamagePlayers, triggerIconsOf } from '../abilities/query';
 import { cannotSideAttack, greatPerformer } from '../abilities/query';
 import type { AttackStepName } from '../abilities/types';
 import type { AttackOption } from '../decisions';
@@ -320,7 +320,8 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
       // damage at all, handled by pushDamage (CR-7.5.1.2.1).
       frame.step = 'DAMAGE_END';
       const attacker = attackerInstance(state);
-      if (attacker) pushDamage(ctx, opponent, getSoul(state, attacker.instanceId), attacker.objectId);
+      // このカードはプレイヤーにダメージを与えることができない
+      if (attacker && !cannotDamagePlayers(state, attacker.instanceId)) pushDamage(ctx, opponent, getSoul(state, attacker.instanceId), attacker.objectId);
       return;
     }
 

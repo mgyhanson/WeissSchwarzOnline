@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 455,
- "unsupported": 154,
+ "playable": 466,
+ "unsupported": 143,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 92,
+   "playable": 93,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 76
+     "playable": 77
     },
     "EVENT": {
      "total": 4,
@@ -92,7 +92,7 @@
    },
    "level3": {
     "total": 12,
-    "playable": 7
+    "playable": 8
    }
   },
   {
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 70,
+   "playable": 74,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 58
+     "playable": 62
     },
     "EVENT": {
      "total": 3,
@@ -138,17 +138,17 @@
    },
    "level3": {
     "total": 16,
-    "playable": 8
+    "playable": 10
    }
   },
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 71,
+   "playable": 72,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 58
+     "playable": 59
     },
     "EVENT": {
      "total": 4,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 69,
+   "playable": 73,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 53
+     "playable": 57
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 70,
+   "playable": 71,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 56
+     "playable": 57
     },
     "EVENT": {
      "total": 9,
@@ -213,16 +213,21 @@
  ],
  "level3": {
   "total": 63,
-  "playable": 31
+  "playable": 34
  },
  "classes": {
-  "A": 44,
+  "A": 39,
   "B": 1,
-  "C": 63,
+  "C": 57,
   "D": 46,
   "E": 0
  },
  "topParts": [
+  {
+   "part": "EFFECT: ",
+   "unlocks": 3,
+   "cards": 3
+  },
   {
    "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
    "unlocks": 2,
@@ -239,22 +244,12 @@
    "cards": 2
   },
   {
-   "part": "EFFECT: 得る: 『【起】【ターンN】［あなたの舞台の『回想』を持つキャラをN枚思い出にする］ そのターン中、このカードのパワーを＋N。』",
-   "unlocks": 2,
-   "cards": 2
-  },
-  {
    "part": "SHAPE: （…）: （CXのレベルはNとして扱う。ストック置場に置かないなら元に",
    "unlocks": 2,
    "cards": 2
   },
   {
    "part": "EFFECT: あなたは自分の山札の上からN枚をめくり、控え室に置く。それらのカードの「…」か「…」N枚につき、あなたは自分の控え室の《…》のキャラをN枚まで選び、手札に戻す",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
-   "part": "EFFECT: そのキャラをそのキャラがいた枠に【レスト】して置く",
    "unlocks": 1,
    "cards": 2
   },
@@ -270,6 +265,11 @@
   },
   {
    "part": "EFFECT: あなたはN枚まで引き、自分の手札を同じ枚数選び、控え室に置き、自分のキャラをN枚選び、そのターン中、パワーを＋N",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EVENT: あなたは相手の山札を上からN枚見て、山札の上か控え室に置き、自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする。",
    "unlocks": 1,
    "cards": 1
   }

@@ -5,6 +5,7 @@
  */
 
 import { getDef, getInstance } from '../state';
+import type { ActivatedAbility } from './types';
 import type { CardDef, CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
 import { SLOTS, opponentOf, HAND_LIMIT } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
@@ -339,8 +340,21 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
   // …このカードは次の能力を得る。『【永】 …』: the abilities a card has while an ability of its own in force says so.
   for (const { source, ability } of [...found]) {
     for (const inner of ability.gains ?? []) {
-      if (!evalCondition(state, source.master, source.instanceId, inner.condition)) continue;
+      if (inner.type !== 'CONT' || !evalCondition(state, source.master, source.instanceId, inner.condition)) continue;
       found.push({ source, ability: inner });
+    }
+  }
+  // …すべてに、『【永】 …』を与える: the given continuous abilities work from each character given them.
+  for (const { source, ability } of [...found]) {
+    for (const part of ability.grantConts ?? []) {
+      for (const target of continuousTargets(state, source, part.target, currentLevel)) {
+        const inst = getInstance(state, target);
+        if (inst.location.zone !== 'stage') continue;
+        const given = { instanceId: target, master: inst.location.player, def: getDef(state, target), clockTop: false };
+        if (part.ability.assist && !BACK_SLOTS.includes(inst.location.slot)) continue;
+        if (!evalCondition(state, given.master, target, part.ability.condition)) continue;
+        found.push({ source: given, ability: part.ability });
+      }
     }
   }
   // Continuous abilities given by effects for a while (そのターン中／次の相手のターンの終わりまで、次の能力を与える), on the stage only.
@@ -495,6 +509,26 @@ export function playRestrictionMet(state: GameState, player: PlayerId, instanceI
 /** …はスタンドフェイズに【スタンド】しない */
 export function staysRestedInStandPhase(state: GameState, instanceId: number): boolean {
   return continuousInForce(state).some(({ source, ability }) => ability.noStand === true && source.instanceId === instanceId);
+}
+
+/** このカードはプレイヤーにダメージを与えることができない */
+export function cannotDamagePlayers(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.noDamageToPlayers === true && source.instanceId === instanceId);
+}
+
+/** The activated abilities a card on the stage has: printed ones by index, then ones it gains (index 100 and up, in order). */
+export function activatedAbilitiesOf(state: GameState, instanceId: number): { index: number; ability: ActivatedAbility }[] {
+  const list: { index: number; ability: ActivatedAbility }[] = [];
+  (getDef(state, instanceId).abilities ?? []).forEach((ability, index) => {
+    if (ability.type === 'ACT') list.push({ index, ability });
+  });
+  if (getInstance(state, instanceId).location.zone !== 'stage') return list;
+  let k = 100;
+  for (const { source, ability } of continuousInForce(state)) {
+    if (source.instanceId !== instanceId) continue;
+    for (const gained of ability.gains ?? []) if (gained.type === 'ACT') list.push({ index: k++, ability: gained });
+  }
+  return list;
 }
 
 export function cannotMove(state: GameState, instanceId: number): boolean {
@@ -684,6 +718,11 @@ export function chooseCandidates(
     case 'YOUR_BATTLING': {
       const mine = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage' && inst.location.player === master);
       pool = mine.map((inst) => inst.instanceId);
+      break;
+    }
+    case 'BATTLING': {
+      const both = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage');
+      pool = both.map((inst) => inst.instanceId);
       break;
     }
     case 'OPPONENT_BACK_ROW': {

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Ability, type Cost, type Effect, getInstance, stageSlot } from '../src/index';
+import { type Ability, type Cost, type Effect, getInstance, getPower, stageSlot } from '../src/index';
 import { DRAW_ONE, activate, cards, played } from './ability-helpers';
 import { EVENT, answer, card, oid, pending, put, scenario } from './helpers';
 
@@ -84,5 +84,61 @@ describe('batch 4 part 5', () => {
     // The bottom two are characters: nothing drawn.
     expect(state.zones[0].hand).toEqual([]);
     expect(played(events, card(0, 0))).toBe(1);
+  });
+});
+
+describe('batch 4 part 6', () => {
+  it('このカードはプレイヤーにダメージを与えることができない: no attack damage', () => {
+    const quiet: Ability = { type: 'CONT', apply: [], noDamageToPlayers: true };
+    const run = (abilities: Ability[]) => {
+      const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:0': { abilities } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        for (const p of [0, 1] as const) for (const k of [42, 43, 44, 45, 46, 47, 48, 49]) put(ctx, card(p, k), { player: p, zone: 'memory' });
+      }).state;
+      return answer(start, { kind: 'ATTACK', attack: { attacker: oid(start, card(0, 0)), type: 'DIRECT' } }).events.filter((e) => e.type === 'DAMAGE_DEALT').length;
+    };
+    expect(run([quiet])).toBe(0);
+    expect(run([])).toBe(1);
+  });
+
+  it('他のあなたの後列のキャラすべてに、『【永】 応援 …』を与える: the given 応援 works from the back row', () => {
+    const assist: Ability = { type: 'CONT', assist: true, apply: [{ target: { who: 'IN_FRONT' }, stat: 'POWER', amount: 1500 }] };
+    const giver: Ability = { type: 'CONT', apply: [], grantConts: [{ target: { who: 'YOUR_SLOT', slots: ['BL', 'BR'], other: true }, ability: assist as never }] };
+    const state = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [giver] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FR'));
+      put(ctx, card(0, 1), stageSlot(0, 'BL'));
+      put(ctx, card(0, 2), stageSlot(0, 'FL'));
+      put(ctx, card(0, 3), stageSlot(0, 'FC'));
+    }).state;
+    // BL supports FL and FC (CR-3.6.5).
+    expect(getPower(state, card(0, 2))).toBe(2500);
+    expect(getPower(state, card(0, 3))).toBe(2500);
+    expect(getPower(state, card(0, 0))).toBe(1000);
+  });
+
+  it('…このカードは次の能力を得る。『【起】 …』: a gained activated ability can be played', () => {
+    const gainedAct: Ability = { type: 'ACT', timing: 'MAIN', cost: [], effect: DRAW_ONE };
+    const gains: Ability = { type: 'CONT', apply: [], condition: { if: 'YOUR_TURN' }, gains: [gainedAct as never] };
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [gains] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    const action = pending(start, 'MAIN').actions.find((a) => a.type === 'ACTIVATE');
+    expect(action).toMatchObject({ ability: 100 });
+    const { state } = answer(start, { kind: 'MAIN', action: action! });
+    expect(state.zones[0].hand).toHaveLength(1);
+    // The same for player 1 in player 1's own turn (あなたのターン中 is the card's master's turn).
+    const theirs = scenario({ step: 'MAIN_START', turnPlayer: 1, defs: cards({ '1:0': { abilities: [gains] } }) }, (ctx) => put(ctx, card(1, 0), stageSlot(1, 'FC'))).state;
+    expect(pending(theirs, 'MAIN').actions.some((a) => a.type === 'ACTIVATE')).toBe(true);
+  });
+
+  it('山札を上から3枚まで見て、カードを1枚まで選び、手札に加え、カードを1枚まで選び、ストック置場に置き、残りのカードを控え室に置く', () => {
+    const look = act([{ do: 'LOOK_TOP', upTo: 3, toStock: 1 }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [look] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    let state = activate(start, card(0, 0)).state;
+    for (let k = 0; k < 3; k++) state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 49))] }).state;
+    expect(pending(state, 'SELECT_CARDS').cards).not.toContain(oid(state, card(0, 49)));
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 48))] }).state;
+    expect(state.zones[0].hand).toEqual([card(0, 49)]);
+    expect(state.zones[0].stock).toEqual([card(0, 48)]);
+    expect(state.zones[0].waitingRoom).toEqual([card(0, 47)]);
   });
 });

@@ -95,6 +95,7 @@ export function triggerJa(trigger: Trigger): string {
     case 'STEP_START':
       return trigger.step === 'ENCORE' && trigger.turn === 'YOURS' ? 'あなたのアンコールステップの始めに' : fail('trigger', trigger);
     case 'OTHER_FRONT_ATTACKED':
+      if (trigger.slots) return trigger.slots.join() === 'FC' ? `他のあなたの前列の中央の枠の${filterJa(trigger.filter, 'STAGE')}がフロントアタックされた時` : fail('trigger', trigger);
       return `他のあなたの${filterJa(trigger.filter, 'STAGE')}がフロントアタックされた時`;
     case 'THIS_CLIMAX_PLACED':
       return 'このカードが手札からCX置場に置かれた時';
@@ -136,7 +137,7 @@ export function costJa(cost: Cost): string {
     case 'SELF_TO_MARKER':
       return `このカードを表向きで他のあなたの「${cost.underName}」のマーカーにする`;
     case 'SELF_TO_CLOCK':
-      return 'このカードをクロック置場に置く';
+      return `${cost.standing ? '【スタンド】している' : ''}このカードをクロック置場に置く`;
     case 'SELF_TO_STOCK_BOTTOM':
       return 'このカードをストック置場の下に置く';
     case 'SELF_TO_DECK_BOTTOM':
@@ -373,6 +374,23 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       continue;
     }
     if (e.do === 'CHOOSE') {
+      const given = effects[i + 1];
+      if (e.from === 'BATTLING' && given?.do === 'GRANT' && given.ability.type === 'CONT' && given.ability.noDamageToPlayers && !given.until) {
+        sentences.push(`バトル中のキャラを${count(e)}選び、そのターン中、次の能力を与える。『【永】 このカードはプレイヤーにダメージを与えることができない。』`);
+        i += 2;
+        continue;
+      }
+      if (e.from === 'YOUR_DECK' && given?.do === 'MOVE' && given.to === 'WAITING_ROOM' && given.target.who === 'CHOSEN' && !given.reveal && effects[i + 2]?.do === 'SHUFFLE') {
+        sentences.push(`自分の山札を見て${filterJa(e.filter, 'ZONE')}を${count(e)}選び、控え室に置く`, 'その山札をシャッフルする');
+        i += 3;
+        continue;
+      }
+      if (e.from === 'YOUR_WAITING_ROOM' && given?.do === 'CHOOSE_SLOT' && effects[i + 2]?.do === 'MOVE' && effects[i + 3]?.do === 'MODIFY' && (effects[i + 3] as { target: Target }).target.who === 'MOVED') {
+        const mod = effects[i + 3] as Extract<Effect, { do: 'MODIFY' }>;
+        sentences.push(`自分の控え室の${filterJa(e.filter, 'ZONE')}を${count(e)}選び、舞台の好きな枠に置き、そのターン中、そのキャラの${STAT[mod.stat]}を${signed(mod.amount)}`);
+        i += 4;
+        continue;
+      }
       const noStand = effects[i + 1];
       if (noStand?.do === 'GRANT' && noStand.target.who === 'CHOSEN' && noStand.ability.type === 'CONT' && noStand.ability.noStand && noStand.until === 'NEXT_OPPONENT_TURN' && e.min === e.max) {
         const row = e.from === 'OPPONENT_FRONT_ROW' ? '前列の' : e.from === 'OPPONENT_BACK_ROW' ? '後列の' : e.from === 'OPPONENT_STAGE' ? '' : fail('choose', e);
@@ -440,6 +458,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
           ? `${e.other ? '他の' : ''}自分の${filterJa(e.filter, 'STAGE')}`
           : e.from === 'YOUR_WAITING_ROOM'
             ? `自分の控え室の${filterJa(e.filter, 'ZONE')}`
+            : e.from === 'YOUR_BATTLING' && e.filter
+              ? `自分のバトル中の${filterJa(e.filter, 'STAGE')}`
             : e.from === 'YOUR_BATTLING' && !e.filter
               ? '自分のバトル中のキャラ'
             : e.from === 'YOUR_HAND' && !e.filter
@@ -510,13 +530,13 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     }
     if (e.do === 'MODIFY' && e.target.who === 'THAT') {
       const action = actionJa(effects, i, e.target);
-      sentences.push(action.text.replace('、', '、そのキャラの'));
+      sentences.push(action.text.replace('、', e.target.as === 'ATTACKING' ? '、そのアタックしているキャラの' : '、そのキャラの'));
       i += action.used;
       continue;
     }
     if ((e.do === 'MOVE' || e.do === 'ORIENT') && (e.target.who === 'BATTLE_OPPONENT' || e.target.who === 'THAT')) {
       const action = actionJa(effects, i, e.target);
-      sentences.push(`そのキャラを${action.text}`);
+      sentences.push(`${e.target.who === 'BATTLE_OPPONENT' && e.target.said ? 'そのバトル相手' : 'そのキャラ'}を${action.text}`);
       i += action.used;
       continue;
     }
@@ -589,6 +609,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       i++;
     } else if (e.do === 'LOOK_TOP' && e.per && e.upTo === 1 && !e.pick && !e.reveal && !e.picks) {
       sentences.push('自分の山札を上からＸ枚まで見て、カードを1枚まで選び、手札に加え、残りのカードを控え室に置く', `Ｘは${e.per.other ? '他の' : ''}あなたの${filterJa(e.per.filter, 'STAGE')}の枚数に等しい`);
+    } else if (e.do === 'LOOK_TOP' && e.toStock && !e.per && !e.pick && !e.reveal) {
+      sentences.push(`自分の山札を上から${e.upTo}枚まで見て、カードを${e.picks ?? 1}枚まで選び、手札に加え、カードを${e.toStock}枚まで選び、ストック置場に置き、残りのカードを控え室に置く`);
     } else if (e.do === 'LOOK_TOP' && !e.per) {
       sentences.push(
         e.pick && e.reveal
@@ -697,6 +719,10 @@ export function abilityJa(ability: Ability): string {
     }
     if (ability.noStand) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードはあなたのスタンドフェイズに【スタンド】しない。' : fail('ability', ability);
     if ((ability.grant ?? []).length === 1 && ability.grant![0]!.target.who === 'ALL_THEIRS' && ability.apply.length === 0 && !ability.condition) return `【永】 相手のキャラすべてに、『${abilityJa(ability.grant![0]!.ability)}』を与える。`;
+    if (ability.grantConts) {
+      const part = ability.grantConts[0]!;
+      return ability.grantConts.length === 1 && part.target.who === 'YOUR_SLOT' && part.target.slots.join() === 'BL,BR' && part.target.other && ability.apply.length === 0 && !ability.condition ? `【永】 他のあなたの後列のキャラすべてに、『${abilityJa(part.ability)}』を与える。` : fail('ability', ability);
+    }
     if (ability.noBackupsEveryone) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードのバトル中、すべてのプレイヤーは『助太刀』を手札からプレイできない。' : fail('ability', ability);
     if (ability.anyNumberInDeck) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードと同じカード名のカードは、デッキに好きな枚数入れることができる。' : fail('ability', ability);
     if (ability.gainsTriggerIcons) return ability.apply.length === 0 && !ability.grant && ability.gainsTriggerIcons.length === 1 ? `【永】 ${conditionJa(ability.condition)}すべての領域にあるこのカードはトリガーアイコンに[[${ICONS[ability.gainsTriggerIcons[0]!]}.gif]]を得る。` : fail('ability', ability);

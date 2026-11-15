@@ -87,6 +87,9 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         if (!sourceIfUnchanged(state, context)) return false;
         break;
       case 'SELF_TO_CLOCK':
+        if ((cost as { standing?: boolean }).standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
+        if (!sourceIfUnchanged(state, context)) return false;
+        break;
       case 'SELF_TO_HAND':
       case 'SELF_TO_STOCK_BOTTOM':
         if (!sourceIfUnchanged(state, context)) return false;
@@ -1210,8 +1213,21 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     return;
   }
   // The chosen card to the hand (shown first when the text says so), the rest to the waiting room, together.
-  const looked = [...frame.scratch];
+  const marker = frame.scratch.indexOf(-1);
+  const looked = marker >= 0 ? frame.scratch.slice(0, marker) : [...frame.scratch];
   const chosen = context.chosen.map((objectId) => findObject(state, objectId).instanceId);
+  // カードをN枚まで選び、ストック置場に置き: of the other cards looked at, up to N go to the stock.
+  if (effect.toStock && marker < 0) {
+    const rest = looked.filter((id) => !chosen.includes(id));
+    if (frame.step === 4 && rest.length > 0) {
+      frame.step = 5;
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: rest.map((id) => getInstance(state, id).objectId), min: 0, max: Math.min(effect.toStock, rest.length), look: lookMap(state, looked) });
+      return;
+    }
+    const toStock = frame.step === 5 ? takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId) : [];
+    frame.scratch = [...looked, -1, ...toStock];
+  }
+  const stocked = marker >= 0 || effect.toStock ? frame.scratch.slice(frame.scratch.indexOf(-1) + 1) : [];
   // 手札に加えたなら: whether a card was taken.
   context.did = chosen.length > 0;
   next();
@@ -1220,7 +1236,7 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     ctx,
     looked.map((instanceId) => ({
       instanceId,
-      to: { player: master, zone: chosen.includes(instanceId) ? ('hand' as const) : ('waitingRoom' as const) },
+      to: { player: master, zone: chosen.includes(instanceId) ? ('hand' as const) : stocked.includes(instanceId) ? ('stock' as const) : ('waitingRoom' as const) },
       opts: { reason: 'EFFECT' as const },
     })),
   );
