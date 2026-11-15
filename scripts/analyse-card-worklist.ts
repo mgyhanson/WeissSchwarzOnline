@@ -254,6 +254,102 @@ const progress: string[] = [
 ];
 writeFileSync(join(ROOT, 'reports/CARD_IMPLEMENTATION_PROGRESS.md'), `${progress.join('\n')}\n`);
 
+// --- reports/LEVEL_3_IMPLEMENTATION.md --------------------------------------
+const level3 = cards.filter((c) => c.def.level === 3 && boosters.has(c.set));
+const open3 = work.filter((w) => w.level === 3);
+const l3Parts = ranked
+  .map((row) => ({ ...row, l3: row.cards.filter((id) => open3.some((w) => w.cardId === id)), l3Unlocks: row.unlocks.filter((id) => open3.some((w) => w.cardId === id)) }))
+  .filter((row) => row.l3.length > 0)
+  .sort((a, b) => b.l3.length - a.l3.length || b.cards.length - a.cards.length);
+const kindZh = (kind: string) => (kind === 'CHARACTER' ? '角色' : kind === 'EVENT' ? 'Event' : 'Climax');
+const l3: string[] = [
+  '# Level 3 卡牌實裝狀況',
+  '',
+  '> 由 `npm run cards:worklist` 產生。請勿手改。',
+  '',
+  '| 系列 | Level 3 卡數 | 可對戰 | 未支援 | 只差 1 個片段 |',
+  '|---|---:|---:|---:|---:|',
+  ...setIds.map((id) => {
+    const own = level3.filter((c) => c.set === id);
+    return `| ${id.replace('_', '/')} | ${own.length} | ${count(own, (c) => c.record.support === 'verified')} | ${count(own, (c) => c.record.support !== 'verified')} | ${count(open3, (w) => w.set === id && w.unknown.length === 1)} |`;
+  }),
+  `| **合計** | ${level3.length} | ${count(level3, (c) => c.record.support === 'verified')} | ${open3.length} | ${count(open3, (w) => w.unknown.length === 1)} |`,
+  '',
+  '## 擋住 Level 3 卡的片段（按涉及的 Level 3 卡數排序）',
+  '',
+  '「L3 解鎖」是只差這個片段的 Level 3 卡；「全部涉及」包括其他 Level 的卡。',
+  '',
+  '| 片段 | L3 涉及 | L3 解鎖 | 全部涉及 | 涉及的 Level 3 卡 |',
+  '|---|---:|---:|---:|---|',
+  ...l3Parts.map((row) => `| ${row.part.replace(/\|/g, '／').slice(0, 100)} | ${row.l3.length} | ${row.l3Unlocks.length} | ${row.cards.length} | ${row.l3.map(short).join(' ')} |`),
+  '',
+  '## 全部 Level 3 卡',
+  '',
+  '| 卡號 | 卡名 | 種類 | Cost | 狀態 | 尚欠的片段 |',
+  '|---|---|---|---:|---|---|',
+  ...level3.map((c) => {
+    const item = open3.find((w) => w.cardId === c.record.cardId);
+    const state = !item ? (c.record.origin === 'PATTERN' ? '可對戰（自動）' : '可對戰（人手）') : `未支援（${item.class} 類，欠 ${item.unknown.length} 個）`;
+    return `| ${c.record.cardId} | ${c.def.name.replace(/\|/g, '／')} | ${kindZh(c.def.kind)} | ${c.def.cost ?? '-'} | ${state} | ${item ? item.unknown.map((u) => u.replace(/\|/g, '／').slice(0, 70)).join('<br>') : ''} |`;
+  }),
+  '',
+];
+writeFileSync(join(ROOT, 'reports/LEVEL_3_IMPLEMENTATION.md'), `${l3.join('\n')}\n`);
+
+// --- reports/IMPLEMENTATION_CHECKPOINT.md -----------------------------------
+// `--batch "<title>" "<what was done>" "<next>"` adds an entry with the numbers of this moment.
+interface Batch { date: string; title: string; done: string; next: string; playable: number; unsupported: number; level3Playable: number; level3Open: number; bySet: Record<string, number> }
+const batchFile = join(ROOT, 'reports/implementation-batches.json');
+const batches: Batch[] = existsSync(batchFile) ? JSON.parse(readFileSync(batchFile, 'utf8')) : [];
+const batchArg = args.indexOf('--batch');
+if (batchArg >= 0) {
+  batches.push({
+    date: totals.date,
+    title: args[batchArg + 1] ?? '',
+    done: args[batchArg + 2] ?? '',
+    next: args[batchArg + 3] ?? '',
+    playable: totals.playable,
+    unsupported: totals.unsupported,
+    level3Playable: count(level3, (c) => c.record.support === 'verified'),
+    level3Open: open3.length,
+    bySet: totals.bySet,
+  });
+  writeFileSync(batchFile, `${JSON.stringify(batches, null, 1)}\n`);
+}
+const checkpoint: string[] = [
+  '# 實裝檢查點',
+  '',
+  '> 由 `npm run cards:worklist` 產生；批次紀錄來自 `reports/implementation-batches.json`（用 `npm run cards:worklist -- --batch "標題" "完成內容" "下一步"` 加入）。',
+  '>',
+  '> **重新開始工作時先讀這一份**，然後直接看「下一步」及 `CARD_WORKLIST.md`，不需要重新分析整個專案。',
+  '',
+  '## 現況',
+  '',
+  `- 可對戰 ${totals.playable}／${totals.cards}（人手 ${totals.handWritten}、整句句式 ${totals.wholeSentencePatterns}、句子文法 ${totals.grammar}）；未支援 ${totals.unsupported}。`,
+  `- Level 3（五個補充包）：可對戰 ${count(level3, (c) => c.record.support === 'verified')}／${level3.length}；未支援 ${open3.length}。`,
+  `- 各系列可對戰：${setIds.map((id) => `${id.split('_')[0]} ${totals.bySet[id]}`).join('、')}。`,
+  `- 未認識的片段 ${ranked.length} 種；只差 1 個片段的卡 ${count(work, (x) => x.unknown.length === 1)} 張，只差 2 個的 ${count(work, (x) => x.unknown.length === 2)} 張。`,
+  '',
+  '## 下一個最值得處理的片段',
+  '',
+  ...ranked.slice(0, 12).map((row, i) => `${i + 1}. ${row.part.slice(0, 110)}（解鎖 ${row.unlocks.length}，涉及 ${row.cards.length}）`),
+  '',
+  '## 位置',
+  '',
+  '- 文法：`card-database/src/grammar.ts`（片段切分：`fragments.ts`）；反向核對：`card-database/tests/render-ja.ts`；測試：`card-database/tests/grammar.test.ts`。',
+  '- 引擎構件：`game-engine/src/abilities/{types,effects,query}.ts`、`game-engine/src/flow/autos.ts`；構件測試：`game-engine/tests/abilities-batch-*.test.ts`。',
+  '- 人手卡：`card-database/sets/<系列>/cards.ts`；測試卡組：`card-database/src/decks.ts`。',
+  '- 開發期間只跑相關測試：`npx vitest run card-database/tests/grammar game-engine/tests/abilities-batch`；整批完成後才跑完整 QA。',
+  '',
+  '## 批次紀錄（最新在最後）',
+  '',
+  '| 日期 | 批次 | 完成內容 | 可對戰 | Level 3 可對戰 | 未支援 | 下一步 |',
+  '|---|---|---|---:|---:|---:|---|',
+  ...batches.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.next} |`),
+  '',
+];
+writeFileSync(join(ROOT, 'reports/IMPLEMENTATION_CHECKPOINT.md'), `${checkpoint.join('\n')}\n`);
+
 // --- data.nosync/card-worklist.json ---------------------------------------
 mkdirSync(join(ROOT, 'data.nosync'), { recursive: true });
 writeFileSync(join(ROOT, 'data.nosync/card-worklist.json'), `${JSON.stringify({ generatedBy: 'npm run cards:worklist', cards: work, parts: ranked }, null, 1)}\n`);
@@ -265,7 +361,7 @@ if (partArg >= 0) {
   const row = ranked.find((r) => r.part.includes(args[partArg + 1] ?? '\u0000'));
   if (!row) console.log('no such part');
   else for (const id of row.cards) console.log(id, work.find((w) => w.cardId === id)!.lines.map((l) => `${l.known ? '✓' : '✗'} ${l.text}`).join('\n    '));
-} else if (args[0]) {
+} else if (args[0] && !args[0].startsWith('--')) {
   for (const item of work.filter((w) => w.set.startsWith(args[0]!) && w.unknown.length <= Number(args[1] ?? 1))) console.log(`${item.cardId} L${item.level} ${item.kind}: ${item.unknown.join(' ｜ ')}`);
 } else {
   const top = Number(process.env.TOP ?? 25);

@@ -1,0 +1,23 @@
+[
+ {
+  "date": "2026-11-15",
+  "title": "L3-1 共通構件",
+  "done": "手牌中降 Level、區域張數條件、A 或 B 條件、選擇其中一個效果、效果內支付 Cost、選目的地、Clock 頂放 Stock、攻擊結束時、多次 Trigger Check、放置當回合、不被對手選擇、對手 Climax 觸發、Stand 中的這張卡作 Cost、加入手牌的話、思い出選擇",
+  "next": "見 CARD_WORKLIST.md 首項",
+  "playable": 259,
+  "unsupported": 350,
+  "level3Playable": 6,
+  "level3Open": 57,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 46,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 40,
+   "STS_W140": 27,
+   "ANM_W138": 28,
+   "NIK_S135": 35
+  }
+ }
+]

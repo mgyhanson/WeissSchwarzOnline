@@ -54,6 +54,10 @@ export type PromptId =
   | 'COST_CHARACTERS'
   /** 自分か相手の…: choose whose cards an effect applies to (options YOU, OPPONENT). */
   | 'EFFECT_PLAYER'
+  /** 次のNつの効果のうち…: choose which of the effects to perform (options EFFECT_1, EFFECT_2, ...). */
+  | 'EFFECT_OPTION'
+  /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
+  | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
   | 'LOOK_NEXT'
   /** Choose a slot for a card ability. */

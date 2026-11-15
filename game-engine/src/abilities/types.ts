@@ -33,6 +33,7 @@ export interface CardFilter {
   levelMax?: number;
   levelMin?: number;
   costMax?: number;
+  costMin?: number;
   color?: string;
   hasTrigger?: TriggerIcon;
 }
@@ -66,10 +67,20 @@ export type Condition =
   | { if: 'FACING'; filter: CardFilter }
   /** それらのカードに…があるなら: the cards moved by the most recent DECK_TOP of this resolution (inside IF only). */
   | { if: 'LAST_MOVED'; min: number; filter?: CardFilter }
-  /** …してよい。そうしたら、…: the instruction just before (a MOVE or CLOCK_TOP of this resolution) moved at least one card (inside IF only). */
+  /** …してよい。そうしたら、… / 手札に加えたなら: the instruction just before (a MOVE, CLOCK_TOP or LOOK_TOP of this resolution) moved at least one card (inside IF only). */
   | { if: 'DID' }
+  /**
+   * …がN枚以上/以下、…がいる for cards that are not your characters on the stage: how many cards of a kind are
+   * in a zone. `min` defaults to 0 and `max` to no limit. In memory, a face-down card matches no filter.
+   */
+  | { if: 'COUNT'; where: CountWhere; filter?: CardFilter; other?: boolean; min?: number; max?: number }
+  /** …か…: at least one of the conditions holds. */
+  | { if: 'ANY'; of: Condition[] }
   | { if: 'ALL'; of: Condition[] }
   | { if: 'NOT'; of: Condition };
+
+/** Where a COUNT condition counts. */
+export type CountWhere = 'YOUR_WAITING_ROOM' | 'YOUR_HAND' | 'YOUR_MEMORY' | 'YOUR_CLIMAX' | 'YOUR_FRONT_ROW' | 'OPPONENT_STAGE' | 'OPPONENT_FRONT_ROW';
 
 /** One action of a cost (CR-8.4). Costs are paid in the order listed (CR-8.4.2.1). */
 export type Cost =
@@ -80,7 +91,8 @@ export type Cost =
   /** 手札の…をN枚控え室に置く */
   | { pay: 'DISCARD'; count: number; filter?: CardFilter }
   /** (手札の)このカードを控え室に置く */
-  | { pay: 'SELF_TO_WAITING_ROOM' }
+  /** (手札の/【スタンド】している)このカードを控え室に置く; `standing`: only while it is standing. */
+  | { pay: 'SELF_TO_WAITING_ROOM'; standing?: boolean }
   /** 自分の山札の上から1枚をクロック置場に置く (the cost of 加速, CR-10.12) */
   | { pay: 'DECK_TOP_TO_CLOCK' }
   /** このカードをクロック置場に置く */
@@ -129,7 +141,11 @@ export type ChooseFrom =
   /** 相手の後列のキャラ */
   | 'OPPONENT_BACK_ROW'
   /** 相手のクライマックス置場のクライマックス */
-  | 'OPPONENT_CLIMAX';
+  | 'OPPONENT_CLIMAX'
+  /** 相手の控え室のカード */
+  | 'OPPONENT_WAITING_ROOM'
+  /** 自分の思い出置場の…: face-up cards only (a face-down card has no name or traits, CR-3.12.2.2.1). */
+  | 'YOUR_MEMORY';
 
 export type Destination =
   | 'HAND'
@@ -164,7 +180,7 @@ export type Effect =
    */
   | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
-  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean }
+  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**
    * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
    * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
@@ -196,7 +212,7 @@ export type Effect =
    */
   | { do: 'CHOOSE_SLOT'; which: 'ANY' | 'EMPTY_BACK' }
   /** 自分のクロックの上から1枚を、控え室に置く; `whose: 'OPPONENT'`: 相手のクロックの上から1枚を… */
-  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM'; whose?: 'OPPONENT' }
+  | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' | 'STOCK'; whose?: 'OPPONENT'; /** 1枚までを: the player may leave it. */ optional?: boolean }
   /**
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
@@ -208,13 +224,19 @@ export type Effect =
    * taken stays where it was (元に戻す) and is no longer shown.
    */
   | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[] }
+  /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
+  | { do: 'TRIGGER_CHECKS'; count: number }
+  /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
+  | { do: 'CHOOSE_ONE'; options: Effect[][] }
+  /** ［cost］ あなたはコストを払ってよい。そうしたら、… inside an effect: an optional payment, then what it buys. */
+  | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[] }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
   | { do: 'GRANT'; target: Target; ability: AutoAbility; until?: 'NEXT_OPPONENT_TURN' };
 
 /** The trigger condition of an automatic ability (CR-8.1.1.2.1). */
 export type Trigger =
   /** このカードが(手札から)舞台に置かれた時; HAND_OR_CHANGE: 手札から舞台に置かれた時か『チェンジ』で舞台に置かれた時 */
-  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' | 'HAND_OR_CHANGE' }
+  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' | 'HAND_OR_CHANGE' | 'HAND_OR_MEMORY' }
   /** このカードが手札からクライマックス置場に置かれた時 */
   | { on: 'THIS_CLIMAX_PLACED' }
   /** あなたのキャラのトリガーチェックで…がでた時 */
@@ -222,18 +244,21 @@ export type Trigger =
   /** あなたがこのカードの『助太刀』を使った時 (CR-10.5.3) */
   | { on: 'USED_BACKUP' }
   /** このカードがアタックした時 */
-  | { on: 'ATTACKS' }
+  /** このカードがアタックした時; `placedThisTurn`: …手札から舞台に置かれたターン中、… */
+  | { on: 'ATTACKS'; placedThisTurn?: boolean }
+  /** このカードのアタックの終わりに (CR-7.5.1.4 / CR-7.6.1.5) */
+  | { on: 'ATTACK_END' }
   /** 他のあなたの…のキャラがアタックした時: another character of yours, matching the filter, attacks. */
   | { on: 'OTHER_ATTACKS'; filter?: CardFilter }
   /** このカードが【リバース】した時; `inBattle`: バトル中のこのカードが【リバース】した時 (CR-7.2.1.5.1) */
   | { on: 'REVERSED'; inBattle?: boolean }
   /** このカードのバトル相手が【リバース】した時 */
   /** このカードのバトル相手(でレベルN以上のキャラ)が【リバース】した時; `filter`: what the reversed character must be when it is reversed. */
-  | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter }
+  | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter; placedThisTurn?: boolean }
   /** (あなたの/相手の)…フェイズの始めに */
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
-  | { on: 'CLIMAX_PLACED'; filter?: CardFilter }
+  | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean }
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */
@@ -270,6 +295,13 @@ export interface ContinuousAbility {
    * card of its master's clock, and not otherwise.
    */
   alarm?: boolean;
+  /** このカードは相手の効果に選ばれない: the opponent's effects cannot choose this card (CR-8.6.3.1). */
+  untargetable?: boolean;
+  /**
+   * あなたの手札のこのカードの…: the ability works while this card is in its master's hand, and only there
+   * (CR-2.12.2.3). It applies to this card itself.
+   */
+  inHand?: boolean;
   /**
    * 大活躍 (CR-10.6.2): while this character is in its master's front-centre
    * slot and not reversed, a character of the opponent that attacks makes a

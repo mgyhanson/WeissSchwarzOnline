@@ -124,6 +124,8 @@ export interface CardInstance {
    * any move). Cards with the same number arrived simultaneously (CR-9.6.2.1).
    */
   enteredBatch: number;
+  /** このカードが手札から舞台に置かれたターン: the turn number it was put on the stage from the hand; cleared when it moves again (not slot to slot). */
+  placedFromHandTurn?: number;
   /** Non-null exactly while the card is in a stage slot. */
   orientation: Orientation | null;
   face: Face;
@@ -186,6 +188,8 @@ export interface AttackState {
   /** CR-7.2.1.5.1: the defending character of a front attack; null otherwise. */
   defenderObjectId: number | null;
   defenderSlot: SlotId | null;
+  /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う: how many trigger checks this attack's trigger step makes (default 1). */
+  triggerChecks?: number;
 }
 
 /**

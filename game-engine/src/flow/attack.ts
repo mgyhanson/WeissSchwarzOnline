@@ -21,6 +21,7 @@ import type { CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { FRONT_SLOTS, facingSlot } from '../zones';
 import { attackerInstance, characterInSlot, defenderInstance } from './attack-state';
+import { registerAttackEnd } from './autos';
 import { ask, emit, findObject, popFrame, pushCheckTiming, pushFrame, takeAnswer, topOf } from './core';
 import { pushDamage } from './damage';
 import type { Frame } from './frames';
@@ -257,7 +258,10 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     case 'TRIGGER_STOCK': {
       // CR-7.3.1.2.3: the card goes face down into the stock, unless an icon
       // already moved it elsewhere (CR-4.14.2.8.1, CR-4.14.2.12.1).
-      frame.step = 'TRIGGER_END';
+      // トリガーチェックをN回行う: the check (CR-7.3.1.2) is made again for each further one.
+      const more = (state.attack?.triggerChecks ?? 1) - 1;
+      if (state.attack && more > 0) state.attack.triggerChecks = more;
+      frame.step = more > 0 ? 'TRIGGER_REVEAL' : 'TRIGGER_END';
       const card = state.instances.find((inst) => inst.objectId === frame.triggerObjectId);
       frame.triggerObjectId = null;
       if (card && card.location.zone === 'resolution') {
@@ -348,9 +352,10 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
     }
 
     case 'ATTACK_END':
-      // CR-7.5.1.4 / CR-7.6.1.5: "at the end of the attack" triggers
-      // (STEP 4d), then a check timing; the sub-phase ends.
+      // CR-7.5.1.4 / CR-7.6.1.5: "at the end of the attack" triggers, then a
+      // check timing; the sub-phase ends.
       frame.step = 'ATTACK_CLEANUP';
+      registerAttackEnd(state);
       pushCheckTiming(ctx);
       return;
 

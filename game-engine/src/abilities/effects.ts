@@ -68,6 +68,10 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         discardsNeeded += cost.count;
         break;
       case 'SELF_TO_WAITING_ROOM':
+        // 【スタンド】しているこのカードを…: only a standing card on the stage can pay.
+        if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
+        if (!sourceIfUnchanged(state, context)) return false;
+        break;
       case 'SELF_TO_CLOCK':
       case 'SELF_TO_MEMORY':
       case 'SELF_TO_DECK_BOTTOM':
@@ -335,11 +339,21 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'MOVE': {
       const targets = resolveTarget(state, context, effect.target);
+      // …に戻すか…に置く: the player says which, when there is something to move.
+      let to = effect.to;
+      if (effect.orTo && targets.length > 0) {
+        if (frame.step === 0) {
+          frame.step = 1;
+          ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_DESTINATION', options: [effect.to, effect.orTo] });
+          return;
+        }
+        to = takeAnswer(ctx, 'SELECT_OPTION').option as typeof effect.to;
+      }
       next();
       // 相手に見せ: shown to everyone before it moves, so the event carries its identity.
       if (effect.reveal) for (const id of targets) revealCard(ctx, id);
       const moves: BatchMove[] = targets.flatMap((instanceId) => {
-        const destination = destinationZone(state, context, instanceId, effect.to);
+        const destination = destinationZone(state, context, instanceId, to);
         if (!destination) return [];
         // CR-10.8.4: a character put on the stage by a チェンジ ability is placed "by change".
         const byChange = destination.zone.zone === 'stage' && (context.keywords ?? []).includes('CHANGE');
@@ -482,9 +496,54 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'CLOCK_TOP': {
       const top = topOf(state.zones[effect.whose === 'OPPONENT' ? opponentOf(master) : master].clock);
-      context.did = top !== undefined;
+      // 1枚までを: the player may leave the card where it is.
+      if (effect.optional && top !== undefined && frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+        return;
+      }
+      const declined = effect.optional && top !== undefined && !takeAnswer(ctx, 'CONFIRM').accept;
+      context.did = top !== undefined && !declined;
       next();
-      if (top !== undefined) moveCard(ctx, top, { player: getInstance(state, top).owner, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+      if (top !== undefined && !declined) moveCard(ctx, top, { player: getInstance(state, top).owner, zone: effect.to === 'STOCK' ? 'stock' : 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
+
+    case 'TRIGGER_CHECKS':
+      next();
+      // Only during an attack of the ability's master, before its trigger step is over.
+      if (state.attack && state.attack.player === master) state.attack.triggerChecks = effect.count;
+      return;
+
+    case 'CHOOSE_ONE': {
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_OPTION', options: effect.options.map((_, i) => `EFFECT_${i + 1}`) });
+        return;
+      }
+      const chosen = Number(takeAnswer(ctx, 'SELECT_OPTION').option.slice('EFFECT_'.length)) - 1;
+      next();
+      pushEffects(ctx, effect.options[chosen] ?? [], context);
+      return;
+    }
+
+    case 'MAY_PAY': {
+      // The cost cannot be paid: nothing is asked and nothing happens (CR-8.4.1.2).
+      if (frame.step === 0 && !canPayCost(state, context, effect.cost)) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'PAY_COST' });
+        return;
+      }
+      const pays = takeAnswer(ctx, 'CONFIRM').accept;
+      next();
+      if (!pays) return;
+      // The cost frame is on top, so it is paid before the effects it buys.
+      pushEffects(ctx, effect.then, context);
+      pushCost(ctx, effect.cost, context);
       return;
     }
 
@@ -582,6 +641,8 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
   // The chosen card to the hand (shown first when the text says so), the rest to the waiting room, together.
   const looked = [...frame.scratch];
   const chosen = context.chosen.map((objectId) => findObject(state, objectId).instanceId);
+  // 手札に加えたなら: whether a card was taken.
+  context.did = chosen.length > 0;
   next();
   if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
   moveBatch(

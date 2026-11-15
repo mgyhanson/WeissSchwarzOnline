@@ -10,7 +10,7 @@ import { emit, findObject, pushFrame } from './flow/core';
 import type { Ctx } from './moves';
 import { moveCard, moveCards, swapSlots } from './moves';
 import { getDef, getInstance } from './state';
-import { availableColors, playerLevel } from './stats';
+import { availableColors, getCardLevel, playerLevel } from './stats';
 import type { CardInstance } from './types';
 import type { CardDef, GameState, PlayerId, SlotId } from './types';
 import { SLOTS } from './types';
@@ -22,15 +22,15 @@ function stockCost(def: CardDef): number {
 }
 
 /** CR-8.6.2.1.1: colour condition. Level 0 characters and events are exempt (CR-8.6.2.1.1.1). */
-function meetsColorCondition(state: GameState, player: PlayerId, def: CardDef): boolean {
-  if (def.kind !== 'CLIMAX' && def.level === 0) return true;
+function meetsColorCondition(state: GameState, player: PlayerId, def: CardDef, level: number): boolean {
+  if (def.kind !== 'CLIMAX' && level === 0) return true;
   return availableColors(state, player).has(def.color);
 }
 
 /** CR-8.6.2.1.2: level condition. Not checked for climaxes (CR-8.6.2.1.2.1). */
-function meetsLevelCondition(state: GameState, player: PlayerId, def: CardDef): boolean {
+function meetsLevelCondition(state: GameState, player: PlayerId, def: CardDef, level: number): boolean {
   if (def.kind === 'CLIMAX') return true;
-  return (def.level ?? 0) <= playerLevel(state, player);
+  return level <= playerLevel(state, player);
 }
 
 /**
@@ -43,8 +43,9 @@ export function canPlayFromHand(state: GameState, player: PlayerId, instanceId: 
   if (inst.location.zone !== 'hand' || inst.location.player !== player) return false;
   const def = getDef(state, instanceId);
   return (
-    meetsColorCondition(state, player, def) &&
-    meetsLevelCondition(state, player, def) &&
+    // The level the card has in the hand: its abilities that work there may lower it (あなたの手札のこのカードのレベルを－N).
+    meetsColorCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId))) &&
+    meetsLevelCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId))) &&
     state.zones[player].stock.length >= stockCost(def)
   );
 }

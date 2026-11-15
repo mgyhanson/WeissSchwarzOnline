@@ -89,6 +89,7 @@ export function matchesFilter(
   if (filter.color !== undefined && def.color !== filter.color) return false;
   if (filter.hasTrigger && !def.triggers.includes(filter.hasTrigger)) return false;
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
+  if (filter.costMin !== undefined && (def.cost ?? 0) < filter.costMin) return false;
   if (filter.levelMax !== undefined || filter.levelMin !== undefined) {
     const level = levelOf(state, instanceId);
     if (filter.levelMax !== undefined && level > filter.levelMax) return false;
@@ -127,6 +128,28 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
       }
       return total >= condition.min;
     }
+    case 'COUNT': {
+      const opponent = state.zones[opponentOf(master)];
+      const characters = (ids: number[]) => ids.filter((id) => getDef(state, id).kind === 'CHARACTER');
+      const pool =
+        condition.where === 'YOUR_WAITING_ROOM'
+          ? zones.waitingRoom
+          : condition.where === 'YOUR_HAND'
+            ? zones.hand
+            : condition.where === 'YOUR_MEMORY'
+              ? zones.memory.filter((id) => !condition.filter || getInstance(state, id).face === 'UP')
+              : condition.where === 'YOUR_CLIMAX'
+                ? zones.climax
+                : condition.where === 'YOUR_FRONT_ROW'
+                  ? characters(FRONT_SLOTS.flatMap((slot) => zones.stage[slot]))
+                  : condition.where === 'OPPONENT_FRONT_ROW'
+                    ? characters(FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]))
+                    : characters(SLOTS.flatMap((slot) => opponent.stage[slot]));
+      const count = pool.filter((id) => !(condition.other && id === source) && matchesFilter(state, id, condition.filter)).length;
+      return count >= (condition.min ?? 0) && count <= (condition.max ?? Infinity);
+    }
+    case 'ANY':
+      return condition.of.some((part) => evalCondition(state, master, source, part, battleOpponent));
     case 'LAST_MOVED':
     case 'DID':
       // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).
@@ -215,7 +238,7 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
   const found: { source: ActiveSource; ability: ContinuousAbility }[] = [];
   for (const source of activeSources(state)) {
     for (const ability of source.def.abilities ?? []) {
-      if (ability.type !== 'CONT') continue;
+      if (ability.type !== 'CONT' || ability.inHand) continue;
       // An アラーム ability works from the top of the clock and only from there.
       if (Boolean(ability.alarm) !== source.clockTop) continue;
       if (ability.assist) {
@@ -231,7 +254,17 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
 }
 
 export function continuousTotal(state: GameState, instanceId: number, stat: Stat): number {
-  if (getInstance(state, instanceId).location.zone !== 'stage') return 0;
+  const location = getInstance(state, instanceId).location;
+  if (location.zone === 'hand') {
+    // あなたの手札のこのカードの…: the card's own abilities that work in the hand.
+    let inHand = 0;
+    for (const ability of getDef(state, instanceId).abilities ?? []) {
+      if (ability.type !== 'CONT' || !ability.inHand || !evalCondition(state, location.player, instanceId, ability.condition)) continue;
+      for (const part of ability.apply) if (part.stat === stat && part.target.who === 'SELF') inHand += part.amount;
+    }
+    return inHand;
+  }
+  if (location.zone !== 'stage') return 0;
   const levelOf = stat === 'LEVEL' ? printedLevel : currentLevel;
   let total = 0;
   for (const { source, ability } of continuousInForce(state)) {
@@ -297,11 +330,25 @@ function turnModifierTotal(state: GameState, instanceId: number, stat: Stat): nu
 }
 
 /** A card's current value of a number: printed value, continuous abilities, then effects lasting this turn. */
+/**
+ * Cards whose level is being worked out. A continuous ability whose condition looks at levels (for example
+ * 相手のレベル2以上のキャラがいるなら、あなたの手札のこのカードのレベルを－1) is evaluated while levels are worked out;
+ * a card met again on the way gets its level without continuous changes, so the evaluation ends.
+ */
+const levelsInProgress = new Set<number>();
+
 export function currentStat(state: GameState, instanceId: number, stat: Stat): number {
   const def = getDef(state, instanceId);
   const printed = stat === 'POWER' ? def.power : stat === 'SOUL' ? def.soul : def.level;
   // CR-2.19.1: a number the card does not have counts as 0.
-  return (printed ?? 0) + continuousTotal(state, instanceId, stat) + turnModifierTotal(state, instanceId, stat);
+  if (stat !== 'LEVEL') return (printed ?? 0) + continuousTotal(state, instanceId, stat) + turnModifierTotal(state, instanceId, stat);
+  if (levelsInProgress.has(instanceId)) return (printed ?? 0) + turnModifierTotal(state, instanceId, stat);
+  levelsInProgress.add(instanceId);
+  try {
+    return (printed ?? 0) + continuousTotal(state, instanceId, stat) + turnModifierTotal(state, instanceId, stat);
+  } finally {
+    levelsInProgress.delete(instanceId);
+  }
 }
 
 function currentLevel(state: GameState, instanceId: number): number {
@@ -399,6 +446,12 @@ export function chooseCandidates(
       pool = FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]).filter((id) => getDef(state, id).kind === 'CHARACTER');
       break;
     }
+    case 'OPPONENT_WAITING_ROOM':
+      pool = [...state.zones[opponentOf(master)].waitingRoom];
+      break;
+    case 'YOUR_MEMORY':
+      pool = zones.memory.filter((id) => getInstance(state, id).face === 'UP');
+      break;
     case 'OPPONENT_BACK_ROW': {
       const opponent = state.zones[opponentOf(master)];
       pool = BACK_SLOTS.flatMap((slot) => opponent.stage[slot]).filter((id) => getDef(state, id).kind === 'CHARACTER');
@@ -408,5 +461,15 @@ export function chooseCandidates(
       pool = state.zones[opponentOf(master)].climax.filter((id) => getDef(state, id).kind === 'CLIMAX');
       break;
   }
-  return pool.filter((id) => !(other && id === context.source) && matchesFilter(state, id, filter));
+  return pool.filter((id) => !(other && id === context.source) && matchesFilter(state, id, filter) && !shielded(state, master, id));
+}
+
+/**
+ * このカードは相手の効果に選ばれない: a character on the stage of the chooser's opponent whose continuous
+ * ability in force says so cannot be chosen by the chooser's effects.
+ */
+function shielded(state: GameState, chooser: PlayerId, instanceId: number): boolean {
+  const inst = getInstance(state, instanceId);
+  if (inst.location.zone !== 'stage' || inst.location.player === chooser) return false;
+  return continuousInForce(state).some(({ source, ability }) => ability.untargetable === true && source.instanceId === instanceId);
 }

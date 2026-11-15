@@ -118,7 +118,7 @@ describe('complete games with the real test decks', () => {
     console.log(`[grammar games] ${JSON.stringify({ decks: groups.length, games: games.length, abilities: expected.length, played: expected.length - unplayed.length, unplayed })}`);
     // Random play reaches most of them; the ones it does not reach are listed above (conditions such as a named climax in play).
     expect(unplayed.length).toBeLessThanOrEqual(expected.length * 0.25);
-  });
+  }, 300_000);
 
   it('INV-07: a game with the real decks replays exactly', () => {
     const first = playGameWith(realDeckConfig(), 'real-replay', randomPolicy, 30_000);

@@ -21,7 +21,7 @@
 
 import type { Ability, AutoAbility, CardFilter, Condition, Cost, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
 import { encore } from '@wso/game-engine';
-import { type LineParts, splitLine } from './fragments';
+import { type LineParts, splitCost, splitLine } from './fragments';
 import { TRIGGER_ICONS } from './official';
 
 /** What a part means, and how to say it in Chinese. */
@@ -94,6 +94,20 @@ function parseOneFilter(text: string, bare: 'STAGE' | 'ZONE'): Out<CardFilter | 
 const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
   [/^このカードが手札から舞台に置かれた時$/, () => out({ on: 'PLACED_ON_STAGE', from: 'HAND' }, '這張卡由手牌放到舞台時')],
   [/^このカードがアタックした時$/, () => out({ on: 'ATTACKS' }, '這張卡攻擊時')],
+  [/^このカードが手札から舞台に置かれたターン中、このカードがアタックした時$/, () => out({ on: 'ATTACKS', placedThisTurn: true }, '這張卡由手牌放到舞台的回合中，這張卡攻擊時')],
+  [
+    /^このカードが手札から舞台に置かれたターン中、このカードのバトル相手が【リバース】した時$/,
+    () => out({ on: 'BATTLE_OPPONENT_REVERSED', placedThisTurn: true }, '這張卡由手牌放到舞台的回合中，這張卡的戰鬥對手被 Reverse 時'),
+  ],
+  [/^このカードのアタックの終わりに$/, () => out({ on: 'ATTACK_END' }, '這張卡的攻擊結束時')],
+  [/^このカードのアタックの終わりかこのカードが【リバース】した時$/, () => out({ on: 'EITHER', of: [{ on: 'ATTACK_END' }, { on: 'REVERSED' }] }, '這張卡的攻擊結束時，或這張卡被 Reverse 時')],
+  [
+    /^このカードが手札から舞台に置かれた時か舞台から控え室に置かれた時$/,
+    () => out({ on: 'EITHER', of: [{ on: 'PLACED_ON_STAGE', from: 'HAND' }, { on: 'STAGE_TO_WAITING_ROOM' }] }, '這張卡由手牌放到舞台時，或由舞台放到控え室時'),
+  ],
+  [/^相手のCXがCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED', opponent: true }, '對手的 Climax 放到 Climax 置場時')],
+  [/^このカードが手札か思い出置場から舞台に置かれた時$/, () => out({ on: 'PLACED_ON_STAGE', from: 'HAND_OR_MEMORY' }, '這張卡由手牌或思い出放到舞台時')],
+  [/^あなたのCX置場に「([^」]+)」が置かれた時$/, (m) => out({ on: 'CLIMAX_PLACED', filter: { name: m[1]! } }, `我方的 Climax 置場放置了「${m[1]}」時`)],
   [
     /^このカードが手札から舞台に置かれた時かアタックした時$/,
     () => out({ on: 'EITHER', of: [{ on: 'PLACED_ON_STAGE', from: 'HAND' }, { on: 'ATTACKS' }] }, '這張卡由手牌放到舞台時，或這張卡攻擊時'),
@@ -135,6 +149,8 @@ export function parseCostAction(raw: string): Out<Cost> {
   if ((m = /^\((\d+)\)$/.exec(text))) return out({ pay: 'STOCK', count: n(m[1]) }, `(${m[1]})`);
   if (text === 'このカードを【レスト】する') return out({ pay: 'REST_SELF' }, '把這張卡 Rest');
   if (text === 'このカードを控え室に置く') return out({ pay: 'SELF_TO_WAITING_ROOM' }, '把這張卡放到控え室');
+  if (text === '【スタンド】しているこのカードを控え室に置く') return out({ pay: 'SELF_TO_WAITING_ROOM', standing: true }, '把 Stand 中的這張卡放到控え室');
+  if (text === '【スタンド】しているこのカードを【レスト】する') return out({ pay: 'REST_SELF' }, '把 Stand 中的這張卡 Rest');
   if (text === 'このカードを思い出にする') return out({ pay: 'SELF_TO_MEMORY' }, '把這張卡放到思い出');
   if (text === 'このカードをクロック置場に置く') return out({ pay: 'SELF_TO_CLOCK' }, '把這張卡放到 Clock');
   if (text === 'このカードを山札の下に置く') return out({ pay: 'SELF_TO_DECK_BOTTOM' }, '把這張卡放到山札底');
@@ -199,6 +215,52 @@ function parseOneCondition(text: string): Out<Condition> {
     const some = parseOneCondition(`${m[1]}がいる`);
     if (some?.data.if === 'CHARACTERS') return out({ if: 'NOT', of: some.data }, `沒有${some.zh.replace(/有 1 張或以上$/, '')}`);
   }
+  // Cards counted in a zone, or the opponent's characters.
+  const bounds = (count: string | undefined, bound: string | undefined) => (count === undefined ? { min: 1 } : bound === '以上' ? { min: n(count) } : { max: n(count) });
+  const boundsZh = (count: string | undefined, bound: string | undefined) => (count === undefined ? '至少有 1 張' : `有 ${count} 張${bound === '以上' ? '或以上' : '或以下'}`);
+  if ((m = /^あなたの控え室の(.+?)が(\d+)枚(以下|以上)$/.exec(text))) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    if (filter) return out({ if: 'COUNT', where: 'YOUR_WAITING_ROOM', ...(filter.data ? { filter: filter.data } : {}), ...bounds(m[2], m[3]) }, `我方控え室的${filter.zh}${boundsZh(m[2], m[3])}`);
+  }
+  if ((m = /^あなたの(手札|思い出)が(\d+)枚(以下|以上)$/.exec(text))) {
+    return out({ if: 'COUNT', where: m[1] === '手札' ? 'YOUR_HAND' : 'YOUR_MEMORY', ...bounds(m[2], m[3]) }, `我方${m[1] === '手札' ? '手牌' : '思い出'}${boundsZh(m[2], m[3])}`);
+  }
+  if ((m = /^相手の(前列の)?(.+?)が(?:(\d+)枚(以下|以上)|いる)$/.exec(text))) {
+    const filter = parseFilter(m[2]!, 'STAGE');
+    if (filter && (!filter.data || filter.data.kind === 'CHARACTER' || filter.data.levelAboveMasterLevel)) {
+      return out(
+        { if: 'COUNT', where: m[1] ? 'OPPONENT_FRONT_ROW' : 'OPPONENT_STAGE', ...(filter.data ? { filter: filter.data } : {}), ...bounds(m[3], m[4]) },
+        `對手${m[1] ? '前列' : ''}的${filter.zh}${boundsZh(m[3], m[4])}`,
+      );
+    }
+  }
+  if ((m = /^(他の)?あなたの前列の(.+?)が(?:(\d+)枚(以上)|いる)$/.exec(text))) {
+    const filter = parseFilter(m[2]!, 'STAGE');
+    if (filter && (!filter.data || filter.data.kind === 'CHARACTER' || filter.data.name !== undefined)) {
+      return out(
+        { if: 'COUNT', where: 'YOUR_FRONT_ROW', ...(filter.data ? { filter: filter.data } : {}), ...(m[1] ? { other: true } : {}), ...bounds(m[3], m[4]) },
+        `我方前列${m[1] ? '其他' : ''}的${filter.zh}${boundsZh(m[3], m[4])}`,
+      );
+    }
+  }
+  if ((m = /^あなたのCX置場に(トリガーアイコンが\[\[[a-z]+\.gif\]\]のCX)がある$/.exec(text))) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    if (filter?.data) return out({ if: 'COUNT', where: 'YOUR_CLIMAX', filter: filter.data, min: 1 }, `我方 Climax 置場有${filter.zh}`);
+  }
+  if ((m = /^あなたの、?「([^」]+)」と「([^」]+)」がいる$/.exec(text))) {
+    return out({ if: 'ALL', of: [{ if: 'CHARACTERS', min: 1, filter: { name: m[1]! } }, { if: 'CHARACTERS', min: 1, filter: { name: m[2]! } }] }, `我方有「${m[1]}」及「${m[2]}」`);
+  }
+  if ((m = /^あなたか相手の、?(.+)がいる$/.exec(text))) {
+    const filter = parseFilter(m[1]!, 'STAGE');
+    if (filter?.data && filter.data.kind === 'CHARACTER') {
+      return out({ if: 'ANY', of: [{ if: 'CHARACTERS', min: 1, filter: filter.data }, { if: 'COUNT', where: 'OPPONENT_STAGE', filter: filter.data, min: 1 }] }, `我方或對手有${filter.zh}`);
+    }
+  }
+  if ((m = /^(.+が)(\d+)枚以下か(\d+)枚以上$/.exec(text))) {
+    const low = parseOneCondition(`${m[1]}${m[2]}枚以下`);
+    const high = parseOneCondition(`${m[1]}${m[3]}枚以上`);
+    if (low && high) return out({ if: 'ANY', of: [low.data, high.data] }, `${low.zh}，或${high.zh.replace(/^.*?有 /, '有 ')}`);
+  }
   if ((m = /^(?:あなたの)?CX置場に「([^」]+)」がある$/.exec(text))) return out({ if: 'CLIMAX_IN_PLAY', name: m[1]! }, `Climax 置場有「${m[1]}」`);
   if (text === 'あなたのCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY' }, '我方 Climax 置場有 Climax');
   if ((m = /^あなたのレベルが(\d+)以上$/.exec(text))) return out({ if: 'LEVEL', min: n(m[1]) }, `我方 Level ${m[1]} 或以上`);
@@ -219,6 +281,7 @@ function parseOneCondition(text: string): Out<Condition> {
   if (text === 'このカードのバトル相手のレベルが相手のレベルより高い') {
     return out({ if: 'BATTLE_OPPONENT', filter: { levelAboveMasterLevel: true } }, '這張卡的戰鬥對手的 Level 高於對手玩家的 Level');
   }
+  if ((m = /^このカードの正面のキャラのコストが(\d+)以上$/.exec(text))) return out({ if: 'FACING', filter: { costMin: n(m[1]) } }, `這張卡正面的角色 Cost ${m[1]} 或以上`);
   if ((m = /^このカードの正面のキャラのレベルが(\d+)(以上|以下)?$/.exec(text))) {
     const filter: CardFilter = m[2] === '以上' ? { levelMin: n(m[1]) } : m[2] === '以下' ? { levelMax: n(m[1]) } : { levelMin: n(m[1]), levelMax: n(m[1]) };
     return out({ if: 'FACING', filter }, `這張卡正面的角色 Level ${m[1]}${m[2] === '以上' ? ' 或以上' : m[2] === '以下' ? ' 或以下' : ''}`);
@@ -230,11 +293,18 @@ function parseOneCondition(text: string): Out<Condition> {
 export function parseCondition(text: string): Out<Condition> {
   const whole = parseOneCondition(text);
   if (whole) return whole;
+  // "AかB": either condition, each known by itself.
+  for (let i = text.indexOf('か'); i > 0; i = text.indexOf('か', i + 1)) {
+    const a = parseOneCondition(text.slice(0, i));
+    const b = parseOneCondition(text.slice(i + 1));
+    if (a && b) return out({ if: 'ANY', of: [a.data, b.data] }, `${a.zh}，或${b.zh}`);
+  }
   const joins: [RegExp, string][] = [
     [/^(あなたのターン中|相手のターン中)、(.+)$/, ''],
     [/^(.+?があ)り、(.+)$/, 'る'],
     [/^(.+?がい)て、(.+)$/, 'る'],
     [/^(.+?》)で、(.+)$/, ''],
+    [/^(.+?以[上下])で、(.+)$/, ''],
   ];
   for (const [re, ending] of joins) {
     const m = re.exec(text);
@@ -243,7 +313,7 @@ export function parseCondition(text: string): Out<Condition> {
     const right = parseCondition(m[2]!);
     if (!left || !right) continue;
     const rest = right.data.if === 'ALL' ? right.data.of : [right.data];
-    return out({ if: 'ALL', of: [left.data, ...rest] }, `${left.zh}，而且${right.zh}`);
+    return out({ if: 'ALL', of: [...(left.data.if === 'ALL' ? left.data.of : [left.data]), ...rest] }, `${left.zh}，而且${right.zh}`);
   }
   return null;
 }
@@ -288,6 +358,11 @@ const ORIENTATIONS: Record<string, ['STAND' | 'REST' | 'REVERSE', string]> = { '
 /** What is done to a target: moved, turned, or its numbers changed for a while. */
 function parseAction(text: string, target: Target, noun: string): Out<Effect[]> {
   if (DESTINATIONS[text]) return out([{ do: 'MOVE', target, to: DESTINATIONS[text]![0] }], `把${noun}${DESTINATIONS[text]![1]}`);
+  const either = /^(.+?す)か(.+)$/.exec(text);
+  if (either && DESTINATIONS[either[1]!] && DESTINATIONS[either[2]!]) {
+    return out([{ do: 'MOVE', target, to: DESTINATIONS[either[1]!]![0], orTo: DESTINATIONS[either[2]!]![0] }], `把${noun}${DESTINATIONS[either[1]!]![1]}或${DESTINATIONS[either[2]!]![1]}（自己選）`);
+  }
+  if (text === '舞台の好きな枠に【レスト】して置く' && target.who === 'CHOSEN') return out([{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target, to: 'CHOSEN_SLOT', rested: true }], '以 Rest 狀態放到我方舞台上自己選的枠');
   if (text === '舞台の好きな枠に置く' && target.who === 'CHOSEN') return out([{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target, to: 'CHOSEN_SLOT' }], `放到我方舞台上自己選的枠`);
   if (ORIENTATIONS[text]) return out([{ do: 'ORIENT', target, to: ORIENTATIONS[text]![0] }], `把${noun} ${ORIENTATIONS[text]![1]}`);
   const timed = DURATION.exec(text);
@@ -386,6 +461,7 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
 
   // Drawing, damage, the top of the deck and of the clock.
   if ((m = /^(\d+)枚引く$/.exec(text))) return out([{ do: 'DRAW', count: n(m[1]) }], `抽 ${m[1]} 張`);
+  if ((m = /^そのアタック中、(?:あなたは)?トリガーステップにトリガーチェックを(\d+)回行う$/.exec(sentence))) return out([{ do: 'TRIGGER_CHECKS', count: n(m[1]) }], `這次攻擊的 Trigger 步驟進行 ${m[1]} 次 Trigger Check`);
   if ((m = /^(\d+)枚引き、自分の手札を(\d+)枚選び、控え室に置く$/.exec(text))) {
     return out(
       [{ do: 'DRAW', count: n(m[1]) }, { do: 'CHOOSE', from: 'YOUR_HAND', min: n(m[2]), max: n(m[2]) }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }],
@@ -394,6 +470,21 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   }
   if ((m = /^相手に(\d+)ダメージを与える$/.exec(text))) return out([{ do: 'DAMAGE', amount: n(m[1]) }], `給予對手 ${m[1]} 點傷害`);
   if (text === '自分のクロックの上から1枚を、控え室に置く') return out([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM' }], '把自己 Clock 最上面 1 張放到控え室');
+  if (text === '自分のクロックの上から1枚を、ストック置場に置く') return out([{ do: 'CLOCK_TOP', to: 'STOCK' }], '把自己 Clock 最上面 1 張放到 Stock');
+  if ((m = /^自分のクロックの上から1枚までを、控え室に置き、(そのターン中、このカードの.+)$/.exec(text))) {
+    const then = parseAction(m[1]!.replace('このカードの', ''), { who: 'SELF' }, '這張卡');
+    if (then) return out([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', optional: true }, ...then.data], `可以把自己 Clock 最上面 1 張放到控え室，然後${then.zh}`);
+  }
+  if ((m = new RegExp(`^相手の控え室の(.+?)を${COUNT}選び、(.+)$`).exec(text))) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    const action = filter && parseAction(m[4]!, { who: 'CHOSEN' }, '');
+    if (filter && action) {
+      return out(
+        [{ do: 'CHOOSE', from: 'OPPONENT_WAITING_ROOM', ...(filter.data ? { filter: filter.data } : {}), ...range(m[2], m[3]) }, ...action.data],
+        `從對手的控え室選${countZh(m[2], m[3])}${filter.zh}，${action.zh}`,
+      );
+    }
+  }
   if (text === '相手のクロックの上から1枚を、控え室に置く') return out([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', whose: 'OPPONENT' }], '把對手 Clock 最上面 1 張放到控え室');
   if ((m = /^自分の山札の上から(\d+)枚を、(ストック置場|控え室|クロック置場)に置く$/.exec(text))) {
     const to = m[2] === 'ストック置場' ? 'STOCK' : m[2] === '控え室' ? 'WAITING_ROOM' : 'CLOCK';
@@ -426,6 +517,44 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   return null;
 }
 
+/** One quoted effect of a choice: plain effect sentences, or "［cost］ あなたはコストを払ってよい。そうしたら、…". */
+function parseQuotedEffect(inner: string, battle: boolean): Out<Effect[]> {
+  const paid = /^［([^］]*)］ ?あなたはコストを払ってよい。そうしたら、(.+)$/.exec(inner);
+  const sentences = (paid ? paid[2]! : inner).split('。').filter((s) => s !== '');
+  if (sentences.some((s) => s.startsWith('そうしたら、') || plainForm(s) !== null)) return null;
+  const effects = parseEffects(sentences, battle);
+  if (!effects || !paid) return effects;
+  const cost = parseCost(splitCost(paid[1]!));
+  return cost && out([{ do: 'MAY_PAY', cost: cost.data, then: effects.data }], `可以支付 [${cost.zh}]，支付後${effects.zh}`);
+}
+
+/**
+ * Which effect sentences are not known, for the work list: sentences that only make sense together
+ * (集中, a choice of effects, a revealed card, a given ability) are judged together, and inside a
+ * choice each quoted effect is judged by itself.
+ */
+function unknownEffects(sentences: string[], battle: boolean): Unknown[] {
+  const found: Unknown[] = [];
+  for (let i = 0; i < sentences.length; i++) {
+    const s = sentences[i]!;
+    const next = sentences[i + 1];
+    if (/^(?:あなたは)?次の\dつの効果のうちあなたが選んだ1つを行う$/.test(s) && next?.startsWith('『')) {
+      for (const q of [...next.matchAll(/『([^『』]+)』/g)]) if (!parseQuotedEffect(q[1]!, battle)) found.push({ part: 'EFFECT', text: `選擇其一: ${q[1]}` });
+      if (found.length === 0) found.push({ part: 'EFFECT', text: s });
+      i++;
+      continue;
+    }
+    const pair = next !== undefined && (/山札の上から\d+枚をめくり、控え室に置く$|山札の上から1枚を公開する$|次の能力を与える$/.test(s));
+    if (pair) {
+      if (!parseEffects([s, next!], battle)) found.push({ part: 'EFFECT', text: `${s}。${next}` });
+      i++;
+      continue;
+    }
+    if (!parseEffects([s], battle)) found.push({ part: 'EFFECT', text: s });
+  }
+  return found;
+}
+
 /** The effect sentences of an ability, in order. 集中 takes two sentences. */
 function parseEffects(sentences: string[], battle: boolean): Out<Effect[]> {
   const effects: Effect[] = [];
@@ -443,6 +572,18 @@ function parseEffects(sentences: string[], battle: boolean): Out<Effect[]> {
       i++;
       continue;
     }
+    // "次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』": the player chooses one of the quoted effects.
+    const choice = /^(?:あなたは)?次の(\d)つの効果のうちあなたが選んだ1つを行う$/.exec(sentences[i]!);
+    if (choice) {
+      const quoted = [...(sentences[i + 1] ?? '').matchAll(/『([^『』]+)』/g)].map((q) => q[1]!);
+      if (quoted.length !== n(choice[1]) || quoted.map((q) => `『${q}』`).join('') !== sentences[i + 1]) return null;
+      const options = quoted.map((q) => parseQuotedEffect(q, battle));
+      if (options.some((o) => o === null)) return null;
+      effects.push({ do: 'CHOOSE_ONE', options: options.map((o) => o!.data) });
+      zh.push(`從以下 ${quoted.length} 個效果選 1 個執行：${options.map((o, k) => `（${k + 1}）${o!.zh}`).join('；')}`);
+      i++;
+      continue;
+    }
     // "自分の山札の上から1枚を公開する。そのカードが…なら…": the card is taken into the hand, or something else is done.
     const shown = sentences[i] === 'あなたは自分の山札の上から1枚を公開する' ? /^そのカードが(.+?)なら(手札に加える|手札に加え、(.+)|、(.+))$/.exec(sentences[i + 1] ?? '') : null;
     if (sentences[i] === 'あなたは自分の山札の上から1枚を公開する') {
@@ -454,6 +595,16 @@ function parseEffects(sentences: string[], battle: boolean): Out<Effect[]> {
       effects.push({ do: 'REVEAL_TOP', filter: filter.data, ...(take ? { take: true } : {}), ...(then ? { then: then.data } : {}) });
       zh.push(`公開自己山札頂 1 張：如果是${filter.zh}，${take ? '加入手牌' : ''}${then ? `${take ? '，然後' : ''}${then.zh}` : ''}（否則放回原處）`);
       i++;
+      continue;
+    }
+    // "手札に加えたなら、…": only if the search or look just before put a card into the hand.
+    const added = /^手札に加えたなら、(.+)$/.exec(sentences[i]!);
+    const lastEffect = effects[effects.length - 1];
+    if (added && (lastEffect?.do === 'LOOK_TOP' || (lastEffect?.do === 'SHUFFLE' && effects[effects.length - 2]?.do === 'MOVE'))) {
+      const then = parseEffects([added[1]!], battle);
+      if (!then) return null;
+      effects.push({ do: 'IF', condition: { if: 'DID' }, then: then.data });
+      zh.push(`加入了手牌的話，${then.zh}`);
       continue;
     }
     // "…、次の能力を与える。『…』": the ability given is the next, quoted sentence.
@@ -554,7 +705,7 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   }
   const battle = trigger?.data.on === 'BATTLE_OPPONENT_REVERSED' || parts.conditions.some((c) => c.includes('バトル相手'));
   const effects = parseEffects(sentences, battle);
-  if (!effects) for (const s of sentences) if (!parseEffects([s], battle)) unknown.push({ part: 'EFFECT', text: s });
+  if (!effects) unknown.push(...unknownEffects(sentences, battle));
   if (unknown.length > 0 || !trigger || !cost || !condition || !effects) return null;
 
   const ability: AutoAbility = {
@@ -587,7 +738,7 @@ function activated(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
     return null;
   }
   const effects = parseEffects(parts.effects, false);
-  if (!effects) for (const s of parts.effects) if (!parseEffects([s], false)) unknown.push({ part: 'EFFECT', text: s });
+  if (!effects) unknown.push(...unknownEffects(parts.effects, false));
   if (effects && brainstorm !== (effects.data[0]?.do === 'BRAINSTORM')) unknown.push({ part: 'SHAPE', text: '集中' });
   if (unknown.length > 0 || !cost || !effects || !condition) return null;
   if (condition.data && brainstorm) return null;
@@ -642,6 +793,33 @@ function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: texts[i]! }));
   const condition = allOf(conditions);
 
+  if (sentence === 'このカードは相手の効果に選ばれない' && given.length === 0) {
+    if (unknown.length > 0 || !condition || condition.data) return null;
+    return { ability: { type: 'CONT', untargetable: true, apply: [] }, zh: '【永】這張卡不會被對手的效果選擇。' };
+  }
+  const perMatch = /^(他の)?あなたの(.+?)(\d+)枚につき、このカードの(パワー|ソウル)を＋(\d+)$/.exec(sentence);
+  if (perMatch && perMatch[3] === '1' && given.length === 0) {
+    const filter = parseFilter(perMatch[2]!, 'STAGE');
+    if (unknown.length > 0 || !condition || !filter || (filter.data && filter.data.kind !== 'CHARACTER')) return null;
+    const stat = perMatch[4] === 'パワー' ? 'POWER' : 'SOUL';
+    return {
+      ability: {
+        type: 'CONT',
+        ...(condition.data ? { condition: condition.data } : {}),
+        apply: [{ target: { who: 'SELF' }, stat, amount: n(perMatch[5]), per: { ...(filter.data ? { filter: filter.data } : {}), ...(perMatch[1] ? { other: true } : {}) } }],
+      },
+      zh: `【永】${condition.zh ? `${condition.zh}，` : ''}我方${perMatch[1] ? '其他' : ''}${filter.zh}每有 1 張，這張卡 ${stat === 'POWER' ? 'Power' : 'Soul'} +${perMatch[5]}。`,
+    };
+  }
+  // "あなたの手札のこのカードのレベルを－N": works while the card is in the hand.
+  const inHand = /^あなたの手札のこのカードのレベルを－(\d+)$/.exec(sentence);
+  if (inHand && given.length === 0) {
+    if (unknown.length > 0 || !condition) return null;
+    return {
+      ability: { type: 'CONT', inHand: true, ...(condition.data ? { condition: condition.data } : {}), apply: [{ target: { who: 'SELF' }, stat: 'LEVEL', amount: -n(inHand[1]) }] },
+      zh: `【永】${condition.zh ? `${condition.zh}，` : ''}這張卡在手牌時 Level －${inHand[1]}（可以提早使用）。`,
+    };
+  }
   let target: Extract<Target, { who: 'SELF' | 'ALL_YOURS' }> | null = null;
   let targetZh = '';
   let changes: ReturnType<typeof parseChanges> = null;
@@ -682,7 +860,7 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
   const unknown: Unknown[] = [];
   // Text in round brackets is read as a reminder only where it is known to be one: after an アンコール cost.
   // Anywhere else it may carry meaning (（そうでないなら元に戻す）, （CXのレベルは0として扱う）), so the line stays unknown.
-  if (/ダメージを与える。（ダメージキャンセルは発生する）$/.test(line)) line = line.slice(0, -'（ダメージキャンセルは発生する）'.length); // a reminder of the damage rule (CR-4.12.1.2), which the engine follows
+  if (/ダメージを[^（）]*（ダメージキャンセルは発生する）$/.test(line)) line = line.slice(0, -'（ダメージキャンセルは発生する）'.length); // a reminder of the damage rule (CR-4.12.1.2), which the engine follows
   // What happens to a card shown from the top of the deck when it is not taken: it stays where it was (REVEAL_TOP).
   if (/公開する。そのカードが[^。]*なら手札に加え[^。]*。（そうでないなら元に戻す）$/.test(line)) line = line.slice(0, -'（そうでないなら元に戻す）'.length);
   if (/公開する。そのカードが[^。]*なら、[^。]*。（公開したカードは元に戻す）$/.test(line)) line = line.slice(0, -'（公開したカードは元に戻す）'.length);
