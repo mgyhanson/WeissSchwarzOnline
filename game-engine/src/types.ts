@@ -8,7 +8,7 @@
  * hashed, sent to another process and replayed.
  */
 
-import type { Ability, AutoAbility, Effect } from './abilities/types';
+import type { Ability, AutoAbility, ContinuousAbility, Effect } from './abilities/types';
 import type { Choice, Decision } from './decisions';
 import type { Frame } from './flow/frames';
 
@@ -321,5 +321,5 @@ export interface GameState {
   /** CR-10.19: how often each limited ability was played this turn, keyed by "objectId:abilityNumber". */
   abilityUses: Record<string, number>;
   /** Abilities given to cards by effects until the end of the turn. */
-  grants: { objectId: number; ability: AutoAbility; untilTurn?: number }[];
+  grants: { objectId: number; ability: AutoAbility | ContinuousAbility; untilTurn?: number }[];
 }

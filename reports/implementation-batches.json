@@ -166,5 +166,26 @@
    "ANM_W138": 42,
    "NIK_S135": 42
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-4 給予及取得永續能力",
+  "done": "一段時間內給予永續能力（不能移動到其他枠、不被對手選擇、戰鬥中對手不能使用助太刀或 Event）、卡自己取得的永續能力、按我方 Level 的 X、我方戰鬥中的角色、指定 Trigger 圖示的 Climax 翻出時",
+  "next": "更新卡組、完整 QA、報告",
+  "playable": 352,
+  "unsupported": 257,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 75,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 55,
+   "STS_W140": 54,
+   "ANM_W138": 43,
+   "NIK_S135": 42
+  }
  }
 ]

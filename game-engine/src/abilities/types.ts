@@ -93,6 +93,8 @@ export type Condition =
 
 /** Where a COUNT condition counts. */
 export type CountWhere =
+  /** あなたのレベル: the cards in your level zone */
+  | 'YOUR_LEVEL'
   | 'YOUR_WAITING_ROOM'
   | 'YOUR_HAND'
   | 'YOUR_MEMORY'
@@ -181,7 +183,9 @@ export type ChooseFrom =
   /** 自分の思い出置場の…: face-up cards only (a face-down card has no name or traits, CR-3.12.2.2.1). */
   | 'YOUR_MEMORY'
   /** 他のあなたの舞台の…キャラ, for putting under this card: as YOUR_STAGE. */
-  | 'YOUR_OTHER_STAGE';
+  | 'YOUR_OTHER_STAGE'
+  /** 自分のバトル中のキャラ: your character in the current battle */
+  | 'YOUR_BATTLING';
 
 export type Destination =
   | 'HAND'
@@ -292,7 +296,7 @@ export type Effect =
   /** ［cost］ あなたはコストを払ってよい。そうしたら、… inside an effect: an optional payment, then what it buys. */
   | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[] }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
-  | { do: 'GRANT'; target: Target; ability: AutoAbility; until?: 'NEXT_OPPONENT_TURN' };
+  | { do: 'GRANT'; target: Target; ability: AutoAbility | ContinuousAbility; until?: 'NEXT_OPPONENT_TURN' };
 
 /** The trigger condition of an automatic ability (CR-8.1.1.2.1). */
 export type Trigger =
@@ -377,6 +381,12 @@ export interface ContinuousAbility {
   link?: string;
   /** このカードはサイドアタックできない: this card cannot make a side attack (CR-7.2.1.4). */
   noSideAttack?: boolean;
+  /** このカードは他の枠に動かせない: this card cannot be moved to another slot. */
+  cannotMove?: boolean;
+  /** このカードのバトル中、相手は(イベントと)『助太刀』を手札からプレイできない */
+  noOpponentCounters?: 'BACKUP' | 'EVENT_AND_BACKUP';
+  /** …このカードは次の能力を得る。『【永】 …』: continuous abilities this card has while this one is in force. */
+  gains?: ContinuousAbility[];
   /**
    * あなたの手札のこのカードの…: the ability works while this card is in its master's hand, and only there
    * (CR-2.12.2.3). It applies to this card itself.

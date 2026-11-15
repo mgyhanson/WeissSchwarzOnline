@@ -260,6 +260,8 @@ export function zoneCount(state: GameState, master: PlayerId, source: number, wh
             ? state.zones[master].hand
             : where === 'YOUR_MEMORY'
               ? state.zones[master].memory.filter((id) => !filter || getInstance(state, id).face === 'UP')
+              : where === 'YOUR_LEVEL'
+                ? state.zones[master].level
               : where === 'YOUR_MEMORY_AND_MARKERS'
                 ? [...state.zones[master].memory, ...SLOTS.flatMap((slot) => state.zones[master].marker[slot])]
               : where === 'YOUR_CLIMAX'
@@ -271,6 +273,14 @@ export function zoneCount(state: GameState, master: PlayerId, source: number, wh
                     : characters(SLOTS.flatMap((slot) => opponent.stage[slot]));
       const count = pool.filter((id) => !(other && id === source) && matchesFilter(state, id, filter)).length;
   return count;
+}
+
+/** The attacking and the defending character of the current attack, if any (as attack-state.ts reads them). */
+function attackerOf(state: GameState): CardInstance | undefined {
+  return state.attack ? state.instances.find((inst) => inst.objectId === state.attack!.attackerObjectId) : undefined;
+}
+function defenderOf(state: GameState): CardInstance | undefined {
+  return state.attack && state.attack.defenderObjectId !== null ? state.instances.find((inst) => inst.objectId === state.attack!.defenderObjectId) : undefined;
 }
 
 /** The character in the slot whose marker zone this card is in (このマーカーを持つ舞台のキャラ). */
@@ -314,6 +324,22 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
       if (!evalCondition(state, source.master, source.instanceId, ability.condition)) continue;
       found.push({ source, ability });
     }
+  }
+  // …このカードは次の能力を得る。『【永】 …』: the abilities a card has while an ability of its own in force says so.
+  for (const { source, ability } of [...found]) {
+    for (const inner of ability.gains ?? []) {
+      if (!evalCondition(state, source.master, source.instanceId, inner.condition)) continue;
+      found.push({ source, ability: inner });
+    }
+  }
+  // Continuous abilities given by effects for a while (そのターン中／次の相手のターンの終わりまで、次の能力を与える), on the stage only.
+  for (const grant of state.grants) {
+    if (grant.ability.type !== 'CONT') continue;
+    const inst = state.instances.find((candidate) => candidate.objectId === grant.objectId);
+    if (!inst || inst.location.zone !== 'stage') continue;
+    const def = getDef(state, inst.instanceId);
+    if (!evalCondition(state, inst.location.player, inst.instanceId, grant.ability.condition)) continue;
+    found.push({ source: { instanceId: inst.instanceId, master: inst.location.player, def, clockTop: false }, ability: grant.ability });
   }
   return found;
 }
@@ -363,7 +389,7 @@ export function grantedAutos(state: GameState, instanceId: number): AutoAbility[
     }
   }
   for (const grant of state.grants) {
-    if (grant.objectId === inst.objectId) granted.push(grant.ability);
+    if (grant.objectId === inst.objectId && grant.ability.type === 'AUTO') granted.push(grant.ability);
   }
   return granted;
 }
@@ -380,6 +406,21 @@ export function perCount(state: GameState, master: PlayerId, source: number, per
  * not reversed. Null when there is none.
  */
 /** このカードはサイドアタックできない, while the ability is in force. */
+export function cannotMove(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.cannotMove === true && source.instanceId === instanceId);
+}
+
+/** このカードのバトル中、相手は…プレイできない: what the player defending against or attacking such a card may not play. */
+export function blockedCounters(state: GameState, player: PlayerId): 'BACKUP' | 'EVENT_AND_BACKUP' | null {
+  let blocked: 'BACKUP' | 'EVENT_AND_BACKUP' | null = null;
+  const fighters = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage' && inst.location.player !== player);
+  for (const { source, ability } of continuousInForce(state)) {
+    if (!ability.noOpponentCounters || !fighters.some((inst) => inst.instanceId === source.instanceId)) continue;
+    if (ability.noOpponentCounters === 'EVENT_AND_BACKUP' || blocked === null) blocked = ability.noOpponentCounters;
+  }
+  return blocked;
+}
+
 export function cannotSideAttack(state: GameState, instanceId: number): boolean {
   return continuousInForce(state).some(({ source, ability }) => ability.noSideAttack === true && source.instanceId === instanceId);
 }
@@ -537,6 +578,11 @@ export function chooseCandidates(
     case 'YOUR_OTHER_STAGE':
       pool = stageCharacters(state, master).filter((id) => id !== context.source);
       break;
+    case 'YOUR_BATTLING': {
+      const mine = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage' && inst.location.player === master);
+      pool = mine.map((inst) => inst.instanceId);
+      break;
+    }
     case 'OPPONENT_BACK_ROW': {
       const opponent = state.zones[opponentOf(master)];
       pool = BACK_SLOTS.flatMap((slot) => opponent.stage[slot]).filter((id) => getDef(state, id).kind === 'CHARACTER');

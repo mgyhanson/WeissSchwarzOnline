@@ -3,7 +3,7 @@
  */
 
 import { canPayCost, countUse, limitReached, playAbility, pushEffects } from './abilities/effects';
-import { evalCondition, stageCharacters } from './abilities/query';
+import { blockedCounters, cannotMove, evalCondition, stageCharacters } from './abilities/query';
 import type { ActivatedAbility, EffectContext } from './abilities/types';
 import type { MainAction } from './decisions';
 import { emit, findObject, pushFrame } from './flow/core';
@@ -83,7 +83,9 @@ export function listMainActions(state: GameState, player: PlayerId): MainAction[
     for (let j = i + 1; j < SLOTS.length; j++) {
       const a = SLOTS[i] as SlotId;
       const b = SLOTS[j] as SlotId;
-      if (zones.stage[a].length > 0 || zones.stage[b].length > 0) actions.push({ type: 'SWAP', a, b });
+      // このカードは他の枠に動かせない: a move that would take such a card to another slot is not offered.
+      const fixed = [...zones.stage[a], ...zones.stage[b]].some((id) => cannotMove(state, id));
+      if ((zones.stage[a].length > 0 || zones.stage[b].length > 0) && !fixed) actions.push({ type: 'SWAP', a, b });
     }
   }
 
@@ -211,6 +213,8 @@ function activate(ctx: Ctx, player: PlayerId, objectId: number, index: number): 
  */
 export function listBackups(state: GameState, player: PlayerId): { card: number; ability: number }[] {
   const options: { card: number; ability: number }[] = [];
+  // このカードのバトル中、相手は『助太刀』を手札からプレイできない
+  if (blockedCounters(state, player) !== null) return options;
   for (const id of state.zones[player].hand) {
     const def = getDef(state, id);
     if (!def.counter) continue;
@@ -234,6 +238,7 @@ export function playBackup(ctx: Ctx, player: PlayerId, objectId: number, index: 
  * player may play in the counter step.
  */
 export function listPlayableCounters(state: GameState, player: PlayerId): number[] {
+  if (blockedCounters(state, player) === 'EVENT_AND_BACKUP') return [];
   return state.zones[player].hand
     .filter((id) => {
       const def = getDef(state, id);

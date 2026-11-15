@@ -19,7 +19,7 @@
  *  - the compiled cards are played in complete games.
  */
 
-import type { Ability, AutoAbility, CardFilter, Condition, Cost, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
+import type { Ability, AutoAbility, CardFilter, Condition, ContinuousAbility, Cost, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
 import { encore } from '@wso/game-engine';
 import { type LineParts, outsideNames, splitCost, splitLine } from './fragments';
 import { TRIGGER_ICONS } from './official';
@@ -125,6 +125,10 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
       const filter = parseFilter(m[1]!, 'STAGE');
       return filter && (!filter.data || filter.data.kind === 'CHARACTER') ? out({ on: 'OTHER_FRONT_ATTACKED', ...(filter.data ? { filter: filter.data } : {}) }, `我方其他${filter.zh}被正面攻擊時`) : null;
     },
+  ],
+  [
+    /^あなたのトリガーアイコンが\[\[([a-z]+)\.gif\]\]のCXがトリガーした時$/,
+    (m) => (TRIGGER_ICONS[`${m[1]}.gif`] ? out({ on: 'TRIGGER_CHECK_REVEALS', filter: { kind: 'CLIMAX', hasTrigger: TRIGGER_ICONS[`${m[1]}.gif`]! } }, `我方 Trigger Check 翻出 Trigger 圖示是 ${TRIGGER_ICONS[`${m[1]}.gif`]} 的 Climax 時`) : null),
   ],
   [/^あなたのCXがトリガーした時$/, () => out({ on: 'TRIGGER_CHECK_REVEALS', filter: { kind: 'CLIMAX' } }, '我方 Trigger Check 翻出 Climax 時')],
   [/^相手のCXがCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED', opponent: true }, '對手的 Climax 放到 Climax 置場時')],
@@ -433,7 +437,7 @@ function parseAction(text: string, target: Target, noun: string): Out<Effect[]> 
     if (gives) {
       const before = gives[1] ? parseChanges(gives[1]) : [];
       const inner = readLine(gives[2]!);
-      if (!before || !inner.line || inner.line.ability.type !== 'AUTO') return null;
+      if (!before || !inner.line || inner.line.ability.type === 'ACT') return null;
       return out(
         [...before.map((c) => ({ do: 'MODIFY' as const, target, stat: c.stat, amount: c.amount, ...until })), { do: 'GRANT', target, ability: inner.line.ability, ...until }],
         `${lasts}${noun} ${before.map((c) => c.zh).join('、')}${before.length > 0 ? '，並' : ''}得到以下能力：「${inner.line.zh}」`,
@@ -501,6 +505,10 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
         `從自己的控え室選${countZh(m[2], m[3])}${filter.zh}，${action.zh}`,
       );
     }
+  }
+  if ((m = new RegExp(`^自分のバトル中のキャラを${COUNT}選び、(.+)$`).exec(text))) {
+    const action = parseAction(m[3]!, { who: 'CHOSEN' }, '');
+    if (action) return out([{ do: 'CHOOSE', from: 'YOUR_BATTLING', ...range(m[1], m[2]) }, ...action.data], `選我方戰鬥中的${countZh(m[1], m[2])}角色，${action.zh}`);
   }
   if ((m = new RegExp(`^自分の手札の(.+?)を${COUNT}選び、(.+)$`).exec(text))) {
     const filter = parseFilter(m[1]!, 'ZONE');
@@ -1072,6 +1080,7 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
   if (parts.marks.length > 0 || parts.cost) unknown.push({ part: 'MARK', text: [...parts.marks, parts.cost ? '［cost］' : ''].join(' ') });
   // "…し、このカードは次の能力を得る。『【自】…』": the abilities this card has while the condition holds.
   const given: { ability: AutoAbility; zh: string }[] = [];
+  const gainedConts: { ability: ContinuousAbility; zh: string }[] = [];
   let body = parts.effects;
   const gains = /^(.*?)(?:し、)?このカードは次の(?:(\d)つの)?能力を得る$/.exec(body[0] ?? '');
   if (gains) {
@@ -1082,13 +1091,21 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
     }
     for (const q of quoted) {
       const inner = readLine(q.slice(1, -1).replace(/。$/, '') + '。');
-      if (!inner.line || inner.line.ability.type !== 'AUTO') {
+      if (!inner.line || inner.line.ability.type === 'ACT') {
         unknown.push({ part: 'EFFECT', text: `得る: ${q}` });
         return null;
       }
-      given.push({ ability: inner.line.ability, zh: inner.line.zh });
+      if (inner.line.ability.type === 'CONT') gainedConts.push({ ability: inner.line.ability, zh: inner.line.zh });
+      else given.push({ ability: inner.line.ability, zh: inner.line.zh });
     }
     body = gains[1] ? [gains[1]] : [];
+  }
+  // "…＋Ｘ。Ｘはあなたのレベル×Nに等しい": N per card in the level zone.
+  let byLevel: number | null = null;
+  const levelX = body.length === 2 ? /^Ｘはあなたのレベル×(\d+)に等しい$/.exec(body[1]!) : null;
+  if (levelX && body[0]!.endsWith('＋Ｘ')) {
+    byLevel = n(levelX[1]);
+    body = [body[0]!.replace(/＋Ｘ$/, `＋${levelX[1]}`)];
   }
   if (body.length !== (gains && !gains[1] ? 0 : 1)) {
     unknown.push({ part: 'EFFECT', text: parts.effects.join('。') });
@@ -1106,6 +1123,18 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
   conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: texts[i]! }));
   const condition = allOf(conditions);
 
+  if (sentence === 'このカードは他の枠に動かせない' && given.length === 0) {
+    if (unknown.length > 0 || !condition || condition.data) return null;
+    return { ability: { type: 'CONT', cannotMove: true, apply: [] }, zh: '【永】這張卡不能移動到其他枠。' };
+  }
+  const blockCounter = /^このカードのバトル中、相手は(イベントと)?『助太刀』を手札からプレイできない$/.exec(sentence);
+  if (blockCounter && given.length === 0) {
+    if (unknown.length > 0 || !condition || condition.data) return null;
+    return {
+      ability: { type: 'CONT', noOpponentCounters: blockCounter[1] ? 'EVENT_AND_BACKUP' : 'BACKUP', apply: [] },
+      zh: `【永】這張卡戰鬥中，對手不能從手牌使用${blockCounter[1] ? ' Event 及' : ''}助太刀。`,
+    };
+  }
   if (sentence === 'このカードはサイドアタックできない' && given.length === 0) {
     if (unknown.length > 0 || !condition || condition.data) return null;
     return { ability: { type: 'CONT', noSideAttack: true, apply: [] }, zh: '【永】這張卡不能進行側面攻擊。' };
@@ -1157,7 +1186,7 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
   if (!noChange && (!target || !changes)) unknown.push({ part: 'EFFECT', text: sentence });
   if (given.length > 0 && target && target.who !== 'SELF') unknown.push({ part: 'EFFECT', text: sentence });
   if (unknown.length > 0 || !condition) return null;
-  const apply = noChange ? [] : changes!.map((c) => ({ target: target!, stat: c.stat, amount: c.amount }));
+  const apply = noChange ? [] : changes!.map((c) => ({ target: target!, stat: c.stat, amount: c.amount, ...(byLevel !== null ? { perCount: { where: 'YOUR_LEVEL' as const } } : {}) }));
   return {
     ability: {
       type: 'CONT',
@@ -1165,6 +1194,7 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
       ...(condition.data ? { condition: condition.data } : {}),
       apply,
       ...(given.length > 0 ? { grant: given.map((g) => ({ target: { who: 'SELF' as const }, ability: g.ability })) } : {}),
+      ...(gainedConts.length > 0 ? { gains: gainedConts.map((g) => g.ability) } : {}),
     },
     zh:
       `【永】${condition.zh ? `${condition.zh}，` : ''}${noChange ? '這張卡' : `${targetZh} ${changes!.map((c) => c.zh).join('、')}`}` +

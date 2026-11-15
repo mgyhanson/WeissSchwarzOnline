@@ -85,6 +85,7 @@ export function triggerJa(trigger: Trigger): string {
     case 'THIS_CLIMAX_PLACED':
       return 'このカードが手札からCX置場に置かれた時';
     case 'TRIGGER_CHECK_REVEALS':
+      if (trigger.filter && Object.keys(trigger.filter).sort().join() === 'hasTrigger,kind') return `あなたの${filterJa(trigger.filter, 'ZONE')}がトリガーした時`;
       return trigger.filter && Object.keys(trigger.filter).join() === 'kind' && trigger.filter.kind === 'CLIMAX' ? 'あなたのCXがトリガーした時' : fail('trigger', trigger);
     case 'HOLDER_ATTACKS':
       return `マーカー置場にこのカードがあるなら、このマーカーを持つ舞台の${filterJa(trigger.filter, 'STAGE')}がアタックした時`;
@@ -349,6 +350,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
           ? `${e.other ? '他の' : ''}自分の${filterJa(e.filter, 'STAGE')}`
           : e.from === 'YOUR_WAITING_ROOM'
             ? `自分の控え室の${filterJa(e.filter, 'ZONE')}`
+            : e.from === 'YOUR_BATTLING' && !e.filter
+              ? '自分のバトル中のキャラ'
             : e.from === 'YOUR_HAND' && !e.filter
               ? '自分の手札'
               : e.from === 'YOUR_HAND'
@@ -502,7 +505,7 @@ export function abilityJa(ability: Ability): string {
     const words = (ability.keywords ?? []).map((k) => (k === 'MEMORY' ? '記憶 ' : k === 'EXPERIENCE' ? '経験 ' : fail('keyword', k))).join('');
     if (words) return abilityJa({ ...ability, keywords: undefined } as Ability).replace(/^【永】 /, `【永】 ${words}`);
     if (ability.alarm || ability.greatPerformance) return fail('ability', ability);
-    const perCountPart = ability.apply.length === 1 ? ability.apply[0]!.perCount : undefined;
+    const perCountPart = ability.apply.length === 1 && ability.apply[0]!.perCount?.where === 'YOUR_MEMORY' ? ability.apply[0]!.perCount : undefined;
     if (perCountPart) {
       const part = ability.apply[0]!;
       const named = perCountPart.filter && Object.keys(perCountPart.filter).join() === 'name' ? perCountPart.filter.name : fail('perCount', perCountPart);
@@ -521,6 +524,8 @@ export function abilityJa(ability: Ability): string {
       const part = ability.apply[0]!;
       return `【永】 ${conditionJa(ability.condition)}このカードの下のマーカー1枚につき、このカードの${STAT[part.stat]}を${signed(part.amount)}。`;
     }
+    if (ability.cannotMove) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードは他の枠に動かせない。' : fail('ability', ability);
+    if (ability.noOpponentCounters) return ability.apply.length === 0 && !ability.condition && !ability.grant ? `【永】 このカードのバトル中、相手は${ability.noOpponentCounters === 'EVENT_AND_BACKUP' ? 'イベントと' : ''}『助太刀』を手札からプレイできない。` : fail('ability', ability);
     if (ability.noSideAttack) return ability.apply.length === 0 && !ability.condition && !ability.grant && !ability.inHand && !ability.untargetable ? '【永】 このカードはサイドアタックできない。' : fail('ability', ability);
     if (ability.untargetable) return ability.apply.length === 0 && !ability.condition && !ability.grant && !ability.inHand ? '【永】 このカードは相手の効果に選ばれない。' : fail('ability', ability);
     const per = ability.apply.length === 1 ? ability.apply[0]!.per : undefined;
@@ -534,8 +539,9 @@ export function abilityJa(ability: Ability): string {
       return ability.apply.length === 1 && only!.target.who === 'SELF' && only!.stat === 'LEVEL' && only!.amount < 0 && !ability.grant ? `【永】 ${conditionJa(ability.condition)}あなたの手札のこのカードのレベルを－${-only!.amount}。` : fail('ability', ability);
     }
     const target = ability.apply[0]?.target;
-    if (ability.apply.some((a) => !sameTarget(a.target, target!) || a.per || a.perTargetLevel)) return fail('ability', ability);
-    const changes = ability.apply.map((a) => `${STAT[a.stat]}を${signed(a.amount)}`).join('し、');
+    if (ability.apply.some((a) => !sameTarget(a.target, target!) || a.per || a.perTargetLevel || (a.perCount && a.perCount.where !== 'YOUR_LEVEL'))) return fail('ability', ability);
+    const byLevel = ability.apply.some((a) => a.perCount?.where === 'YOUR_LEVEL');
+    const changes = ability.apply.map((a) => `${STAT[a.stat]}を${byLevel ? '＋Ｘ' : signed(a.amount)}`).join('し、');
     const subject = !target
       ? ''
       : target.who === 'SELF'
@@ -543,10 +549,10 @@ export function abilityJa(ability: Ability): string {
         : target.who === 'ALL_YOURS'
           ? `${target.other ? '他の' : ''}あなたの${filterJa(target.filter, 'STAGE')}すべてに、${changes}`
           : fail('target', target);
-    const grants = ability.grant ?? [];
-    if (grants.some((g) => g.target.who !== 'SELF')) return fail('grant', ability);
+    const grants: { ability: Ability }[] = [...(ability.grant ?? []), ...(ability.gains ?? []).map((g) => ({ ability: g as Ability }))];
+    if ((ability.grant ?? []).some((g) => g.target.who !== 'SELF')) return fail('grant', ability);
     const gain = grants.length === 0 ? '' : `${subject ? 'し、' : ''}このカードは次の${grants.length > 1 ? `${grants.length}つの` : ''}能力を得る。${grants.map((g) => `『${abilityJa(g.ability)}』`).join('')}`;
-    return `【永】 ${conditionJa(ability.condition)}${subject}${gain}${grants.length > 0 ? '' : '。'}`;
+    return `【永】 ${conditionJa(ability.condition)}${subject}${gain}${grants.length > 0 ? '' : '。'}${byLevel ? `Ｘはあなたのレベル×${ability.apply[0]!.amount}に等しい。` : ''}`;
   }
   if (ability.type === 'ACT') {
     if (ability.timing !== 'MAIN' || ability.level !== undefined) return fail('ability', ability);
@@ -599,7 +605,7 @@ export function sameWords(text: string): string {
     .replace(/（ダメージキャンセルは発生する）$/, '')
     .replace(/（CXのレベルは0として扱う）$/, '')
     .replace(/（(?:(?:CXのレベルは0として扱う|そうでないなら元に戻す|公開したカードは元に戻す|ダメージキャンセルは発生する)。?)+）$/, '')
-    .replace(/、次の能力を与える。『(.+?)。?』/g, '、『$1』を与える')
+    .replace(/、次の能力を与える。『((?:[^『』]|『[^『』]*』)+?)。?』/g, '、『$1』を与える')
     .replace(/。』/g, '』')
     // "CX置場に「…」" in a condition is the player's own climax zone, written with or without あなたの.
     .replace(/あなたのCX置場に「/g, 'CX置場に「')

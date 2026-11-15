@@ -109,3 +109,75 @@ describe('effects', () => {
     assertInvariants(state);
   });
 });
+
+describe('continuous abilities given for a while, gained by a card, and what they forbid', () => {
+  it('次の相手のターンの終わりまで、『【永】 このカードは他の枠に動かせない。』を与える: the slot swap that would move it is not offered, until then', () => {
+    const pin = act([{ do: 'CHOOSE', from: 'OPPONENT_STAGE', min: 1, max: 1 }, { do: 'GRANT', target: { who: 'CHOSEN' }, ability: { type: 'CONT', cannotMove: true, apply: [] }, until: 'NEXT_OPPONENT_TURN' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [pin] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+      put(ctx, card(1, 1), stageSlot(1, 'FL'));
+    }).state;
+    const atChoose = activate(start, card(0, 0)).state;
+    let state = answer(atChoose, { kind: 'SELECT_CARDS', cards: [oid(atChoose, card(1, 0))] }).state;
+    // Into player 1's main phase.
+    for (let k = 0; k < 40 && !(state.turn?.player === 1 && state.pending?.kind === 'MAIN'); k++) {
+      const d = state.pending!;
+      state = answer(state, d.kind === 'MAIN' ? { kind: 'MAIN', action: { type: 'PASS' } } : d.kind === 'CLIMAX' ? { kind: 'CLIMAX', card: null } : d.kind === 'ATTACK' ? { kind: 'ATTACK', attack: null } : d.kind === 'CLOCK' ? { kind: 'CLOCK', card: null } : d.kind === 'HAND_LIMIT' ? { kind: 'HAND_LIMIT', discard: d.cards.slice(0, d.count) } : { kind: 'CONFIRM', accept: false }).state;
+    }
+    const swaps = pending(state, 'MAIN').actions.filter((a) => a.type === 'SWAP');
+    expect(swaps.some((a) => a.type === 'SWAP' && (a.a === 'FC' || a.b === 'FC'))).toBe(false);
+    expect(swaps.some((a) => a.type === 'SWAP' && (a.a === 'FL' || a.b === 'FL'))).toBe(true);
+  });
+
+  it('このカードのバトル中、相手は『助太刀』を手札からプレイできない: no backup is offered against it', () => {
+    const backup: Ability = { type: 'ACT', keywords: ['BACKUP'], timing: 'COUNTER', level: 0, cost: [{ pay: 'SELF_TO_WAITING_ROOM' }], effect: [{ do: 'CHOOSE', from: 'FRONT_ATTACKED', min: 1, max: 1 }, { do: 'MODIFY', target: { who: 'CHOSEN' }, stat: 'POWER', amount: 1000 }] };
+    const run = (abilities: Ability[]) => {
+      const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:0': { abilities }, '1:5': { counter: true, abilities: [backup] } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        put(ctx, card(1, 0), stageSlot(1, 'FC'));
+        put(ctx, card(1, 5), { player: 1, zone: 'hand' });
+        noClimaxes(ctx, 0);
+        noClimaxes(ctx, 1);
+      }).state;
+      return pending(attack(start, card(0, 0)).state, 'COUNTER');
+    };
+    expect(run([]).backups).toHaveLength(1);
+    expect(run([{ type: 'CONT', noOpponentCounters: 'BACKUP', apply: [] }]).backups).toHaveLength(0);
+  });
+
+  it('…なら、このカードは次の能力を得る。『【永】 あなたのターン中、このカードのパワーを＋2000。』', () => {
+    const gains: Ability = { type: 'CONT', condition: { if: 'CHARACTERS', min: 1, other: true }, apply: [], gains: [{ type: 'CONT', condition: { if: 'YOUR_TURN' }, apply: [{ target: { who: 'SELF' }, stat: 'POWER', amount: 2000 }] }] };
+    const power = (others: boolean) => {
+      const state = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [gains] } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        if (others) put(ctx, card(0, 1), stageSlot(0, 'FL'));
+      }).state;
+      return getPower(state, card(0, 0));
+    };
+    expect([power(true), power(false)]).toEqual([3000, 1000]);
+  });
+
+  it('あなたのターン中、他のあなたのキャラすべてに、パワーを＋Ｘ。Ｘはあなたのレベル×500', () => {
+    const lead: Ability = { type: 'CONT', apply: [{ target: { who: 'ALL_YOURS', other: true }, stat: 'POWER', amount: 500, perCount: { where: 'YOUR_LEVEL' } }] };
+    const state = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [lead] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'FL'));
+      for (const i of [30, 31]) put(ctx, card(0, i), { player: 0, zone: 'level' });
+    }).state;
+    expect([getPower(state, card(0, 1)), getPower(state, card(0, 0))]).toEqual([2000, 1000]);
+  });
+
+  it('自分のバトル中のキャラを1枚選び: only your character in the current battle', () => {
+    const boost: Ability = { type: 'AUTO', trigger: { on: 'OTHER_FRONT_ATTACKED' }, effect: [{ do: 'CHOOSE', from: 'YOUR_BATTLING', min: 1, max: 1 }, { do: 'MODIFY', target: { who: 'CHOSEN' }, stat: 'POWER', amount: 1500 }] };
+    const start = scenario({ step: 'ATTACK_START', turnPlayer: 1, defs: cards({ '0:1': { abilities: [boost] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'BL'));
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+      noClimaxes(ctx, 0);
+      noClimaxes(ctx, 1);
+    }).state;
+    const atChoose = attack(start, card(1, 0), 'FRONT').state;
+    expect(pending(atChoose, 'SELECT_CARDS').cards).toEqual([oid(atChoose, card(0, 0))]);
+  });
+});
