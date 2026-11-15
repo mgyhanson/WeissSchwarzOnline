@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 446,
- "unsupported": 163,
+ "playable": 455,
+ "unsupported": 154,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 90,
+   "playable": 92,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 74
+     "playable": 76
     },
     "EVENT": {
      "total": 4,
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 66,
+   "playable": 70,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 54
+     "playable": 58
     },
     "EVENT": {
      "total": 3,
@@ -138,17 +138,17 @@
    },
    "level3": {
     "total": 16,
-    "playable": 7
+    "playable": 8
    }
   },
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 70,
+   "playable": 71,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 57
+     "playable": 58
     },
     "EVENT": {
      "total": 4,
@@ -190,15 +190,15 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 68,
+   "playable": 70,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 55
+     "playable": 56
     },
     "EVENT": {
      "total": 9,
-     "playable": 0
+     "playable": 1
     },
     "CLIMAX": {
      "total": 13,
@@ -207,19 +207,19 @@
    },
    "level3": {
     "total": 13,
-    "playable": 3
+    "playable": 4
    }
   }
  ],
  "level3": {
   "total": 63,
-  "playable": 29
+  "playable": 31
  },
  "classes": {
-  "A": 46,
+  "A": 44,
   "B": 1,
-  "C": 64,
-  "D": 52,
+  "C": 63,
+  "D": 46,
   "E": 0
  },
  "topParts": [
@@ -249,6 +249,16 @@
    "cards": 2
   },
   {
+   "part": "EFFECT: あなたは自分の山札の上からN枚をめくり、控え室に置く。それらのカードの「…」か「…」N枚につき、あなたは自分の控え室の《…》のキャラをN枚まで選び、手札に戻す",
+   "unlocks": 1,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: そのキャラをそのキャラがいた枠に【レスト】して置く",
+   "unlocks": 1,
+   "cards": 2
+  },
+  {
    "part": "EFFECT: あなたは自分の控え室の《…》のキャラと思い出置場の《…》のキャラをN枚ずつ選び、入れ替える",
    "unlocks": 1,
    "cards": 2
@@ -260,16 +270,6 @@
   },
   {
    "part": "EFFECT: あなたはN枚まで引き、自分の手札を同じ枚数選び、控え室に置き、自分のキャラをN枚選び、そのターン中、パワーを＋N",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "EVENT: あなたは相手の山札を上からN枚見て、山札の上か控え室に置き、自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする。",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "EFFECT: あなたは自分の山札を上からN枚まで見て、カードをN枚まで選び、手札に加え、カードをN枚まで選び、ストック置場に置き、残りのカードを控え室に置く",
    "unlocks": 1,
    "cards": 1
   }

@@ -240,6 +240,8 @@ function continuousTargets(
       return stageCharacters(state, source.master).filter(
         (id) => !(target.other && id === source.instanceId) && matchesFilter(state, id, target.filter, levelOf),
       );
+    case 'ALL_THEIRS':
+      return stageCharacters(state, opponentOf(source.master));
     case 'IN_FRONT': {
       const location = getInstance(state, source.instanceId).location;
       if (location.zone !== 'stage') return [];
@@ -485,6 +487,16 @@ export function cannotBeReversed(state: GameState, instanceId: number): boolean 
   return continuousInForce(state).some(({ source, ability }) => ability.cannotBeReversed === true && source.instanceId === instanceId);
 }
 
+/** このカードは、…なら、手札からプレイできない: whether the card's own restriction allows playing it now. */
+export function playRestrictionMet(state: GameState, player: PlayerId, instanceId: number): boolean {
+  return (getDef(state, instanceId).abilities ?? []).every((ability) => ability.type !== 'CONT' || !ability.playOnlyIf || evalCondition(state, player, instanceId, ability.playOnlyIf));
+}
+
+/** …はスタンドフェイズに【スタンド】しない */
+export function staysRestedInStandPhase(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.noStand === true && source.instanceId === instanceId);
+}
+
 export function cannotMove(state: GameState, instanceId: number): boolean {
   return continuousInForce(state).some(({ source, ability }) => ability.cannotMove === true && source.instanceId === instanceId);
 }
@@ -573,6 +585,8 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       return stageCharacters(state, context.master).filter(
         (id) => !(target.other && id === context.source) && matchesFilter(state, id, target.filter),
       );
+    case 'ALL_THEIRS':
+      return stageCharacters(state, opponentOf(context.master));
     case 'IN_FRONT': {
       const self = sourceIfUnchanged(state, context);
       if (!self || self.location.zone !== 'stage') return [];
@@ -603,7 +617,8 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
     }
     case 'THAT': {
       const inst = context.about == null ? undefined : byObjectId(state, context.about);
-      return inst && inst.location.zone === 'stage' ? [inst.instanceId] : [];
+      // The same object only (CR-3.1.4: a card that changes zone is a new card): on the stage, or where the trigger saw it go.
+      return inst ? [inst.instanceId] : [];
     }
     case 'MARKER_HOLDER': {
       const self = sourceIfUnchanged(state, context);

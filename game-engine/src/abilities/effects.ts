@@ -88,6 +88,7 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         break;
       case 'SELF_TO_CLOCK':
       case 'SELF_TO_HAND':
+      case 'SELF_TO_STOCK_BOTTOM':
         if (!sourceIfUnchanged(state, context)) return false;
         break;
       case 'HAND_TO_CLOCK':
@@ -208,6 +209,10 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'memory' }, { reason: 'COST' });
       return;
+    case 'SELF_TO_STOCK_BOTTOM':
+      frame.index++;
+      moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'stock' }, { reason: 'COST', position: 'BOTTOM' });
+      return;
     case 'SELF_TO_DECK_BOTTOM':
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'deck' }, { reason: 'COST', position: 'BOTTOM' });
@@ -317,6 +322,8 @@ function destinationZone(state: GameState, context: EffectContext, instanceId: n
   switch (to) {
     case 'CHOSEN_SLOT':
       return context.slot ? { zone: { player: context.master, zone: 'stage', slot: context.slot }, bottom: false } : null;
+    case 'ABOUT_SLOT':
+      return context.aboutSlot ? { zone: { player: context.aboutSlot.player, zone: 'stage', slot: context.aboutSlot.slot }, bottom: false } : null;
     case 'SOURCE_SLOT':
       return context.sourceSlot ? { zone: { player: context.sourceSlot.player, zone: 'stage', slot: context.sourceSlot.slot }, bottom: false } : null;
     case 'HAND':
@@ -594,7 +601,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const whose = frame.scratch[1] === 1 || effect.whose === 'OPPONENT' ? opponentOf(master) : master;
       const done = frame.scratch[0] ?? 0;
       if (done === 0) context.moved = [];
-      const top = topOf(state.zones[whose].deck);
+      // 山札の下からN枚を: from the bottom instead.
+      const top = effect.fromBottom ? state.zones[whose].deck[0] : topOf(state.zones[whose].deck);
       // 上からN枚までを: the player may stop before each card.
       if (effect.upTo && done < effect.count && top !== undefined) {
         if (frame.step !== 3) {

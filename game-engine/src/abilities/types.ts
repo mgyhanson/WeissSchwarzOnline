@@ -143,6 +143,8 @@ export type Cost =
   | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
   /** このカードを山札の下に置く */
   | { pay: 'SELF_TO_DECK_BOTTOM'; standing?: boolean }
+  /** このカードをストック置場の下に置く */
+  | { pay: 'SELF_TO_STOCK_BOTTOM' }
   /** あなたのCX置場の「…」をN枚控え室に置く */
   | { pay: 'CLIMAX_TO_WAITING_ROOM'; count: number; filter?: CardFilter }
   /** このカードの下のマーカーをN枚控え室に置く: from the top of the marker zone (CR-3.7.2). */
@@ -158,6 +160,8 @@ export type Target =
   | { who: 'SELF' }
   /** (他の)あなたの…のキャラすべて */
   | { who: 'ALL_YOURS'; filter?: CardFilter; other?: boolean }
+  /** 相手のキャラすべて */
+  | { who: 'ALL_THEIRS' }
   /** このカードの前のあなたのキャラすべて (CR-3.6.5) */
   | { who: 'IN_FRONT'; filter?: CardFilter }
   /** (他の)あなたの前列の中央の枠のキャラ: your characters in the named slots. */
@@ -224,6 +228,8 @@ export type Destination =
   | 'SOURCE_SLOT'
   /** The slot chosen by the most recent CHOOSE_SLOT of this resolution. */
   | 'CHOSEN_SLOT'
+  /** そのキャラがいた枠: the slot the card the ability is about left. */
+  | 'ABOUT_SLOT'
   /** このカードの下にマーカーとして置く (face given by the MOVE; CR-3.7.2: face down unless the text says 表向き) */
   | 'UNDER_SELF'
   /** その(舞台に置かれた)キャラの下のマーカーにする */
@@ -263,7 +269,7 @@ export type Effect =
    * 自分の山札の上からN枚を…に置く.
    * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
    */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT'; /** 上からN枚までを: the player may stop before each card. */ upTo?: boolean; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT'; /** 上からN枚までを: the player may stop before each card. */ upTo?: boolean; /** 山札の下からN枚を */ fromBottom?: boolean; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -363,6 +369,8 @@ export type Trigger =
   | { on: 'TRIGGER_CHECK_REVEALS'; filter?: CardFilter; /** このカードのトリガーチェックで: only the checks of this card's attack. */ ofThisCard?: boolean }
   /** あなたが【起】を使った時: you played an activated ability (its cost has been paid). */
   | { on: 'YOU_PLAYED_ACT' }
+  /** 他のあなたの…のキャラが舞台から控え室に置かれた時: that card (about) and the slot it left (aboutSlot). */
+  | { on: 'OTHER_STAGE_TO_WAITING_ROOM'; filter?: CardFilter }
   /** あなたの受けたダメージがキャンセルされなかった時: any damage you received went to your clock. */
   | { on: 'TAKEN_DAMAGE_NOT_CANCELLED' }
   /** このカードがトリガーした時: this card is the one turned over by a trigger check (it is in the resolution zone). */
@@ -452,6 +460,10 @@ export interface ContinuousAbility {
   handLimitPlus?: number;
   /** このカードは、色条件を満たさずに手札からプレイできる (with inHand): the colour condition (CR-8.6.2.1.1) is not checked. */
   ignoresColor?: boolean;
+  /** このカードは、…なら、手札からプレイできない (with inHand): the card can be played only while this holds. */
+  playOnlyIf?: Condition;
+  /** このカードはあなたのスタンドフェイズに【スタンド】しない (also given: そのキャラは次の相手のスタンドフェイズに【スタンド】しない) */
+  noStand?: boolean;
   /** このカードは他の枠に動かせない: this card cannot be moved to another slot. */
   cannotMove?: boolean;
   /** このカードのバトル中、相手は(イベントと)『助太刀』を手札からプレイできない */
@@ -617,6 +629,8 @@ export interface EffectContext {
   lastMoved?: number[];
   /** Object ids of the cards this resolution put on the stage (target PLACED). */
   placed?: number[];
+  /** そのキャラがいた枠 (ABOUT_SLOT) */
+  aboutSlot?: { player: 0 | 1; slot: SlotId } | null;
   /** Whether the most recent MOVE or CLOCK_TOP moved a card (for そうしたら). */
   did?: boolean;
   /** Object id of the card the ability is about (その舞台に置かれたキャラ), when its trigger named one. */

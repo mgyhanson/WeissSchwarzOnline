@@ -56,7 +56,9 @@ describe('sentence grammar', () => {
     it.each(compiled.map((card) => [card.record.cardId, card] as const))('%s', (_cardId, card) => {
       const lines = ruleLines(card.official);
       if (card.def.kind === 'EVENT') {
-        expect(sameWords(`${effectsJa(card.def.effect!).join('。')}。`)).toBe(sameWords(lines[0]!));
+        // A play restriction (このカードは、…なら、手札からプレイできない。) comes first, on its own line or not.
+        const restriction = (card.def.abilities ?? []).map((ability) => abilityJa(ability)).join('');
+        expect(sameWords(`${restriction}${effectsJa(card.def.effect!).join('。')}。`)).toBe(sameWords(lines.join('')));
         return;
       }
       expect(card.def.abilities).toHaveLength(lines.length);

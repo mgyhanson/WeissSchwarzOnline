@@ -17,7 +17,7 @@
 
 import type { Ability, Effect } from '@wso/game-engine';
 import { backup, encore } from '@wso/game-engine';
-import { readEvent, readLine } from './grammar';
+import { readEvent, readLine, readPlayRestriction } from './grammar';
 import type { OfficialCard } from './types';
 
 export interface Compiled {
@@ -297,8 +297,19 @@ export function compileText(card: OfficialCard): Compiled | null {
   if (lines.length === 0) return { zh: [card.kind === '2' ? '沒有能力的角色。' : '沒有文字。'], patterns: [] };
   if (card.kind === '3') {
     // An event: one paragraph, compiled only when every sentence of it is a known effect (grammar.ts).
-    const event = lines.length === 1 ? readEvent(lines[0]!) : null;
-    return event ? { effect: event.effect, zh: [event.zh], patterns: [GRAMMAR] } : null;
+    // "このカードは、…なら、手札からプレイできない。" first (on its own line or not), then the effect paragraph.
+    const whole = lines.length <= 2 ? lines.join('') : '';
+    const restricted = /^(このカードは、[^。]+?なら、手札からプレイできない)。(.+)$/.exec(whole);
+    const restriction = restricted ? readPlayRestriction(restricted[1]!) : null;
+    if (restricted && !restriction) return null;
+    const event = restricted ? readEvent(restricted[2]!) : lines.length === 1 ? readEvent(lines[0]!) : null;
+    if (!event) return null;
+    return {
+      ...(restriction ? { abilities: [{ type: 'CONT', inHand: true, playOnlyIf: restriction.condition, apply: [] }] } : {}),
+      effect: event.effect,
+      zh: [...(restriction ? [`【永】${restriction.zh}。`] : []), event.zh],
+      patterns: [GRAMMAR],
+    };
   }
   const abilities: Ability[] = [];
   const zh: string[] = [];

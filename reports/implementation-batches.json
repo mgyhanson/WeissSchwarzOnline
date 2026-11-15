@@ -334,5 +334,26 @@
    "ANM_W138": 69,
    "NIK_S135": 68
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B4-5 Event 使用限制、不 Stand、給予對手能力",
+  "done": "Event 的使用限制、Stand 階段不 Stand（本身及給予）、對手所有角色得到能力、Stock 底 Cost、其他角色離開舞台時放回原枠、對手山札底、這張卡一段時間得到能力、【起】的 CX Combo、按卡名的集中",
+  "next": "其餘長尾片段",
+  "playable": 455,
+  "unsupported": 154,
+  "level3Playable": 31,
+  "level3Open": 32,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 92,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 70,
+   "STS_W140": 71,
+   "ANM_W138": 69,
+   "NIK_S135": 70
+  }
  }
 ]

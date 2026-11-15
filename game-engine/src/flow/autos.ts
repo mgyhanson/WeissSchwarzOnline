@@ -173,6 +173,17 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // このカードが舞台から控え室に置かれた時. CR-8.7.4.1.2: the card as it was
       // on the stage, including abilities it had been given there.
       if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom') {
+        // 他のあなたの…のキャラが舞台から控え室に置かれた時: the other cards of that player in force; about the card, and the slot it left.
+        for (const source of activeSources(state)) {
+          if (source.master !== event.from.player || source.instanceId === card.instanceId) continue;
+          const sourceCard = state.instances[source.instanceId] as CardInstance;
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_STAGE_TO_WAITING_ROOM' && matchesFilter(state, card.instanceId, t.filter))) {
+            if (!inForce(source, found.ability)) continue;
+            wait(state, source.master, sourceCard, found, null, null, card.objectId);
+            const waiting = state.waiting[state.waiting.length - 1]!;
+            if (waiting.kind === 'CARD') waiting.aboutSlot = { player: event.from.player, slot: event.from.slot };
+          }
+        }
         // そのキャラは『【自】 アンコール』を使えない: its encore abilities do not trigger.
         const noEncore = barredFromEncore(state, event.fromObjectId);
         const left = autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM', event.stageGrants ?? []).filter((found) => !(noEncore && (found.ability.keywords ?? []).includes('ENCORE')));
@@ -453,6 +464,7 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
     chosen: [],
     battleOpponent: waiting.battleOpponent,
     about: waiting.about ?? null,
+    ...(waiting.aboutSlot ? { aboutSlot: waiting.aboutSlot } : {}),
     ...(waiting.carried ? { chosen: [...waiting.carried.chosen], lastMoved: [...waiting.carried.lastMoved], placed: [...waiting.carried.placed] } : {}),
     sourceSlot: waiting.slot ?? (sourceLocation.zone === 'stage' ? { player: sourceLocation.player, slot: sourceLocation.slot } : null),
     ...(ability.keywords ? { keywords: [...ability.keywords] } : {}),

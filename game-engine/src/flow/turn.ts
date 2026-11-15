@@ -9,7 +9,7 @@
  * abilities of STEP 4d.
  */
 
-import { handLimit } from '../abilities/query';
+import { handLimit, staysRestedInStandPhase } from '../abilities/query';
 import type { Ctx } from '../moves';
 import { moveCard, moveCards, setOrientation } from '../moves';
 import { listMainActions, listPlayableClimaxes, performMainAction, playClimax } from '../play';
@@ -50,7 +50,8 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
     case 'STAND_ACTION':
       // CR-6.2.1.2: the turn player stands all characters on their stage.
       for (const slot of SLOTS) {
-        for (const id of zones.stage[slot]) setOrientation(ctx, id, 'STAND');
+        // …はスタンドフェイズに【スタンド】しない: such a character stays as it is.
+        for (const id of zones.stage[slot]) if (!staysRestedInStandPhase(state, id)) setOrientation(ctx, id, 'STAND');
       }
       // CR-6.2.1.3
       frame.step = 'DRAW_START';

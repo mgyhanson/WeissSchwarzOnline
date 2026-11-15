@@ -241,6 +241,8 @@ export type WaitingAuto =
       granted?: AutoAbility;
       /** The card the ability is about, when its trigger named one (その舞台に置かれたキャラ). */
       about?: number;
+      /** そのキャラがいた枠: the slot the card the ability is about left. */
+      aboutSlot?: { player: PlayerId; slot: SlotId };
       /** A delayed ability: the cards its effect refers back to. */
       carried?: { chosen: number[]; lastMoved: number[]; placed: number[] };
     };
