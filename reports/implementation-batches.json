@@ -313,5 +313,26 @@
    "ANM_W138": 64,
    "NIK_S135": 63
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B4-4 戰鬥、Encore、Trigger 圖示及手牌 Level",
+  "done": "那張角色（攻擊的／被 Reverse 的）、不會被 Reverse、不能使用 Encore、所有玩家不能用助太刀、所有區域得到 Trigger 圖示、手牌中指定卡 Level、按目標 Soul 的 X、對手 Climax 條件、抽或彈回、可選的引號效果、Event 內的重複行動",
+  "next": "中途 Cost、給予起動能力、其餘",
+  "playable": 446,
+  "unsupported": 163,
+  "level3Playable": 29,
+  "level3Open": 34,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 90,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 66,
+   "STS_W140": 70,
+   "ANM_W138": 69,
+   "NIK_S135": 68
+  }
  }
 ]

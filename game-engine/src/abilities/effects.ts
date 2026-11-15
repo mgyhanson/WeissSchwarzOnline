@@ -16,7 +16,7 @@ import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
-import { cannotMove, chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
+import { cannotBeReversed, cannotMove, chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -567,7 +567,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'ORIENT': {
       for (const id of resolveTarget(state, context, effect.target)) {
-        if (getInstance(state, id).location.zone === 'stage') setOrientation(ctx, id, effect.to);
+        if (getInstance(state, id).location.zone === 'stage' && !(effect.to === 'REVERSE' && cannotBeReversed(state, id))) setOrientation(ctx, id, effect.to);
       }
       next();
       return;

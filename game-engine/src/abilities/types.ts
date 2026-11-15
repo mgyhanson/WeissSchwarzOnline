@@ -58,7 +58,7 @@ export type Condition =
   /** 相手のターン中 */
   | { if: 'OPPONENT_TURN' }
   /** クライマックス置場に「…」があるなら (the usual CX combo condition); without a name: CX置場にCXがあるなら */
-  | { if: 'CLIMAX_IN_PLAY'; name?: string }
+  | { if: 'CLIMAX_IN_PLAY'; name?: string; /** 相手のCX置場に… */ opponent?: boolean }
   /** (他の)あなたの…のキャラがN枚以上なら */
   | { if: 'CHARACTERS'; min: number; filter?: CardFilter; other?: boolean }
   /** あなたのレベルがN以上なら */
@@ -324,7 +324,7 @@ export type Effect =
   /** 山札を見て…を1枚まで選んで公開し、自分の手札の…を1枚まで選んで公開し、それらを入れ替え: only when one of each is chosen. */
   | { do: 'SWAP_DECK_HAND'; filter: CardFilter; handFilter?: CardFilter }
 
-  | { do: 'MAY'; effects: Effect[] }
+  | { do: 'MAY'; effects: Effect[]; /** text only: 次の効果を行ってよい / 次の行動を行ってよい with the effects quoted */ said?: 'EFFECT' | 'ACTION' }
   /**
    * (自分|相手)の山札を上からN枚まで見て、(カードをM枚まで選び、)山札の上に好きな順番で置き(、残りのカードを控え室に置く).
    * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to
@@ -347,9 +347,9 @@ export type Effect =
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
   | { do: 'TRIGGER_CHECKS'; count: number }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
-  | { do: 'CHOOSE_ONE'; options: Effect[][]; /** How the card says it: 'OR' for "Aするか、B" in one sentence (text only). */ said?: 'OR' }
+  | { do: 'CHOOSE_ONE'; options: Effect[][]; /** How the card says it: 'OR' for "Aするか、B" in one sentence, 'OR_JOINED' without the comma (text only). */ said?: 'OR' | 'OR_JOINED' }
   /** ［cost］ あなたはコストを払ってよい。そうしたら、… inside an effect: an optional payment, then what it buys. */
-  | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[] }
+  | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[]; /** text only: the cost stands in the 【自】［…］ head and "…し、あなたはコストを払ってよい" comes after an effect ('THEN': そうしたら、 / 'IF_PAID': コストを払ったなら、) */ said?: 'THEN' | 'IF_PAID' }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
   | { do: 'GRANT'; target: Target; ability: AutoAbility | ContinuousAbility; until?: 'NEXT_OPPONENT_TURN' };
 
@@ -456,6 +456,18 @@ export interface ContinuousAbility {
   cannotMove?: boolean;
   /** このカードのバトル中、相手は(イベントと)『助太刀』を手札からプレイできない */
   noOpponentCounters?: 'BACKUP' | 'EVENT_AND_BACKUP';
+  /** このカードのバトル中、すべてのプレイヤーは『助太刀』を手札からプレイできない */
+  noBackupsEveryone?: boolean;
+  /** そのターン中、そのキャラは【リバース】しない (given for a turn) */
+  cannotBeReversed?: boolean;
+  /** そのターン中、そのキャラは『【自】 アンコール』を使えない (given for a turn; the rule's encore too) */
+  noEncore?: boolean;
+  /** このカードと同じカード名のカードは、デッキに好きな枚数入れることができる (a deck-building rule, CR-?; checked by the format) */
+  anyNumberInDeck?: boolean;
+  /** すべての領域にあるこのカードはトリガーアイコンに…を得る */
+  gainsTriggerIcons?: TriggerIcon[];
+  /** あなたの手札の「…」のレベルを－N: the level of matching cards in the master's hand changes by `level`. */
+  handCards?: { filter: CardFilter; level: number };
   /** …このカードは次の能力を得る。『【永】 …』: continuous abilities this card has while this one is in force. */
   gains?: ContinuousAbility[];
   /**
@@ -477,6 +489,8 @@ export interface ContinuousAbility {
     per?: PerCharacter;
     /** Ｘはそのキャラのレベル×N: multiplies the amount by the target's level. */
     perTargetLevel?: boolean;
+    /** Ｘはそのキャラのソウル×N: multiplies the amount by the target's soul. */
+    perTargetSoul?: boolean;
     /** このカードの下のマーカー1枚につき: multiplies the amount by the number of markers of this card's slot. */
     perMarker?: boolean;
     /** あなたの思い出置場の「…」1枚につき: multiplies the amount by the number of matching cards in a zone (as COUNT). */

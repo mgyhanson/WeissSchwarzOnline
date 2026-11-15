@@ -142,6 +142,7 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
     /^あなたのトリガーアイコンが\[\[([a-z]+)\.gif\]\]のCXがトリガーした時$/,
     (m) => (TRIGGER_ICONS[`${m[1]}.gif`] ? out({ on: 'TRIGGER_CHECK_REVEALS', filter: { kind: 'CLIMAX', hasTrigger: TRIGGER_ICONS[`${m[1]}.gif`]! } }, `我方 Trigger Check 翻出 Trigger 圖示是 ${TRIGGER_ICONS[`${m[1]}.gif`]} 的 Climax 時`) : null),
   ],
+  [/^このカードかこのカードのバトル相手が【リバース】した時$/, () => out({ on: 'EITHER', of: [{ on: 'REVERSED' }, { on: 'BATTLE_OPPONENT_REVERSED' }] }, '這張卡或這張卡的戰鬥對手被 Reverse 時')],
   [/^あなたが【起】を使った時$/, () => out({ on: 'YOU_PLAYED_ACT' }, '我方使用【起】能力時')],
   [
     /^あなたの(トリガーアイコンが(?:\[\[[a-z]+\.gif\]\]){2,}のCX)がCX置場に置かれた時$/,
@@ -367,6 +368,7 @@ function parseOneCondition(text: string): Out<Condition> {
   }
   if ((m = /^(?:あなたの)?CX置場に「([^」]+)」がある$/.exec(text))) return out({ if: 'CLIMAX_IN_PLAY', name: m[1]! }, `Climax 置場有「${m[1]}」`);
   if (text === 'あなたのCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY' }, '我方 Climax 置場有 Climax');
+  if (text === '相手のCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY', opponent: true }, '對手 Climax 置場有 Climax');
   if ((m = /^あなたのレベルが(\d+)以上$/.exec(text))) return out({ if: 'LEVEL', min: n(m[1]) }, `我方 Level ${m[1]} 或以上`);
   if ((m = /^あなたのストックが(\d+)枚以下$/.exec(text))) return out({ if: 'STOCK', max: n(m[1]) }, `我方 Stock ${m[1]} 張或以下`);
   if ((m = /^あなたのキャラすべてが《([^》]+)》(?:か《([^》]+)》)?$/.exec(text))) {
@@ -534,6 +536,7 @@ const countZh = (count: string | undefined, upTo: string | undefined) => `${upTo
 function leftOptional(s: string): boolean {
   if (/^そのカード(?:が|の).+なら、/.test(s)) return false;
   if (s === 'あなたは自分の山札の上から1枚を公開してよい') return false;
+  if (/^(?:あなたは)?次の(?:効果|行動)を行ってよい$/.test(s)) return false;
   if (/^それらのカードに.+があるなら、/.test(s)) return false;
   return s.startsWith('そうしたら、') || plainForm(s) !== null;
 }
@@ -586,6 +589,9 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   // そのキャラ: the battle opponent of this card, or the character the trigger named.
   if (battle && (m = /^そのキャラを(.+)$/.exec(text))) return parseAction(m[1]!, { who: 'BATTLE_OPPONENT' }, '那張角色');
   if (aboutThat && (m = /^そのキャラを(.+)$/.exec(text))) return parseAction(m[1]!, { who: 'THAT' }, '那張角色');
+  if (aboutThat && (m = /^そのターン中、そのキャラの(.+)$/.exec(text))) return parseAction(`そのターン中、${m[1]}`, { who: 'THAT' }, '那張角色');
+  if (aboutThat && text === 'そのターン中、そのキャラは【リバース】しない') return out([{ do: 'GRANT', target: { who: 'THAT' }, ability: { type: 'CONT', apply: [], cannotBeReversed: true } }], '該回合那張角色不會被 Reverse');
+  if (aboutThat && text === 'そのターン中、そのキャラは『【自】 アンコール』を使えない') return out([{ do: 'GRANT', target: { who: 'THAT' }, ability: { type: 'CONT', apply: [], noEncore: true } }], '該回合那張角色不能使用 Encore（包括規則的 Encore）');
 
   // Choosing cards, then one action on them.
   if ((m = new RegExp(`^(他の)?自分の(.+?)を${COUNT}選び、(.+)$`).exec(text)) && !/^(控え室|手札|クロック|山札|思い出|ストック)/.test(m[2]!)) {
@@ -793,6 +799,13 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
       if (action) return action;
     }
   }
+  // "1枚まで引くか相手のキャラを1枚まで選び、手札に戻す": the same without the comma.
+  const joinedOr = /^(\d+枚まで引く)か(相手の.+)$/.exec(text);
+  if (joinedOr) {
+    const a = parseSentence(joinedOr[1]!, battle);
+    const b = parseSentence(joinedOr[2]!, battle);
+    if (a && b) return out([{ do: 'CHOOSE_ONE', options: [a.data, b.data], said: 'OR_JOINED' }], `${a.zh}，或${b.zh}（自己選）`);
+  }
   // "Aするか、B": one of two effects, chosen by the player.
   for (let i = text.indexOf('か、'); i > 0; i = text.indexOf('か、', i + 1)) {
     if (!/[るすく]$/.test(text.slice(0, i))) continue;
@@ -972,6 +985,17 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
       i += quotedAction ? 2 : 1;
       continue;
     }
+    // "あなたは次の効果を行ってよい。『…』": the quoted effects, if the player wants.
+    const mayDo = /^(?:あなたは)?次の(効果|行動)を行ってよい$/.exec(sentences[i]!);
+    const mayQuoted = mayDo && /^『(.+?)。?』$/.exec(sentences[i + 1] ?? '');
+    if (mayDo && mayQuoted) {
+      const inner = parseEffects(mayQuoted[1]!.split('。').filter((x) => x !== ''), battle);
+      if (!inner) return null;
+      effects.push({ do: 'MAY', effects: inner.data, said: mayDo[1] === '効果' ? 'EFFECT' : 'ACTION' });
+      zh.push(`可以進行以下${mayDo[1] === '効果' ? '效果' : '行動'}：${inner.zh}`);
+      i++;
+      continue;
+    }
     // A delayed ability: "次のあなたのターンの始めに、…" and the like (a time, then what is done then).
     const later = /^(次のあなたのターンの始めに|次のあなたのドローフェイズの始めに|アンコールステップの始めに|ターンの終わりに)、(.+)$/.exec(sentences[i]!);
     if (later) {
@@ -1149,7 +1173,7 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
     sentences = [sentences[1].slice('そうしたら、'.length), ...sentences.slice(2)];
   } else {
     // 公開してよい。そのカードが…なら…: read with the shown card (REVEAL_TOP optional), not here.
-    const showFirst = sentences[0] === 'あなたは自分の山札の上から1枚を公開してよい' && (sentences[1] ?? '').startsWith('そのカード');
+    const showFirst = (sentences[0] === 'あなたは自分の山札の上から1枚を公開してよい' && (sentences[1] ?? '').startsWith('そのカード')) || /^(?:あなたは)?次の(?:効果|行動)を行ってよい$/.test(sentences[0] ?? '');
     const first = showFirst ? null : plainForm(sentences[0] ?? '');
     if (first !== null) {
       // "…してよい": the player is asked once. Alone, or "N枚引いてよい。そうしたら、…" (drawing can always be done).
@@ -1190,7 +1214,8 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
     return null;
   }
   const battle = trigger?.data.on === 'BATTLE_OPPONENT_REVERSED' || parts.conditions.some((c) => c.includes('バトル相手'));
-  aboutThat = trigger?.data.on === 'OTHER_FRONT_ATTACKED';
+  // "そのキャラ": the character the trigger names (the attacked or attacking one, or the one reversed of the two).
+  aboutThat = trigger?.data.on === 'OTHER_FRONT_ATTACKED' || trigger?.data.on === 'OTHER_ATTACKS' || (trigger?.data.on === 'EITHER' && JSON.stringify(trigger.data.of) === JSON.stringify([{ on: 'REVERSED' }, { on: 'BATTLE_OPPONENT_REVERSED' }]));
   const effects = parseEffects(sentences, battle);
   if (!effects) unknown.push(...unknownEffects(sentences, battle));
   if (unknown.length > 0 || !trigger || !cost || !condition || !effects) return null;
@@ -1387,6 +1412,13 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
     }
     body = gains[1] ? [gains[1]] : [];
   }
+  // "…すべてに、パワーを＋Ｘ。Ｘはそのキャラのソウル×Nに等しい": per target's soul.
+  let bySoul: number | null = null;
+  const soulX = body.length === 2 ? /^Ｘはそのキャラのソウル×(\d+)に等しい$/.exec(body[1]!) : null;
+  if (soulX && body[0]!.endsWith('パワーを＋Ｘ')) {
+    bySoul = n(soulX[1]);
+    body = [body[0]!.replace(/＋Ｘ$/, `＋${soulX[1]}`)];
+  }
   // "…＋Ｘ。Ｘはあなたのレベル×Nに等しい": N per card in the level zone.
   let byLevel: number | null = null;
   const levelX = body.length === 2 ? /^Ｘはあなたのレベル×(\d+)に等しい$/.exec(body[1]!) : null;
@@ -1410,6 +1442,24 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
   conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: texts[i]! }));
   const condition = allOf(conditions);
 
+  if (sentence === 'このカードのバトル中、すべてのプレイヤーは『助太刀』を手札からプレイできない' && given.length === 0) {
+    if (unknown.length > 0 || !condition || condition.data) return null;
+    return { ability: { type: 'CONT', noBackupsEveryone: true, apply: [] }, zh: '【永】這張卡戰鬥中，所有玩家都不能從手牌使用助太刀。' };
+  }
+  if (sentence === 'このカードと同じカード名のカードは、デッキに好きな枚数入れることができる' && given.length === 0) {
+    if (unknown.length > 0 || !condition || condition.data) return null;
+    return { ability: { type: 'CONT', anyNumberInDeck: true, apply: [] }, zh: '【永】與這張卡同名的卡可以在卡組放入任意張數（構築規則）。' };
+  }
+  const gainIcon = /^すべての領域にあるこのカードはトリガーアイコンに\[\[([a-z]+\.gif)\]\]を得る$/.exec(sentence);
+  if (gainIcon && given.length === 0 && TRIGGER_ICONS[gainIcon[1]!]) {
+    if (unknown.length > 0 || !condition) return null;
+    return { ability: { type: 'CONT', ...(condition.data ? { condition: condition.data } : {}), gainsTriggerIcons: [TRIGGER_ICONS[gainIcon[1]!]!], apply: [] }, zh: `【永】${condition.zh ? `${condition.zh}，` : ''}在所有區域的這張卡得到 Trigger 圖示 ${TRIGGER_ICONS[gainIcon[1]!]}。` };
+  }
+  const handNamed = /^あなたの手札の「([^」]+)」のレベルを－(\d+)$/.exec(sentence);
+  if (handNamed && given.length === 0) {
+    if (unknown.length > 0 || !condition) return null;
+    return { ability: { type: 'CONT', ...(condition.data ? { condition: condition.data } : {}), handCards: { filter: { name: handNamed[1]! }, level: -n(handNamed[2]) }, apply: [] }, zh: `【永】${condition.zh ? `${condition.zh}，` : ''}我方手牌中的「${handNamed[1]}」Level －${handNamed[2]}。` };
+  }
   if (sentence === 'あなたの手札の枚数上限を＋1' && given.length === 0) {
     if (unknown.length > 0 || !condition || condition.data) return null;
     return { ability: { type: 'CONT', handLimitPlus: 1, apply: [] }, zh: '【永】我方手牌張數上限 +1。' };
@@ -1501,7 +1551,7 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
     changes = parseChanges(m[1]!);
   } else if ((m = /^(他の)?あなたの(.+?)すべてに、(.+)$/.exec(sentence))) {
     const filter = parseFilter(m[2]!, 'STAGE');
-    if (filter && (!filter.data || filter.data.kind === 'CHARACTER')) {
+    if (filter && (!filter.data || filter.data.kind === 'CHARACTER' || filter.data.nameIncludesAny || filter.data.nameIncludes)) {
       target = { who: 'ALL_YOURS', ...(filter.data ? { filter: filter.data } : {}), ...(m[1] ? { other: true } : {}) };
       targetZh = `我方${m[1] ? '其他' : '所有'}${filter.zh}全部`;
       changes = parseChanges(m[3]!);
@@ -1511,7 +1561,7 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
   if (!noChange && (!target || !changes)) unknown.push({ part: 'EFFECT', text: sentence });
   if (given.length > 0 && target && target.who !== 'SELF') unknown.push({ part: 'EFFECT', text: sentence });
   if (unknown.length > 0 || !condition) return null;
-  const apply = noChange ? [] : changes!.map((c) => ({ target: target!, stat: c.stat, amount: c.amount, ...(byLevel !== null ? { perCount: { where: 'YOUR_LEVEL' as const } } : {}) }));
+  const apply = noChange ? [] : changes!.map((c) => ({ target: target!, stat: c.stat, amount: c.amount, ...(byLevel !== null ? { perCount: { where: 'YOUR_LEVEL' as const } } : {}), ...(bySoul !== null ? { perTargetSoul: true } : {}) }));
   return {
     ability: {
       type: 'CONT',
@@ -1578,7 +1628,9 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
 /** The effect of an event card whose whole text is one paragraph of known effect sentences. Counter events are not read. */
 export function readEvent(text: string): { effect: Effect[]; zh: string } | null {
   const line = withoutReminders(text.trim());
-  if (outsideNames(line).includes('（') || line.includes('【') || line.includes('『')) return null;
+  // Quotes only for the actions of 次の行動を(N回)行う / 次の効果を行ってよい.
+  const quotesOk = !line.includes('『') || /次の(?:行動|効果)を(?:\d+回)?(?:行う|行ってよい)。『/.test(line);
+  if (outsideNames(line).includes('（') || line.includes('【') || !quotesOk) return null;
   const parts = splitLine(line, 'EVENT');
   if (!parts || parts.type !== 'EVENT' || parts.marks.length > 0 || parts.trigger) return null;
   // ［cost］ (…なら、)あなたはコストを払ってよい。そうしたら、…: an optional payment, then what it buys.

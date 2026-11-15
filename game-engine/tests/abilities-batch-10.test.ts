@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Ability, type Cost, type Effect, assertInvariants, getInstance, stageSlot } from '../src/index';
+import { type Ability, type Cost, type Effect, assertInvariants, evalCondition, getCardLevel, getInstance, getPower, moveCards, stageSlot, triggerIconsOf } from '../src/index';
 import { activate, cards } from './ability-helpers';
 import { answer, card, oid, pending, put, scenario } from './helpers';
 
@@ -27,9 +27,8 @@ function toNextMain(state: State, player: 0 | 1, limit = 200): State {
       : d.kind === 'CLOCK' ? { kind: 'CLOCK' as const, card: null }
       : d.kind === 'CONFIRM' ? { kind: 'CONFIRM' as const, accept: false }
       : d.kind === 'COUNTER' ? { kind: 'COUNTER' as const, card: null }
-      : d.kind === 'ENCORE' ? { kind: 'ENCORE' as const, card: null }
       : d.kind === 'HAND_LIMIT' ? { kind: 'HAND_LIMIT' as const, discard: d.cards.slice(0, d.count) }
-      : d.kind === 'CHOOSE_ABILITY' ? { kind: 'CHOOSE_ABILITY' as const, id: d.options[0]!.id }
+      : d.kind === 'CHOOSE_ABILITY' ? { kind: 'CHOOSE_ABILITY' as const, id: d.abilities[0]!.id }
       : d.kind === 'SELECT_CARDS' ? { kind: 'SELECT_CARDS' as const, cards: d.cards.slice(0, d.min) }
       : d.kind === 'SELECT_SLOT' ? { kind: 'SELECT_SLOT' as const, slot: d.slots[0]! }
       : null;
@@ -189,3 +188,98 @@ describe('zone exchanges and names', () => {
     expect(pending(state, 'SELECT_CARDS').cards).toEqual([oid(state, card(0, 6))]);
   });
 });
+
+describe('batch 4 part 4: battles, encore, icons and hand levels', () => {
+  it('他のあなたのキャラがアタックした時、そのターン中、そのキャラのパワーを＋1000: the attacker', () => {
+    const cheer: Ability = { type: 'AUTO', trigger: { on: 'OTHER_ATTACKS' }, effect: [{ do: 'MODIFY', target: { who: 'THAT' }, stat: 'POWER', amount: 1000 }] };
+    // 1000 against 1500: only with the +1000 does the attacker win the battle.
+    const run = (abilities: Ability[]) => {
+      const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:1': { abilities }, '1:0': { power: 1500 } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        put(ctx, card(0, 1), stageSlot(0, 'BL'));
+        put(ctx, card(1, 0), stageSlot(1, 'FC'));
+        noClimaxesBoth(ctx);
+      }).state;
+      const atCounter = answer(start, { kind: 'ATTACK', attack: { attacker: oid(start, card(0, 0)), type: 'FRONT' } }).state;
+      const done = answer(atCounter, { kind: 'COUNTER', card: null }).state;
+      // The loser is reversed, then goes to the waiting room in the encore step.
+      return [getInstance(done, card(0, 0)).location.zone, getInstance(done, card(1, 0)).location.zone];
+    };
+    expect(run([cheer])).toEqual(['stage', 'waitingRoom']);
+    expect(run([])).toEqual(['waitingRoom', 'stage']);
+  });
+
+  it('そのターン中、そのキャラは【リバース】しない: it survives a lost battle', () => {
+    const guard = act([{ do: 'CHOOSE', from: 'YOUR_STAGE', min: 1, max: 1 }, { do: 'GRANT', target: { who: 'CHOSEN' }, ability: { type: 'CONT', apply: [], cannotBeReversed: true } }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [guard], power: 500 }, '1:0': { power: 9000 } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 0))] }).state;
+    state = answer(state, { kind: 'MAIN', action: { type: 'PASS' } }).state;
+    state = answer(state, { kind: 'CLIMAX', card: null }).state;
+    state = answer(state, { kind: 'ATTACK', attack: { attacker: oid(state, card(0, 0)), type: 'FRONT' } }).state;
+    if (state.pending?.kind === 'COUNTER') state = answer(state, { kind: 'COUNTER', card: null }).state;
+    // Lost the battle (500 against 9000) but was not reversed, so it is still on the stage.
+    expect(getInstance(state, card(0, 0)).location.zone).toBe('stage');
+    expect(getInstance(state, card(0, 0)).orientation).toBe('REST');
+  });
+
+  it('そのターン中、そのキャラは『【自】 アンコール』を使えない: not even the rule encore', () => {
+    const ban = act([{ do: 'CHOOSE', from: 'OPPONENT_STAGE', min: 1, max: 1 }, { do: 'GRANT', target: { who: 'CHOSEN' }, ability: { type: 'CONT', apply: [], noEncore: true } }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [ban] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(1, 0))] }).state;
+    expect(state.waiting.some((w) => w.kind === 'ENCORE')).toBe(false);
+    expect(state.pending?.kind).toBe('MAIN');
+  });
+
+  it('このカードのバトル中、すべてのプレイヤーは『助太刀』を手札からプレイできない', () => {
+    const wall: Ability = { type: 'CONT', apply: [], noBackupsEveryone: true };
+    const backup: Ability = { type: 'ACT', timing: 'COUNTER', level: 0, cost: [], keywords: ['BACKUP'], effect: [] };
+    const start = scenario({ step: 'ATTACK_START', defs: cards({ '0:0': { abilities: [wall] }, '1:5': { abilities: [backup] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(1, 0), stageSlot(1, 'FC'));
+      put(ctx, card(1, 5), { player: 1, zone: 'hand' });
+      noClimaxesBoth(ctx);
+    }).state;
+    const { state } = answer(start, { kind: 'ATTACK', attack: { attacker: oid(start, card(0, 0)), type: 'FRONT' } });
+    expect(pending(state, 'COUNTER').backups).toEqual([]);
+  });
+
+  it('すべての領域にあるこのカードはトリガーアイコンに[[gate]]を得る (while its condition holds)', () => {
+    const gain: Ability = { type: 'CONT', apply: [], gainsTriggerIcons: ['GATE'], condition: { if: 'CLIMAX_IN_PLAY' } };
+    const setup = (climax: boolean) =>
+      scenario({ step: 'MAIN_START', defs: cards({ '0:5': { abilities: [gain] } }) }, (ctx) => {
+        put(ctx, card(0, 5), { player: 0, zone: 'hand' });
+        if (climax) put(ctx, card(0, 45), { player: 0, zone: 'climax' });
+      }).state;
+    expect(triggerIconsOf(setup(true), card(0, 5))).toEqual(['GATE']);
+    expect(triggerIconsOf(setup(false), card(0, 5))).toEqual([]);
+  });
+
+  it('あなたの手札の「…」のレベルを－1 / 相手のCX置場にCXがある / Ｘはそのキャラのソウル×500', () => {
+    const lower: Ability = { type: 'CONT', apply: [], handCards: { filter: { name: 'Target' }, level: -1 } };
+    const soulX: Ability = { type: 'CONT', apply: [{ target: { who: 'ALL_YOURS', other: true }, stat: 'POWER', amount: 500, perTargetSoul: true }] };
+    const state = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [lower, soulX] }, '0:5': { name: 'Target', level: 2 }, '0:6': { level: 2 }, '0:1': { soul: 2 } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 1), stageSlot(0, 'FL'));
+      put(ctx, card(0, 5), { player: 0, zone: 'hand' });
+      put(ctx, card(0, 6), { player: 0, zone: 'hand' });
+      put(ctx, card(1, 45), { player: 1, zone: 'climax' });
+    }).state;
+    expect(getCardLevel(state, card(0, 5))).toBe(1);
+    expect(getCardLevel(state, card(0, 6))).toBe(2);
+    expect(getPower(state, card(0, 1))).toBe(1000 + 1000);
+    expect(evalCondition(state, 0, card(0, 0), { if: 'CLIMAX_IN_PLAY', opponent: true })).toBe(true);
+    expect(evalCondition(state, 0, card(0, 0), { if: 'CLIMAX_IN_PLAY' })).toBe(false);
+  });
+});
+
+function noClimaxesBoth(ctx: Parameters<Parameters<typeof scenario>[1] & object>[0]): void {
+  for (const p of [0, 1] as const) moveCards(ctx, [42, 43, 44, 45, 46, 47, 48, 49].map((i) => card(p, i)), { player: p, zone: 'memory' });
+}

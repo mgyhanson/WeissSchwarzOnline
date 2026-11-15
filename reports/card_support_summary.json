@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 432,
- "unsupported": 177,
+ "playable": 446,
+ "unsupported": 163,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 88,
+   "playable": 90,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 72
+     "playable": 74
     },
     "EVENT": {
      "total": 4,
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 65,
+   "playable": 66,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 53
+     "playable": 54
     },
     "EVENT": {
      "total": 3,
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 69,
+   "playable": 70,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 56
+     "playable": 57
     },
     "EVENT": {
      "total": 4,
@@ -167,15 +167,15 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 64,
+   "playable": 69,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 50
+     "playable": 53
     },
     "EVENT": {
      "total": 7,
-     "playable": 2
+     "playable": 4
     },
     "CLIMAX": {
      "total": 12,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 63,
+   "playable": 68,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 50
+     "playable": 55
     },
     "EVENT": {
      "total": 9,
@@ -207,19 +207,19 @@
    },
    "level3": {
     "total": 13,
-    "playable": 2
+    "playable": 3
    }
   }
  ],
  "level3": {
   "total": 63,
-  "playable": 28
+  "playable": 29
  },
  "classes": {
-  "A": 53,
+  "A": 46,
   "B": 1,
-  "C": 69,
-  "D": 54,
+  "C": 64,
+  "D": 52,
   "E": 0
  },
  "topParts": [
@@ -249,27 +249,27 @@
    "cards": 2
   },
   {
-   "part": "EFFECT: そのターン中、そのキャラのパワーを＋N",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
-   "part": "EFFECT: あなたのターン中、他のあなたのキャラすべてに、パワーを＋Ｘ。Ｘはそのキャラのソウル×Nに等しい",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
-   "part": "CONDITION: 相手のCX置場にCXがある",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
    "part": "EFFECT: あなたは自分の控え室の《…》のキャラと思い出置場の《…》のキャラをN枚ずつ選び、入れ替える",
    "unlocks": 1,
    "cards": 2
   },
   {
    "part": "EFFECT: あなたは自分の山札を見て自分の控え室にあるCXと同じカード名のCXをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: あなたはN枚まで引き、自分の手札を同じ枚数選び、控え室に置き、自分のキャラをN枚選び、そのターン中、パワーを＋N",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EVENT: あなたは相手の山札を上からN枚見て、山札の上か控え室に置き、自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする。",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: あなたは自分の山札を上からN枚まで見て、カードをN枚まで選び、手札に加え、カードをN枚まで選び、ストック置場に置き、残りのカードを控え室に置く",
    "unlocks": 1,
    "cards": 1
   }

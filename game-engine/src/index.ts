@@ -17,7 +17,7 @@ export * from './view';
 export * from './invariants';
 export * from './decisions';
 export * from './abilities/types';
-export { activeSources, continuousTotal, evalCondition, greatPerformer, handLimit, matchesFilter, traitsOf } from './abilities/query';
+export { activeSources, continuousTotal, evalCondition, greatPerformer, handLimit, matchesFilter, traitsOf, triggerIconsOf } from './abilities/query';
 export { canPayCost } from './abilities/effects';
 export * from './stats';
 export * from './play';

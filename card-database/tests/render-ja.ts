@@ -203,6 +203,7 @@ function oneConditionJa(c: Condition): string {
     case 'FIRST_PLAYER_TURN':
       return `先攻プレイヤーの第${c.turn}ターン`;
     case 'CLIMAX_IN_PLAY':
+      if (c.opponent) return c.name === undefined ? '相手のCX置場にCXがある' : fail('condition', c);
       return c.name !== undefined ? `CX置場に「${c.name}」がある` : 'あなたのCX置場にCXがある';
     case 'LEVEL':
       return `あなたのレベルが${c.min}以上`;
@@ -462,6 +463,17 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       i += action.used;
       continue;
     }
+    if (e.do === 'GRANT' && e.target.who === 'THAT' && e.ability.type === 'CONT' && (e.ability.cannotBeReversed || e.ability.noEncore) && !e.until) {
+      sentences.push(e.ability.cannotBeReversed ? 'そのターン中、そのキャラは【リバース】しない' : 'そのターン中、そのキャラは『【自】 アンコール』を使えない');
+      i++;
+      continue;
+    }
+    if (e.do === 'MODIFY' && e.target.who === 'THAT') {
+      const action = actionJa(effects, i, e.target);
+      sentences.push(action.text.replace('、', '、そのキャラの'));
+      i += action.used;
+      continue;
+    }
     if ((e.do === 'MOVE' || e.do === 'ORIENT') && (e.target.who === 'BATTLE_OPPONENT' || e.target.who === 'THAT')) {
       const action = actionJa(effects, i, e.target);
       sentences.push(`そのキャラを${action.text}`);
@@ -484,6 +496,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       i++;
     } else if (e.do === 'MOVE' && e.target.who === 'MOVED' && e.target.where === 'MEMORY') sentences.push(`自分の思い出置場のそのキャラを、${actionJa(effects, i - 1, e.target).text}`);
     else if (e.do === 'MOVE' && e.target.who === 'PLACED' && e.to === 'WAITING_ROOM') sentences.push('この効果で舞台に置かれたキャラを控え室に置く');
+    else if (e.do === 'MAY' && e.said) sentences.push(`次の${e.said === 'EFFECT' ? '効果' : '行動'}を行ってよい`, `『${effectsJa(e.effects).join('。')}。』`);
     else if (e.do === 'MAY') {
       const inner = effectsJa(e.effects);
       sentences.push(...inner.slice(0, -1), may(inner[inner.length - 1]!));
@@ -498,6 +511,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}の山札を上から${e.upTo}枚まで見て、${e.keep !== undefined ? `カードを${e.keep}枚まで選び、山札の上に好きな順番で置き、残りのカードを控え室に置く` : '山札の上に好きな順番で置く'}`);
     } else if (e.do === 'OPPONENT_STOCK_RESET') {
       sentences.push(e.via === 'WAITING_ROOM' ? '相手は自分のストックすべてを、控え室に置き、自分の山札の上から同じ枚数をストック置場に置く' : '相手は自分のストックすべてを、山札に戻し、その山札をシャッフルし、自分の山札の上から同じ枚数をストック置場に置く');
+    } else if (e.do === 'CHOOSE_ONE' && e.said === 'OR_JOINED') {
+      const [a, b] = e.options.map((option) => effectsJa(option));
+      if (e.options.length !== 2 || a!.length !== 1 || b!.length !== 1) fail('or', e);
+      sentences.push(`${a![0]}か${b![0]}`);
     } else if (e.do === 'CHOOSE_ONE' && e.said === 'OR') {
       const [a, b] = e.options.map((option) => effectsJa(option));
       if (e.options.length !== 2 || a!.length !== 1 || b!.length !== 1) fail('or', e);
@@ -632,6 +649,10 @@ export function abilityJa(ability: Ability): string {
       const part = ability.apply[0]!;
       return `【永】 ${conditionJa(ability.condition)}このカードの下のマーカー1枚につき、このカードの${STAT[part.stat]}を${signed(part.amount)}。`;
     }
+    if (ability.noBackupsEveryone) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードのバトル中、すべてのプレイヤーは『助太刀』を手札からプレイできない。' : fail('ability', ability);
+    if (ability.anyNumberInDeck) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードと同じカード名のカードは、デッキに好きな枚数入れることができる。' : fail('ability', ability);
+    if (ability.gainsTriggerIcons) return ability.apply.length === 0 && !ability.grant && ability.gainsTriggerIcons.length === 1 ? `【永】 ${conditionJa(ability.condition)}すべての領域にあるこのカードはトリガーアイコンに[[${ICONS[ability.gainsTriggerIcons[0]!]}.gif]]を得る。` : fail('ability', ability);
+    if (ability.handCards) return ability.apply.length === 0 && !ability.grant && Object.keys(ability.handCards.filter).join() === 'name' && ability.handCards.level < 0 ? `【永】 ${conditionJa(ability.condition)}あなたの手札の「${ability.handCards.filter.name}」のレベルを－${-ability.handCards.level}。` : fail('ability', ability);
     if (ability.handLimitPlus) return ability.apply.length === 0 && !ability.condition && !ability.grant ? `【永】 あなたの手札の枚数上限を＋${ability.handLimitPlus}。` : fail('ability', ability);
     if (ability.giveTraits) return ability.giveTraits.to === 'OTHER_CHARACTERS' && ability.apply.length === 0 && !ability.condition && !ability.grant ? `【永】 他のキャラすべてに、${ability.giveTraits.traits.map((t) => `《${t}》`).join('')}を与える。` : fail('ability', ability);
     if (ability.apply.length === 2 && ability.apply.every((a) => a.onlyIf && a.target.who === 'SELF') && ability.apply[0]!.onlyIf!.if === 'YOUR_TURN' && ability.apply[1]!.onlyIf!.if === 'OPPONENT_TURN' && !ability.grant) {
@@ -666,8 +687,9 @@ export function abilityJa(ability: Ability): string {
     }
     const target = ability.apply[0]?.target;
     if (ability.apply.some((a) => !sameTarget(a.target, target!) || a.per || a.perTargetLevel || (a.perCount && a.perCount.where !== 'YOUR_LEVEL'))) return fail('ability', ability);
+    const bySoul = ability.apply.length === 1 && ability.apply[0]!.perTargetSoul;
     const byLevel = ability.apply.some((a) => a.perCount?.where === 'YOUR_LEVEL');
-    const changes = ability.apply.map((a) => `${STAT[a.stat]}を${byLevel ? '＋Ｘ' : signed(a.amount)}`).join('し、');
+    const changes = ability.apply.map((a) => `${STAT[a.stat]}を${byLevel || bySoul ? '＋Ｘ' : signed(a.amount)}`).join('し、');
     const subject = !target
       ? ''
       : target.who === 'SELF'
@@ -678,7 +700,7 @@ export function abilityJa(ability: Ability): string {
     const grants: { ability: Ability }[] = [...(ability.gains ?? []).map((g) => ({ ability: g as Ability })), ...(ability.grant ?? [])];
     if ((ability.grant ?? []).some((g) => g.target.who !== 'SELF')) return fail('grant', ability);
     const gain = grants.length === 0 ? '' : `${subject ? 'し、' : ''}このカードは次の${grants.length > 1 ? `${grants.length}つの` : ''}能力を得る。${grants.map((g) => `『${abilityJa(g.ability)}』`).join('')}`;
-    return `【永】 ${conditionJa(ability.condition)}${subject}${gain}${grants.length > 0 ? '' : '。'}${byLevel ? `Ｘはあなたのレベル×${ability.apply[0]!.amount}に等しい。` : ''}`;
+    return `【永】 ${conditionJa(ability.condition)}${subject}${gain}${grants.length > 0 ? '' : '。'}${byLevel ? `Ｘはあなたのレベル×${ability.apply[0]!.amount}に等しい。` : ''}${bySoul ? `Ｘはそのキャラのソウル×${ability.apply[0]!.amount}に等しい。` : ''}`;
   }
   if (ability.type === 'ACT') {
     if (ability.timing !== 'MAIN' || ability.level !== undefined) return fail('ability', ability);
@@ -743,6 +765,7 @@ export function sameWords(text: string): string {
     .replace(/^(【永】 ?回想) ?（[^（）]*）$/, '$1')
     // Resting a character as a cost needs a standing one: "あなたのキャラを2枚【レスト】する" is the same cost.
     .replace(/あなたの【スタンド】している(.+?を\d+枚【レスト】する)/g, 'あなたの$1')
+    .replace(/【スタンド】しているこのカードを【レスト】する/g, 'このカードを【レスト】する')
     // Two effects joined in one sentence (…置き、… / …戻し、…) say the same as two sentences.
     .replace(/置き、/g, '置く。')
     .replace(/戻し、/g, '戻す。')

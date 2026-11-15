@@ -5,7 +5,7 @@
  */
 
 import { getDef, getInstance } from '../state';
-import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
+import type { CardDef, CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
 import { SLOTS, opponentOf, HAND_LIMIT } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
 import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, CountWhere, EffectContext, PerCharacter, Target } from './types';
@@ -116,7 +116,7 @@ export function matchesFilter(
     if (levelOf(state, instanceId) <= state.zones[location.player].level.length) return false;
   }
   if (filter.color !== undefined && def.color !== filter.color) return false;
-  if (filter.hasTrigger && !def.triggers.includes(filter.hasTrigger)) return false;
+  if (filter.hasTrigger && !triggerIconsOf(state, instanceId).includes(filter.hasTrigger)) return false;
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
   if (filter.costMin !== undefined && (def.cost ?? 0) < filter.costMin) return false;
   if (filter.powerMax !== undefined && currentStat(state, instanceId, 'POWER') > filter.powerMax) return false;
@@ -150,7 +150,7 @@ export function evalCondition(
     case 'OPPONENT_TURN':
       return state.turn !== null && state.turn.player !== master;
     case 'CLIMAX_IN_PLAY':
-      return zones.climax.some((id) => getDef(state, id).kind === 'CLIMAX' && (condition.name === undefined || getDef(state, id).name === condition.name));
+      return (condition.opponent ? state.zones[opponentOf(master)] : zones).climax.some((id) => getDef(state, id).kind === 'CLIMAX' && (condition.name === undefined || getDef(state, id).name === condition.name));
     case 'CHARACTERS': {
       const count = stageCharacters(state, master).filter(
         (id) => !(condition.other && id === source) && matchesFilter(state, id, condition.filter),
@@ -362,6 +362,13 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
       if (ability.type !== 'CONT' || !ability.inHand || !evalCondition(state, location.player, instanceId, ability.condition)) continue;
       for (const part of ability.apply) if (part.stat === stat && part.target.who === 'SELF') inHand += part.amount;
     }
+    // あなたの手札の「…」のレベルを－N: continuous abilities of the owner's cards in force for matching cards in the hand.
+    if (stat === 'LEVEL') {
+      for (const { source, ability } of continuousInForce(state)) {
+        if (!ability.handCards || source.master !== location.player || !matchesFilter(state, instanceId, ability.handCards.filter)) continue;
+        inHand += ability.handCards.level;
+      }
+    }
     return inHand;
   }
   if (location.zone !== 'stage') return 0;
@@ -378,6 +385,7 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
         (part.perCount ? zoneCount(state, source.master, source.instanceId, part.perCount.where, part.perCount.filter) : 1);
       // Ｘはそのキャラのレベル×N. Only power and soul use this, so levels are already settled.
       if (part.perTargetLevel) amount = part.amount * currentLevel(state, instanceId);
+      if (part.perTargetSoul) amount = part.amount * currentStat(state, instanceId, 'SOUL');
       total += amount;
     }
   }
@@ -460,6 +468,23 @@ export function handLimit(state: GameState, player: PlayerId): number {
   return limit;
 }
 
+/** The trigger icons a card has: printed ones and those it gains in every zone (すべての領域にあるこのカードはトリガーアイコンに…を得る). */
+export function triggerIconsOf(state: GameState, instanceId: number): TriggerIcon[] {
+  const def = getDef(state, instanceId);
+  const icons = [...def.triggers];
+  const inst = getInstance(state, instanceId);
+  const player = inst.location.zone === 'stage' || inst.location.zone === 'marker' ? inst.location.player : inst.owner;
+  for (const ability of def.abilities ?? []) {
+    if (ability.type === 'CONT' && ability.gainsTriggerIcons && evalCondition(state, player, instanceId, ability.condition)) icons.push(...ability.gainsTriggerIcons);
+  }
+  return icons;
+}
+
+/** そのターン中、そのキャラは【リバース】しない */
+export function cannotBeReversed(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.cannotBeReversed === true && source.instanceId === instanceId);
+}
+
 export function cannotMove(state: GameState, instanceId: number): boolean {
   return continuousInForce(state).some(({ source, ability }) => ability.cannotMove === true && source.instanceId === instanceId);
 }
@@ -468,7 +493,10 @@ export function cannotMove(state: GameState, instanceId: number): boolean {
 export function blockedCounters(state: GameState, player: PlayerId): 'BACKUP' | 'EVENT_AND_BACKUP' | null {
   let blocked: 'BACKUP' | 'EVENT_AND_BACKUP' | null = null;
   const fighters = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage' && inst.location.player !== player);
+  const allFighters = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage');
   for (const { source, ability } of continuousInForce(state)) {
+    // すべてのプレイヤーは『助太刀』を手札からプレイできない: either side of this card's battle.
+    if (ability.noBackupsEveryone && allFighters.some((inst) => inst.instanceId === source.instanceId) && blocked === null) blocked = 'BACKUP';
     if (!ability.noOpponentCounters || !fighters.some((inst) => inst.instanceId === source.instanceId)) continue;
     if (ability.noOpponentCounters === 'EVENT_AND_BACKUP' || blocked === null) blocked = ability.noOpponentCounters;
   }

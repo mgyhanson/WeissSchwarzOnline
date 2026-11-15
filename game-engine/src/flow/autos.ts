@@ -118,6 +118,11 @@ function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger
   }
 }
 
+/** そのターン中、そのキャラは『【自】 アンコール』を使えない: given to the character as it was on the stage (rule encore included). */
+function barredFromEncore(state: GameState, objectId: number): boolean {
+  return state.grants.some((grant) => grant.objectId === objectId && grant.ability.type === 'CONT' && grant.ability.noEncore === true);
+}
+
 /** Delayed abilities whose time has come trigger (once) and are gone. */
 function fireDelayed(state: GameState, due: (at: DelayedTime, master: PlayerId) => boolean): void {
   if (!state.delayed?.length) return;
@@ -168,7 +173,9 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // このカードが舞台から控え室に置かれた時. CR-8.7.4.1.2: the card as it was
       // on the stage, including abilities it had been given there.
       if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom') {
-        const left = autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM', event.stageGrants ?? []);
+        // そのキャラは『【自】 アンコール』を使えない: its encore abilities do not trigger.
+        const noEncore = barredFromEncore(state, event.fromObjectId);
+        const left = autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM', event.stageGrants ?? []).filter((found) => !(noEncore && (found.ability.keywords ?? []).includes('ENCORE')));
         for (const found of left) wait(state, event.from.player, card, found, null, { player: event.from.player, slot: event.from.slot });
       }
       if (event.to.zone === 'climax' && event.from.zone !== 'climax') {
@@ -261,7 +268,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
         if (source.master !== event.player || source.instanceId === attacker.instanceId) continue;
         const sourceCard = state.instances[source.instanceId] as CardInstance;
         for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_ATTACKS' && matchesFilter(state, attacker.instanceId, t.filter))) {
-          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
+          // そのキャラ: the attacking character.
+          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, attacker.objectId);
         }
       }
       return;
@@ -273,13 +281,13 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // このカードが【リバース】した時
       // バトル中のこのカード: the attacking or defending character of a front attack (CR-7.2.1.5.1).
       for (const found of autosOf(state, card, (t) => t.on === 'REVERSED' && (!t.inBattle || opponent !== null))) {
-        wait(state, event.player, card, found, opponent ? opponent.objectId : null);
+        wait(state, event.player, card, found, opponent ? opponent.objectId : null, null, card.objectId);
       }
       // このカードのバトル相手が【リバース】した時
       if (opponent) {
         const placedNow = opponent.placedFromHandTurn !== undefined && opponent.placedFromHandTurn === state.turn?.number;
         for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED' && matchesFilter(state, card.instanceId, t.filter) && (!t.placedThisTurn || placedNow))) {
-          wait(state, opponent.location.player, opponent, found, card.objectId);
+          wait(state, opponent.location.player, opponent, found, card.objectId, null, card.objectId);
         }
       }
       return;
@@ -320,7 +328,7 @@ export function registerTriggers(ctx: Ctx): void {
     // CR-10.2.2: "when this character is put from the stage into the waiting
     // room". CR-10.2.3: every character has encore [3]. The ability belongs to
     // the player on whose stage the character was (CR-8.7.4.1.2).
-    if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom' && state.defs[event.cardId]?.kind === 'CHARACTER') {
+    if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom' && state.defs[event.cardId]?.kind === 'CHARACTER' && !barredFromEncore(state, event.fromObjectId)) {
       state.waiting.push({
         id: state.nextWaitingId++,
         kind: 'ENCORE',
