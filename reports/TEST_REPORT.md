@@ -1,6 +1,29 @@
 # TEST_REPORT — 測試結果
 
-2026-11-15，Mac（Node 24.21），分支 `feat/card-effects-batch-2`。以下全部是實際執行的結果。
+2026-11-15，Mac（Node 24.21），分支 `feat/card-effects-batch-3`。以下全部是實際執行的結果。
+
+## 自動測試（2026-11-15，Batch 3，分支 `feat/card-effects-batch-3`，全部實際執行）
+
+| 指令 | 結果 |
+|---|---|
+| `npm run check` | **869 個測試通過**（45 個測試檔），8 個慢速測試按設計略過，失敗 0；registry 檢查通過；上一批是 772 個 |
+| `npm run soak` | 4000 局全部通過（INV-01 至 INV-07） |
+| `npm run cards:validate` | 609 張卡、609 張圖片，缺少 0、問題 0（沒有重新下載或改動圖片） |
+| `npm run cards:report` | 可對戰 352（人手 128＋自動 224）、未支援 257 |
+| `npm run qa:ui` | 25 項全部通過，沒有錯誤 |
+| `npm run qa:online` | 全部通過（41 項） |
+
+### Batch 3 新增及改動的測試
+
+| 檔案 | 內容 |
+|---|---|
+| `game-engine/tests/abilities-markers.test.ts`（22） | Marker 表裏（裏向 Marker 不會出現在對手的 PlayerView）、從上面取回、作 Cost、角色離開舞台時 Marker 放控え室、張數及不同卡名條件、按張數加數值、思い出與 Marker 合計、Marker 置場生效的永續及自動能力、回想兩個自動能力、以回想角色作 Cost、リンク、搭乗、思い出生效的能力、最多抽 N 張、重複 N 次 |
+| `game-engine/tests/abilities-batch-7.test.ts`（12） | Climax 作 Cost、Climax 階段的放置觸發、其他角色被正面攻擊時、按對手角色張數的 X、看山札頂取多張、Standby、所有玩家控え室洗回、不能移動到其他枠、戰鬥中對手不能使用助太刀、取得永續能力、按 Level 的 X、戰鬥中的角色 |
+| `card-database/tests/grammar.test.ts` | 每張文法卡逐張反向寫回日文（新增 63 張） |
+| `card-database/tests/patterns.test.ts`（更新 2 項） | 帶 Cost 的 Event 現在比較 MAY_PAY 的結構；沒有支付字句的 `[(1)]` 句子仍然不讀 |
+| `web-client/tests/card-browser.test.ts`（更新） | 「已驗證 Event」清單改由資料庫計算，不再寫死 |
+| `ai/tests/deck-games.test.ts` | 五副卡組加入新 Level 3 後重新執行（BDY 對 ANM、STS 對 NIK、GUP 對 BDY、同系列對局），全部正常結束 |
+
 
 ## 自動測試（2026-11-15，Level 3 優先批次，分支 `feat/card-effects-batch-2`，全部實際執行）
 

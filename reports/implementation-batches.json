@@ -187,5 +187,26 @@
    "ANM_W138": 43,
    "NIK_S135": 42
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-5 卡組加入新 Level 3",
+  "done": "BDY 003、008 及 STS 003 加入測試卡組（仍 50 張、8 CX）",
+  "next": "完整 QA 及 PR",
+  "playable": 352,
+  "unsupported": 257,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 75,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 55,
+   "STS_W140": 54,
+   "ANM_W138": 43,
+   "NIK_S135": 42
+  }
  }
 ]

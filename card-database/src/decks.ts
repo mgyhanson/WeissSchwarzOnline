@@ -142,7 +142,7 @@ export const BDY_TEST_DECK: TestDeck = {
     // Level 2 (8)
     bdy('020', 3), bdy('051', 2), bdy('089', 2), bdy('039', 1),
     // Level 3 (6)
-    bdy('041', 2), bdy('040', 2), bdy('094', 2),
+    bdy('041', 2), bdy('040', 1), bdy('094', 1), bdy('003', 1), bdy('008', 1),
     // Climaxes: 愛は衝動 and TearJerker (named by 013), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
     bdy('026', 2), bdy('062', 2), bdy('064', 2), bdy('097', 2),
   ],
@@ -163,7 +163,7 @@ export const STS_TEST_DECK: TestDeck = {
     // Level 2 (8)
     '022': 2, '023': 2, '052': 3, '093': 1,
     // Level 3 (4)
-    '053': 4,
+    '053': 2, '003': 2,
     // Climaxes: 黎明告げる凱旋歌 (green), その願い、たしかに届けたよ (red)
     '031': 4, '067': 4,
   }),
