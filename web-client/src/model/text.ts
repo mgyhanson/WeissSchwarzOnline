@@ -123,7 +123,7 @@ export const PROMPT_ZH: Record<PromptId, string> = {
   COST_REST: '請選擇要作為費用 Rest 的角色。',
   COST_HAND_TO_CLOCK: '請選擇要作為費用放到 Clock 的手牌。',
   COST_CHARACTERS: '請選擇要作為費用放到控え室（或思い出）的我方舞台角色。',
-  COST_BOARD: '搭乘：請選擇把這張卡放到哪一張角色下面作為 Marker。'
+  COST_BOARD: '搭乘：請選擇把這張卡放到哪一張角色下面作為 Marker。',
   EFFECT_PLAYER: '這個效果可以用在自己或對手身上，請選擇。',
   EFFECT_OPTION: '這個能力有多個效果，請選擇執行哪一個（可按卡牌查看原文及說明）。',
   EFFECT_DESTINATION: '請選擇把卡放到哪裡。',
