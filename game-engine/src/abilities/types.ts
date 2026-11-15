@@ -131,6 +131,8 @@ export type Cost =
   | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
   /** このカードを山札の下に置く */
   | { pay: 'SELF_TO_DECK_BOTTOM' }
+  /** あなたのCX置場の「…」をN枚控え室に置く */
+  | { pay: 'CLIMAX_TO_WAITING_ROOM'; count: number; filter?: CardFilter }
   /** このカードの下のマーカーをN枚控え室に置く: from the top of the marker zone (CR-3.7.2). */
   | { pay: 'MARKERS_TO_WAITING_ROOM'; count: number }
   /** 搭乗: このカードを表向きで他のあなたの「名称」のマーカーにする — the player chooses that character (CR-10.21). */
@@ -225,7 +227,7 @@ export type Effect =
    * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
    * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
    */
-  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN'; /** ＋Ｘ (Ｘは…×N): the amount is multiplied by X of this resolution. */ timesX?: boolean }
+  | { do: 'MODIFY'; target: Target; stat: 'POWER' | 'SOUL' | 'LEVEL'; amount: number; per?: PerCharacter; until?: 'NEXT_OPPONENT_TURN'; /** Ｘは相手のキャラの枚数×N: the amount times a count (as COUNT) when the effect resolves. */ perCount?: { where: CountWhere; filter?: CardFilter }; /** ＋Ｘ (Ｘは…×N): the amount is multiplied by X of this resolution. */ timesX?: boolean }
   /** …を【スタンド】/【レスト】/【リバース】する */
   | { do: 'ORIENT'; target: Target; to: Orientation }
   /** 相手にNダメージを与える */
@@ -238,7 +240,9 @@ export type Effect =
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
-  | { do: 'WAITING_ROOM_TO_DECK' }
+  | { do: 'WAITING_ROOM_TO_DECK'; /** すべてのプレイヤーは…: both players, the turn player first */ everyone?: boolean }
+  /** [[standby.gif]]の効果を行う (CR-4.14.2.13): the effect of the standby trigger icon. */
+  | { do: 'ICON_EFFECT'; icon: 'STANDBY' }
   /**
    * 集中 (CR-10.7): 自分の山札の上からN枚をめくり、控え室に置く。それらのカードの…1枚につき、…
    * `each` is performed once per turned-over card matching `per`.
@@ -257,7 +261,7 @@ export type Effect =
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
-  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean }
+  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number }
   /**
    * 自分の山札の上から1枚を公開する。そのカードが…なら(手札に加え、)…。 The top card of your deck is shown to
    * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
@@ -315,7 +319,9 @@ export type Trigger =
   /** (あなたの/相手の)…フェイズの始めに */
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
-  | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean }
+  | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean; /** あなたのCXフェイズ中、… */ duringClimaxPhase?: boolean }
+  /** 他のあなたの…のキャラがフロントアタックされた時: the ability is about that character (THAT). */
+  | { on: 'OTHER_FRONT_ATTACKED'; filter?: CardFilter }
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */

@@ -16,7 +16,7 @@ import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS } from '../zones';
-import { chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged } from './query';
+import { chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -97,6 +97,9 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         break;
       case 'STOCK_TO_CLOCK':
         stockNeeded += cost.count;
+        break;
+      case 'CLIMAX_TO_WAITING_ROOM':
+        if (zones.climax.filter((id) => matchesFilter(state, id, cost.filter)).length < cost.count) return false;
         break;
       case 'MARKERS_TO_WAITING_ROOM': {
         const self = sourceIfUnchanged(state, context);
@@ -221,6 +224,12 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       const fromTop = zones.stock.slice(zones.stock.length - cost.count).reverse();
       frame.index++;
       moveCards(ctx, fromTop, { player: master, zone: 'clock' }, { reason: 'COST' });
+      return;
+    }
+    case 'CLIMAX_TO_WAITING_ROOM': {
+      frame.index++;
+      const climaxes = zones.climax.filter((id) => matchesFilter(state, id, cost.filter)).slice(0, cost.count);
+      moveCards(ctx, climaxes, { player: master, zone: 'waitingRoom' }, { reason: 'COST' });
       return;
     }
     case 'MARKERS_TO_WAITING_ROOM': {
@@ -453,7 +462,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'MODIFY': {
       // CR-8.9.2: applies to the cards that are there now, not to ones arriving later.
-      const amount = effect.amount * perCount(state, master, context.source, effect.per) * (effect.timesX ? (context.x ?? 0) : 1);
+      const amount =
+        effect.amount *
+        perCount(state, master, context.source, effect.per) *
+        (effect.timesX ? (context.x ?? 0) : 1) *
+        (effect.perCount ? zoneCount(state, master, context.source, effect.perCount.where, effect.perCount.filter) : 1);
       const untilTurn = effect.until === 'NEXT_OPPONENT_TURN' ? nextOpponentTurn(state, master) : undefined;
       for (const id of resolveTarget(state, context, effect.target)) {
         addModifier(state, getInstance(state, id).objectId, effect.stat, amount, untilTurn);
@@ -511,7 +524,17 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'WAITING_ROOM_TO_DECK':
       next();
-      moveCards(ctx, [...state.zones[master].waitingRoom], { player: master, zone: 'deck' }, { reason: 'EFFECT' });
+      // すべてのプレイヤーは…、それらの山札をシャッフルする: both players; the SHUFFLE that follows shuffles both decks.
+      for (const player of effect.everyone ? [state.turn?.player ?? master, opponentOf(state.turn?.player ?? master)] : [master]) {
+        moveCards(ctx, [...state.zones[player].waitingRoom], { player, zone: 'deck' }, { reason: 'EFFECT' });
+        if (effect.everyone) shuffleDeck(ctx, player);
+      }
+      return;
+
+    case 'ICON_EFFECT':
+      next();
+      // The standby icon's effect does not depend on a trigger card (CR-4.14.2.13); it is played as if checked.
+      pushFrame(ctx, { kind: 'TRIGGER_ICON', icon: 'STANDBY', player: master, card: context.sourceObjectId, step: 0, picked: null, revealed: [] });
       return;
 
     case 'BRAINSTORM': {
@@ -869,7 +892,7 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
       prompt: 'EFFECT_CHOOSE',
       cards: candidates.map((id) => getInstance(state, id).objectId),
       min: 0,
-      max: 1,
+      max: Math.min(effect.picks ?? 1, candidates.length),
       look: lookMap(state, frame.scratch),
     });
     return;

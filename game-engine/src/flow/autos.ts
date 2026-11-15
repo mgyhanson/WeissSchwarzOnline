@@ -161,7 +161,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           for (const found of autosOf(state, card, (t) => t.on === 'THIS_CLIMAX_PLACED')) wait(state, event.to.player, card, found, null);
         }
         // あなたのクライマックスがクライマックス置場に置かれた時
-        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && !t.opponent && matchesFilter(state, event.instanceId, t.filter));
+        const climaxPhase = state.turn?.phase === 'CLIMAX';
+        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && !t.opponent && (!t.duringClimaxPhase || climaxPhase) && matchesFilter(state, event.instanceId, t.filter));
         // 相手のクライマックスがクライマックス置場に置かれた時
         sourcesWith(state, opponentOf(event.to.player), (t) => t.on === 'CLIMAX_PLACED' && t.opponent === true && matchesFilter(state, event.instanceId, t.filter));
       }
@@ -190,6 +191,16 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const placedNow = attacker.placedFromHandTurn !== undefined && attacker.placedFromHandTurn === state.turn?.number;
       for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS' && (!t.placedThisTurn || placedNow))) {
         wait(state, event.player, attacker, found, defender ? defender.objectId : null);
+      }
+      // 他のあなたの…のキャラがフロントアタックされた時: the defending player's other cards in force; the ability is about the defender.
+      if (defender && event.attackType === 'FRONT') {
+        for (const source of activeSources(state)) {
+          if (source.master === event.player || source.instanceId === defender.instanceId) continue;
+          const sourceCard = state.instances[source.instanceId] as CardInstance;
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_FRONT_ATTACKED' && matchesFilter(state, defender.instanceId, t.filter))) {
+            if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, defender.objectId);
+          }
+        }
       }
       // マーカー置場にこのカードがあるなら、このマーカーを持つ舞台の…キャラがアタックした時
       for (const source of activeSources(state)) {

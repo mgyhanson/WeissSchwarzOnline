@@ -145,5 +145,26 @@
    "ANM_W138": 38,
    "NIK_S135": 40
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-3 Climax Cost、正面攻擊觸發、對手角色 X、Event Cost",
+  "done": "Climax 置場的卡作 Cost、Climax 階段中放置觸發、其他角色被正面攻擊時、按對手角色張數的 X、看山札頂取多張、Standby 效果、所有玩家控え室洗回、思い出及 Clock 置場選擇、帶 Cost 的 Event",
+  "next": "見 BATCH_3_PRIORITY.md",
+  "playable": 339,
+  "unsupported": 270,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 68,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 53,
+   "STS_W140": 51,
+   "ANM_W138": 42,
+   "NIK_S135": 42
+  }
  }
 ]

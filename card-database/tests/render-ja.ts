@@ -72,12 +72,18 @@ export function triggerJa(trigger: Trigger): string {
       if (trigger.opponent) return trigger.filter ? fail('trigger', trigger) : '相手のCXがCX置場に置かれた時';
       if (!trigger.filter) return 'あなたのCXがCX置場に置かれた時';
       if (Object.keys(trigger.filter).sort().join() === 'hasTrigger,kind') return `あなたの${filterJa(trigger.filter, 'ZONE')}がCX置場に置かれた時`;
-      return Object.keys(trigger.filter).join() === 'name' ? `あなたのCX置場に「${trigger.filter.name}」が置かれた時` : fail('trigger', trigger);
+      if (Object.keys(trigger.filter).join() !== 'name') return fail('trigger', trigger);
+      return trigger.duringClimaxPhase ? `あなたのCXフェイズ中、CX置場に「${trigger.filter.name}」が置かれた時` : `あなたのCX置場に「${trigger.filter.name}」が置かれた時`;
     case 'PHASE_START':
+      if (trigger.turn === 'OPPONENT' && trigger.phase === 'ATTACK') return '相手のアタックフェイズの始めに';
       if (trigger.turn !== 'YOURS') return fail('trigger', trigger);
       return trigger.phase === 'CLIMAX' ? 'あなたのCXフェイズの始めに' : trigger.phase === 'ATTACK' ? 'あなたのアタックフェイズの始めに' : fail('trigger', trigger);
     case 'STEP_START':
       return trigger.step === 'ENCORE' && trigger.turn === 'YOURS' ? 'あなたのアンコールステップの始めに' : fail('trigger', trigger);
+    case 'OTHER_FRONT_ATTACKED':
+      return `他のあなたの${filterJa(trigger.filter, 'STAGE')}がフロントアタックされた時`;
+    case 'THIS_CLIMAX_PLACED':
+      return 'このカードが手札からCX置場に置かれた時';
     case 'TRIGGER_CHECK_REVEALS':
       return trigger.filter && Object.keys(trigger.filter).join() === 'kind' && trigger.filter.kind === 'CLIMAX' ? 'あなたのCXがトリガーした時' : fail('trigger', trigger);
     case 'HOLDER_ATTACKS':
@@ -101,6 +107,11 @@ export function costJa(cost: Cost): string {
       return `${cost.standing ? '【スタンド】している' : ''}このカードを思い出にする`;
     case 'SELF_TO_HAND':
       return 'このカードを手札に戻す';
+    case 'CLIMAX_TO_WAITING_ROOM': {
+      const f = cost.filter ?? {};
+      const what = Object.keys(f).join() === 'name' ? `「${f.name}」` : f.kind === 'CLIMAX' && f.color ? `${{ red: '赤', blue: '青', yellow: '黄', green: '緑' }[f.color]}のCX` : fail('cost', cost);
+      return `あなたのCX置場の${what}を${cost.count}枚控え室に置く`;
+    }
     case 'MARKERS_TO_WAITING_ROOM':
       return `このカードの下のマーカーを${cost.count}枚控え室に置く`;
     case 'SELF_TO_MARKER':
@@ -309,6 +320,13 @@ export function effectsJa(effects: readonly Effect[]): string[] {
   const sentences: string[] = [];
   for (let i = 0; i < effects.length; ) {
     const e = effects[i]!;
+    // ＋Ｘ where Ｘ is counted from the opponent's characters.
+    if (e.do === 'MODIFY' && e.perCount) {
+      if (e.perCount.where !== 'OPPONENT_STAGE' || e.perCount.filter) fail('perCount', e);
+      const before = effectsJa([{ ...e, perCount: undefined, amount: 1 } as Effect, ...effects.slice(i + 1)]);
+      sentences.push(...before.map((t) => t.replace('＋1', '＋Ｘ')), `Ｘは相手のキャラの枚数×${e.amount}に等しい`);
+      return sentences;
+    }
     const self: Target = { who: 'SELF' };
     if (e.do === 'CHOOSE' && effects[i + 1]?.do === 'MODIFY' && (effects[i + 1] as { per?: unknown }).per) {
       const mod = effects[i + 1] as Extract<Effect, { do: 'MODIFY' }>;
@@ -337,6 +355,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
                 ? `自分の手札の${filterJa(e.filter, 'ZONE')}`
               : e.from === 'YOUR_CLOCK' && !e.filter
                 ? '自分のクロック'
+                : e.from === 'YOUR_CLOCK'
+                  ? `自分のクロック置場の${filterJa(e.filter, 'ZONE')}`
+                : e.from === 'YOUR_MEMORY'
+                  ? `自分の思い出置場の${filterJa(e.filter, 'ZONE')}`
                 : e.from === 'OPPONENT_WAITING_ROOM'
                   ? `相手の控え室の${filterJa(e.filter, 'ZONE')}`
                   : e.from === 'OPPONENT_STAGE' || e.from === 'OPPONENT_FRONT_ROW' || e.from === 'OPPONENT_BACK_ROW'
@@ -366,7 +388,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       i += action.used;
       continue;
     }
-    if ((e.do === 'MOVE' || e.do === 'ORIENT') && e.target.who === 'BATTLE_OPPONENT') {
+    if ((e.do === 'MOVE' || e.do === 'ORIENT') && (e.target.who === 'BATTLE_OPPONENT' || e.target.who === 'THAT')) {
       const action = actionJa(effects, i, e.target);
       sentences.push(`そのキャラを${action.text}`);
       i += action.used;
@@ -374,6 +396,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     }
     i++;
     if (e.do === 'DRAW' && !e.optional) sentences.push(`${e.count}枚${e.upTo ? 'まで' : ''}引く`);
+    else if (e.do === 'DRAW' && e.count === 1) sentences.push('1枚まで引く');
+    else if (e.do === 'MAY_PAY') sentences.push(`［${costsJa(e.cost)}］ コストを払ってよい`, ...effectsJa(e.then).map((t, k) => (k === 0 ? `そうしたら、${t}` : t)));
     else if (e.do === 'REPEAT') sentences.push(`次の行動を${e.times > 1 ? `${e.times}回` : ''}行う`, `『${effectsJa(e.effects).join('。')}。』`);
     else if (e.do === 'DAMAGE') sentences.push(`相手に${e.amount}ダメージを与える`);
     else if (e.do === 'REORDER_TOP') {
@@ -396,7 +420,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       i += action.used;
     } else if (e.do === 'CLOCK_TOP') sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}のクロックの上から1枚を、${e.to === 'STOCK' ? 'ストック置場' : '控え室'}に置く`);
     else if (e.do === 'MARKERS_TOP') sentences.push(`このカードの下のマーカーを${e.count}枚${e.to === 'HAND' ? '手札に戻す' : e.to === 'STOCK' ? 'ストック置場に置く' : '控え室に置く'}`);
-    else if (e.do === 'TOP_OR_BOTTOM') sentences.push('自分の山札を上から1枚見て、山札の上か下に置く');
+    else if (e.do === 'ICON_EFFECT') sentences.push('[[standby.gif]]の効果を行う');
+    else if (e.do === 'WAITING_ROOM_TO_DECK' && e.everyone) sentences.push('すべてのプレイヤーは自分の控え室のカードすべてを、山札に戻し、それらの山札をシャッフルする'); else if (e.do === 'TOP_OR_BOTTOM') sentences.push('自分の山札を上から1枚見て、山札の上か下に置く');
     else if (e.do === 'TRIGGER_CHECKS') sentences.push(`そのアタック中、トリガーステップにトリガーチェックを${e.count}回行う`);
     else if (e.do === 'IF' && e.condition.if === 'DID' && !e.else && (effects[i - 2]?.do === 'LOOK_TOP' || (effects[i - 2]?.do === 'SHUFFLE' && effects[i - 3]?.do === 'MOVE'))) {
       const inner = effectsJa(e.then);
@@ -413,7 +438,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     } else if (e.do === 'LOOK_TOP' && !e.per) {
       sentences.push(
         e.pick && e.reveal
-          ? `自分の山札を上から${e.upTo}枚まで見て、${filterJa(e.pick, 'ZONE')}を1枚まで選んで相手に見せ、手札に加え、残りのカードを控え室に置く`
+          ? `自分の山札を上から${e.upTo}枚まで見て、${filterJa(e.pick, 'ZONE')}を${e.picks ?? 1}枚まで選んで相手に見せ、手札に加え、残りのカードを控え室に置く`
           : !e.pick && !e.reveal
             ? `自分の山札を上から${e.upTo}枚まで見て、カードを1枚まで選び、手札に加え、残りのカードを控え室に置く`
             : fail('look', e),
@@ -432,6 +457,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       const then = e.then ? effectsJa(e.then) : [];
       if (then.length > 1 || (!e.take && then.length === 0)) fail('reveal', e);
       sentences.push('自分の山札の上から1枚を公開する', `そのカードが${filterJa(e.filter, 'ZONE')}なら${e.take ? (then.length > 0 ? `手札に加え、${then[0]}` : '手札に加える') : `、${then[0]}`}`);
+    } else if (e.do === 'IF' && !e.else && e.then.length === 1 && e.then[0]!.do === 'MAY_PAY') {
+      // ［cost］ …なら、コストを払ってよい: the condition is said after the cost.
+      const pay = e.then[0] as Extract<Effect, { do: 'MAY_PAY' }>;
+      sentences.push(`［${costsJa(pay.cost)}］ ${conditionJa(e.condition)}コストを払ってよい`, ...effectsJa(pay.then).map((t, k) => (k === 0 ? `そうしたら、${t}` : t)));
     } else if (e.do === 'IF' && !e.else && e.condition.if !== 'DID' && e.condition.if !== 'LAST_MOVED') {
       const inner = effectsJa(e.then);
       sentences.push(conditionJa(e.condition) + inner[0], ...inner.slice(1));
