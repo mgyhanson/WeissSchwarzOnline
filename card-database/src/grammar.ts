@@ -107,6 +107,10 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
     () => out({ on: 'EITHER', of: [{ on: 'PLACED_ON_STAGE', from: 'HAND' }, { on: 'STAGE_TO_WAITING_ROOM' }] }, '這張卡由手牌放到舞台時，或由舞台放到控え室時'),
   ],
   [/^相手のCXがCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED', opponent: true }, '對手的 Climax 放到 Climax 置場時')],
+  [
+    /^あなたのトリガーアイコンが\[\[([a-z]+)\.gif\]\]のCXがCX置場に置かれた時$/,
+    (m) => (TRIGGER_ICONS[`${m[1]}.gif`] ? out({ on: 'CLIMAX_PLACED', filter: { kind: 'CLIMAX', hasTrigger: TRIGGER_ICONS[`${m[1]}.gif`]! } }, `我方 Trigger 圖示是 ${TRIGGER_ICONS[`${m[1]}.gif`]} 的 Climax 放到 Climax 置場時`) : null),
+  ],
   [/^このカードが手札か思い出置場から舞台に置かれた時$/, () => out({ on: 'PLACED_ON_STAGE', from: 'HAND_OR_MEMORY' }, '這張卡由手牌或思い出放到舞台時')],
   [/^あなたのCX置場に「([^」]+)」が置かれた時$/, (m) => out({ on: 'CLIMAX_PLACED', filter: { name: m[1]! } }, `我方的 Climax 置場放置了「${m[1]}」時`)],
   [
@@ -152,6 +156,8 @@ export function parseCostAction(raw: string): Out<Cost> {
   if (text === 'このカードを控え室に置く') return out({ pay: 'SELF_TO_WAITING_ROOM' }, '把這張卡放到控え室');
   if (text === '【スタンド】しているこのカードを控え室に置く') return out({ pay: 'SELF_TO_WAITING_ROOM', standing: true }, '把 Stand 中的這張卡放到控え室');
   if (text === '【スタンド】しているこのカードを【レスト】する') return out({ pay: 'REST_SELF' }, '把 Stand 中的這張卡 Rest');
+  if (text === '【スタンド】しているこのカードを思い出にする') return out({ pay: 'SELF_TO_MEMORY', standing: true }, '把 Stand 中的這張卡放到思い出');
+  if (text === 'このカードを手札に戻す') return out({ pay: 'SELF_TO_HAND' }, '把這張卡放回手牌');
   if (text === 'このカードを思い出にする') return out({ pay: 'SELF_TO_MEMORY' }, '把這張卡放到思い出');
   if (text === 'このカードをクロック置場に置く') return out({ pay: 'SELF_TO_CLOCK' }, '把這張卡放到 Clock');
   if (text === 'このカードを山札の下に置く') return out({ pay: 'SELF_TO_DECK_BOTTOM' }, '把這張卡放到山札底');
@@ -170,6 +176,11 @@ export function parseCostAction(raw: string): Out<Cost> {
         `把我方舞台上${m[1] ? '其他 ' : ''}${m[3]} 張${filter.zh}放到控え室`,
       );
     }
+  }
+  if ((m = /^あなたの(.+?)を(\d+)枚【レスト】する$/.exec(text)) && !m[1]!.includes('【スタンド】')) {
+    // Resting is only possible for a standing character, so this is the same cost as with 【スタンド】している.
+    const filter = parseFilter(m[1]!, 'STAGE');
+    if (filter) return out({ pay: 'REST_CHARACTERS', count: n(m[2]), ...(filter.data ? { filter: filter.data } : {}) }, `把我方 ${m[2]} 張${filter.zh} Rest`);
   }
   if ((m = /^(他の)?あなたの【スタンド】している(.+?)を(\d+)枚【レスト】する$/.exec(text))) {
     const filter = parseFilter(m[2]!, 'STAGE');
@@ -363,6 +374,7 @@ function parseAction(text: string, target: Target, noun: string): Out<Effect[]> 
   if (either && DESTINATIONS[either[1]!] && DESTINATIONS[either[2]!]) {
     return out([{ do: 'MOVE', target, to: DESTINATIONS[either[1]!]![0], orTo: DESTINATIONS[either[2]!]![0] }], `把${noun}${DESTINATIONS[either[1]!]![1]}或${DESTINATIONS[either[2]!]![1]}（自己選）`);
   }
+  if (text === 'このカードがいた枠に置く' && target.who === 'CHOSEN') return out([{ do: 'MOVE', target, to: 'SOURCE_SLOT' }], '放到這張卡原本所在的枠');
   if (text === '舞台の好きな枠に【レスト】して置く' && target.who === 'CHOSEN') return out([{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target, to: 'CHOSEN_SLOT', rested: true }], '以 Rest 狀態放到我方舞台上自己選的枠');
   if (text === '舞台の好きな枠に置く' && target.who === 'CHOSEN') return out([{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target, to: 'CHOSEN_SLOT' }], `放到我方舞台上自己選的枠`);
   if (ORIENTATIONS[text]) return out([{ do: 'ORIENT', target, to: ORIENTATIONS[text]![0] }], `把${noun} ${ORIENTATIONS[text]![1]}`);
@@ -535,6 +547,7 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   if (text === '相手は自分のストックすべてを、山札に戻し、その山札をシャッフルし、自分の山札の上から同じ枚数をストック置場に置く') {
     return out([{ do: 'OPPONENT_STOCK_RESET', via: 'DECK' }], '對手把自己全部 Stock 放回山札並洗牌，再把自己山札頂同樣張數放到 Stock');
   }
+  if (text === '自分の山札を上から1枚見て、山札の上か下に置く') return out([{ do: 'TOP_OR_BOTTOM' }], '查看自己山札頂 1 張，放回山札頂或放到山札底');
   if (text === '自分のクロックの上から1枚までを、控え室に置く') return out([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', optional: true }], '可以把自己 Clock 最上面 1 張放到控え室');
   // Effects on all of your characters for a while.
   if ((m = /^(他の)?あなたの(.+?)すべてに、((?:そのターン中|次の相手のターンの終わりまで)、.+)$/.exec(text))) {
@@ -896,6 +909,10 @@ function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: texts[i]! }));
   const condition = allOf(conditions);
 
+  if (sentence === 'このカードはサイドアタックできない' && given.length === 0) {
+    if (unknown.length > 0 || !condition || condition.data) return null;
+    return { ability: { type: 'CONT', noSideAttack: true, apply: [] }, zh: '【永】這張卡不能進行側面攻擊。' };
+  }
   if (sentence === 'このカードは相手の効果に選ばれない' && given.length === 0) {
     if (unknown.length > 0 || !condition || condition.data) return null;
     return { ability: { type: 'CONT', untargetable: true, apply: [] }, zh: '【永】這張卡不會被對手的效果選擇。' };

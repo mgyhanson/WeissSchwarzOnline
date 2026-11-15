@@ -104,7 +104,10 @@ export type Cost =
   /** あなたのストックの上からN枚をクロック置場に置く */
   | { pay: 'STOCK_TO_CLOCK'; count: number }
   /** このカードを思い出にする */
-  | { pay: 'SELF_TO_MEMORY' }
+  /** (【スタンド】している)このカードを思い出にする */
+  | { pay: 'SELF_TO_MEMORY'; standing?: boolean }
+  /** このカードを手札に戻す */
+  | { pay: 'SELF_TO_HAND' }
   /** 手札を(の…を)N枚クロック置場に置く: the player chooses hand cards. */
   | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
   /** このカードを山札の下に置く */
@@ -239,6 +242,8 @@ export type Effect =
   | { do: 'OPPONENT_STOCK_RESET'; via: 'WAITING_ROOM' | 'DECK' }
   /** 自分の山札の上から1枚を公開し、… Ｘは公開されたカードのレベルに等しい: shown to both players and put back; X is its level (a climax counts as 0). */
   | { do: 'SHOW_TOP' }
+  /** 自分の山札を上から1枚見て、山札の上か下に置く: the player looks at the top card and leaves it or puts it on the bottom. */
+  | { do: 'TOP_OR_BOTTOM' }
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
   | { do: 'TRIGGER_CHECKS'; count: number }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
@@ -312,6 +317,8 @@ export interface ContinuousAbility {
   alarm?: boolean;
   /** このカードは相手の効果に選ばれない: the opponent's effects cannot choose this card (CR-8.6.3.1). */
   untargetable?: boolean;
+  /** このカードはサイドアタックできない: this card cannot make a side attack (CR-7.2.1.4). */
+  noSideAttack?: boolean;
   /**
    * あなたの手札のこのカードの…: the ability works while this card is in its master's hand, and only there
    * (CR-2.12.2.3). It applies to this card itself.

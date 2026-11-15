@@ -61,5 +61,26 @@
    "ANM_W138": 35,
    "NIK_S135": 38
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "L3-4 Cost 及攻擊限制",
+  "done": "這張卡回手牌／Stand 中放到思い出作 Cost、Rest 我方角色、Trigger 圖示指定的 Climax 觸發、不能側面攻擊、山札頂放上或放底、放到這張卡原本的枠",
+  "next": "更新測試卡組加入 Level 3",
+  "playable": 289,
+  "unsupported": 320,
+  "level3Playable": 17,
+  "level3Open": 46,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 55,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 47,
+   "STS_W140": 31,
+   "ANM_W138": 35,
+   "NIK_S135": 38
+  }
  }
 ]

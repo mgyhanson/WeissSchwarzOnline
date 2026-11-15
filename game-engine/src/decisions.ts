@@ -58,6 +58,8 @@ export type PromptId =
   | 'EFFECT_OPTION'
   /** Put back on top of the deck: choose the card to go on top next (the first one chosen ends up on top). */
   | 'EFFECT_ORDER'
+  /** 山札の上か下に置く: put the card looked at on the top or the bottom of the deck (options DECK_TOP, DECK_BOTTOM). */
+  | 'EFFECT_TOP_OR_BOTTOM'
   /** Choose the cards looked at to put back on top of the deck; the rest go to the waiting room. */
   | 'EFFECT_KEEP'
   /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
@@ -141,7 +143,7 @@ export type Decision =
   /** Choose one of the player's own slots. */
   | (DecisionBase & { kind: 'SELECT_SLOT'; prompt: PromptId; slots: SlotId[] })
   /** Choose one of the listed options. */
-  | (DecisionBase & { kind: 'SELECT_OPTION'; prompt: PromptId; options: string[] });
+  | (DecisionBase & { kind: 'SELECT_OPTION'; prompt: PromptId; options: string[]; look?: Record<number, string> });
 
 export type DecisionKind = Decision['kind'];
 

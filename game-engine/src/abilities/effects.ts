@@ -72,8 +72,12 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
         if (!sourceIfUnchanged(state, context)) return false;
         break;
-      case 'SELF_TO_CLOCK':
       case 'SELF_TO_MEMORY':
+        if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
+        if (!sourceIfUnchanged(state, context)) return false;
+        break;
+      case 'SELF_TO_CLOCK':
+      case 'SELF_TO_HAND':
       case 'SELF_TO_DECK_BOTTOM':
         if (!sourceIfUnchanged(state, context)) return false;
         break;
@@ -169,6 +173,10 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
     case 'SELF_TO_CLOCK':
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'clock' }, { reason: 'COST' });
+      return;
+    case 'SELF_TO_HAND':
+      frame.index++;
+      moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'hand' }, { reason: 'COST' });
       return;
     case 'SELF_TO_MEMORY':
       frame.index++;
@@ -575,6 +583,28 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       frame.scratch[1] = (frame.scratch[1] ?? 0) + 1;
       moveCard(ctx, top, { player: opponent, zone: 'stock' }, { reason: 'EFFECT' });
+      return;
+    }
+
+    case 'TOP_OR_BOTTOM': {
+      const top = topOf(state.zones[master].deck);
+      if (top === undefined) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: ['DECK_TOP', 'DECK_BOTTOM'], look: lookMap(state, [top]) });
+        return;
+      }
+      const bottom = takeAnswer(ctx, 'SELECT_OPTION').option === 'DECK_BOTTOM';
+      next();
+      // Only its place in the deck changes; it stays hidden from the opponent and keeps its object id (same zone).
+      if (bottom) {
+        const deck = state.zones[master].deck;
+        deck.splice(deck.indexOf(top), 1);
+        deck.unshift(top);
+      }
       return;
     }
 

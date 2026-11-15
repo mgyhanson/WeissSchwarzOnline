@@ -314,6 +314,11 @@ export function perCount(state: GameState, master: PlayerId, source: number, per
  * must be a front attack on: one with 大活躍 in the front-centre slot that is
  * not reversed. Null when there is none.
  */
+/** このカードはサイドアタックできない, while the ability is in force. */
+export function cannotSideAttack(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.noSideAttack === true && source.instanceId === instanceId);
+}
+
 export function greatPerformer(state: GameState, defendingPlayer: PlayerId): CardInstance | null {
   for (const id of state.zones[defendingPlayer].stage.FC) {
     const def = getDef(state, id);

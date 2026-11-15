@@ -65,6 +65,7 @@ export function triggerJa(trigger: Trigger): string {
     case 'CLIMAX_PLACED':
       if (trigger.opponent) return trigger.filter ? fail('trigger', trigger) : '相手のCXがCX置場に置かれた時';
       if (!trigger.filter) return 'あなたのCXがCX置場に置かれた時';
+      if (Object.keys(trigger.filter).sort().join() === 'hasTrigger,kind') return `あなたの${filterJa(trigger.filter, 'ZONE')}がCX置場に置かれた時`;
       return Object.keys(trigger.filter).join() === 'name' ? `あなたのCX置場に「${trigger.filter.name}」が置かれた時` : fail('trigger', trigger);
     case 'PHASE_START':
       if (trigger.turn !== 'YOURS') return fail('trigger', trigger);
@@ -87,7 +88,9 @@ export function costJa(cost: Cost): string {
     case 'SELF_TO_WAITING_ROOM':
       return `${cost.standing ? '【スタンド】している' : ''}このカードを控え室に置く`;
     case 'SELF_TO_MEMORY':
-      return 'このカードを思い出にする';
+      return `${cost.standing ? '【スタンド】している' : ''}このカードを思い出にする`;
+    case 'SELF_TO_HAND':
+      return 'このカードを手札に戻す';
     case 'SELF_TO_CLOCK':
       return 'このカードをクロック置場に置く';
     case 'SELF_TO_DECK_BOTTOM':
@@ -209,6 +212,7 @@ export function conditionJa(condition: Condition | undefined): string {
 }
 
 const DESTINATION: Record<string, string> = {
+  SOURCE_SLOT: 'このカードがいた枠に置く',
   HAND: '手札に戻す',
   WAITING_ROOM: '控え室に置く',
   STOCK: 'ストック置場に置く',
@@ -365,6 +369,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       sentences.push(`自分のクロックの上から1枚までを、控え室に置き、${action.text.replace('、', '、このカードの')}`);
       i += action.used;
     } else if (e.do === 'CLOCK_TOP') sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}のクロックの上から1枚を、${e.to === 'STOCK' ? 'ストック置場' : '控え室'}に置く`);
+    else if (e.do === 'TOP_OR_BOTTOM') sentences.push('自分の山札を上から1枚見て、山札の上か下に置く');
     else if (e.do === 'TRIGGER_CHECKS') sentences.push(`そのアタック中、トリガーステップにトリガーチェックを${e.count}回行う`);
     else if (e.do === 'IF' && e.condition.if === 'DID' && !e.else && (effects[i - 2]?.do === 'LOOK_TOP' || (effects[i - 2]?.do === 'SHUFFLE' && effects[i - 3]?.do === 'MOVE'))) {
       const inner = effectsJa(e.then);
@@ -430,6 +435,7 @@ const KEYWORD: Record<string, string> = { CX_COMBO: '【CXコンボ】', BRAINST
 export function abilityJa(ability: Ability): string {
   if (ability.type === 'CONT') {
     if (ability.keywords || ability.assist || ability.alarm || ability.greatPerformance) return fail('ability', ability);
+    if (ability.noSideAttack) return ability.apply.length === 0 && !ability.condition && !ability.grant && !ability.inHand && !ability.untargetable ? '【永】 このカードはサイドアタックできない。' : fail('ability', ability);
     if (ability.untargetable) return ability.apply.length === 0 && !ability.condition && !ability.grant && !ability.inHand ? '【永】 このカードは相手の効果に選ばれない。' : fail('ability', ability);
     const per = ability.apply.length === 1 ? ability.apply[0]!.per : undefined;
     if (per) {
@@ -510,6 +516,8 @@ export function sameWords(text: string): string {
     // "CX置場に「…」" in a condition is the player's own climax zone, written with or without あなたの.
     .replace(/あなたのCX置場に「/g, 'CX置場に「')
     .replace(/している、/g, 'している')
+    // Resting a character as a cost needs a standing one: "あなたのキャラを2枚【レスト】する" is the same cost.
+    .replace(/あなたの【スタンド】している(.+?を\d+枚【レスト】する)/g, 'あなたの$1')
     // Two effects joined in one sentence (…置き、… / …戻し、…) say the same as two sentences.
     .replace(/置き、/g, '置く。')
     .replace(/戻し、/g, '戻す。')

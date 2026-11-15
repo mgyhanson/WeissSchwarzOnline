@@ -449,3 +449,40 @@ describe('自分の手札の自分のレベル以下のレベルのキャラを1
     expect(offered).toEqual([oid(start, card(0, 1)), oid(start, card(0, 3))].sort((a, b) => a - b));
   });
 });
+
+describe('more costs, side attacks, and the top or the bottom of the deck', () => {
+  it('［このカードを手札に戻す］ and ［【スタンド】しているこのカードを思い出にする］', () => {
+    const back = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act(DRAW_ONE, [{ pay: 'SELF_TO_HAND' }])] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    const { state, events } = activate(back, card(0, 0));
+    expect(events.filter((e) => e.type === 'CARD_MOVED').map((e) => (e.type === 'CARD_MOVED' ? `${e.reason}:${e.from.zone}>${e.to.zone}` : ''))).toEqual(['COST:stage>hand', 'DRAW:deck>hand']);
+    expect(state.zones[0].hand).toContain(card(0, 0));
+    const memory = (orientation: 'STAND' | 'REST') =>
+      scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act(DRAW_ONE, [{ pay: 'SELF_TO_MEMORY', standing: true }])] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'), { orientation })).state;
+    expect(canActivate(memory('STAND'))).toBe(true);
+    expect(canActivate(memory('REST'))).toBe(false);
+  });
+
+  it('【永】 このカードはサイドアタックできない: front attack only, while facing a character', () => {
+    const start = (abilities: Ability[]) =>
+      scenario({ step: 'ATTACK_START', defs: cards({ '0:0': { abilities } }) }, (ctx) => {
+        put(ctx, card(0, 0), stageSlot(0, 'FC'));
+        put(ctx, card(1, 0), stageSlot(1, 'FC'));
+      }).state;
+    const types = (state: ReturnType<typeof start>) => pending(state, 'ATTACK').attacks.filter((o) => o.attacker === oid(state, card(0, 0))).map((o) => o.type);
+    expect(types(start([{ type: 'CONT', noSideAttack: true, apply: [] }]))).toEqual(['FRONT']);
+    expect(types(start([]))).toEqual(['FRONT', 'SIDE']);
+  });
+
+  it('自分の山札を上から1枚見て、山札の上か下に置く: the player sees the card in the question; the bottom choice moves it under the deck', () => {
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act([{ do: 'TOP_OR_BOTTOM' }])] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    const atChoice = activate(start, card(0, 0)).state;
+    const decision = pending(atChoice, 'SELECT_OPTION');
+    expect(decision).toMatchObject({ prompt: 'EFFECT_TOP_OR_BOTTOM', options: ['DECK_TOP', 'DECK_BOTTOM'] });
+    expect(Object.values(decision.look ?? {})).toEqual(['T0-49']);
+    const bottom = answer(atChoice, { kind: 'SELECT_OPTION', option: 'DECK_BOTTOM' }).state;
+    expect(bottom.zones[0].deck[0]).toBe(card(0, 49));
+    const top = answer(atChoice, { kind: 'SELECT_OPTION', option: 'DECK_TOP' }).state;
+    expect(top.zones[0].deck[top.zones[0].deck.length - 1]).toBe(card(0, 49));
+    assertInvariants(bottom);
+  });
+});

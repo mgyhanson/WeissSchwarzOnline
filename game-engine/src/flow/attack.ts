@@ -9,7 +9,7 @@
  * the attack" (CR-7.5.1.4, CR-7.6.1.5). Its check timing is in place.
  */
 
-import { greatPerformer } from '../abilities/query';
+import { cannotSideAttack, greatPerformer } from '../abilities/query';
 import type { AttackStepName } from '../abilities/types';
 import type { AttackOption } from '../decisions';
 import type { Ctx } from '../moves';
@@ -54,7 +54,8 @@ export function listAttackOptions(state: GameState): AttackOption[] {
     const facing = facingSlot(slot);
     const defender = facing ? characterInSlot(state, opponentOf(player), facing) : null;
     if (defender) {
-      options.push({ attacker: attacker.objectId, type: 'FRONT' }, { attacker: attacker.objectId, type: 'SIDE' });
+      options.push({ attacker: attacker.objectId, type: 'FRONT' });
+      if (!cannotSideAttack(state, attacker.instanceId)) options.push({ attacker: attacker.objectId, type: 'SIDE' });
     } else {
       options.push({ attacker: attacker.objectId, type: 'DIRECT' });
     }
