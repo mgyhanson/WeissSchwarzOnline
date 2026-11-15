@@ -452,7 +452,10 @@ describe('sentence patterns', () => {
     const event = allCards().find((c) => c.def.kind === 'EVENT')!.official;
     expect(compileText({ ...event, text: 'あなたは2枚引く。あなたは踊る。' })).toBeNull();
     expect(compileText({ ...event, text: '【カウンター】 あなたは2枚引く。' })).toBeNull();
-    expect(compileText({ ...event, text: '［(1)］ あなたはコストを払ってよい。そうしたら、あなたは2枚引く。' })).toBeNull();
+    // An event with a cost: the payment is optional and buys the effect (MAY_PAY), as the text says.
+    expect(compileText({ ...event, text: '［(1)］ あなたはコストを払ってよい。そうしたら、あなたは2枚引く。' })?.effect).toEqual([{ do: 'MAY_PAY', cost: [{ pay: 'STOCK', count: 1 }], then: [{ do: 'DRAW', count: 2 }] }]);
+    // …but not when the payment is not offered in the usual words.
+    expect(compileText({ ...event, text: '［(1)］ あなたは2枚引く。' })).toBeNull();
     expect(compileText({ ...event, text: 'あなたは2枚引く。' })).toEqual({ effect: [{ do: 'DRAW', count: 2 }], zh: ['抽 2 張。'], patterns: [GRAMMAR] });
     const mixed = { ...getCard('SAO/S20-015').official, text: '【永】 あなたのターン中、このカードのパワーを＋1000。<br>【自】 このカードは踊る。' };
     expect(compileText(mixed)).toBeNull();

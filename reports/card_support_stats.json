@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 289,
+    "playable": 379,
     "handWritten": 128,
-    "fromPatterns": 161,
-    "unsupported": 320,
-    "abilitiesRun": 452
+    "fromPatterns": 251,
+    "unsupported": 230,
+    "abilitiesRun": 636
   },
   "sets": [
     {
@@ -43,8 +43,8 @@
       "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
       "cards": 114,
       "handWritten": 21,
-      "fromPatterns": 34,
-      "unsupported": 59,
+      "fromPatterns": 60,
+      "unsupported": 33,
       "pending": 0,
       "withoutText": 0
     },
@@ -63,8 +63,8 @@
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
       "handWritten": 16,
-      "fromPatterns": 31,
-      "unsupported": 53,
+      "fromPatterns": 45,
+      "unsupported": 39,
       "pending": 0,
       "withoutText": 0
     },
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 28,
-      "unsupported": 69,
+      "fromPatterns": 56,
+      "unsupported": 41,
       "pending": 0,
       "withoutText": 0
     },
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 32,
-      "unsupported": 65,
+      "fromPatterns": 45,
+      "unsupported": 52,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 36,
-      "unsupported": 74,
+      "fromPatterns": 45,
+      "unsupported": 65,
       "pending": 0,
       "withoutText": 0
     }
@@ -103,17 +103,17 @@
     "CLIMAX_POWER_SOUL": 43,
     "CLIMAX_SOUL": 2,
     "ASSIST": 1,
-    "YOUR_TURN_POWER": 3,
+    "YOUR_TURN_POWER": 5,
     "OPPONENT_TURN_POWER": 0,
     "EXPERIENCE_POWER": 0,
     "ENCORE_DISCARD_CHARACTER": 1,
-    "BACKUP": 17,
-    "POWER_WITH_OTHER_TRAIT": 6,
-    "POWER_ALL_TRAIT": 4,
+    "BACKUP": 18,
+    "POWER_WITH_OTHER_TRAIT": 9,
+    "POWER_ALL_TRAIT": 5,
     "POWER_PER_OTHER_TRAIT": 4,
-    "YOUR_TURN_OTHERS_TRAIT_POWER": 0,
-    "CX_PHASE_TRAIT_BOOST": 1,
-    "PLACED_SELF_POWER": 1,
+    "YOUR_TURN_OTHERS_TRAIT_POWER": 2,
+    "CX_PHASE_TRAIT_BOOST": 2,
+    "PLACED_SELF_POWER": 3,
     "ATTACK_SELF_POWER_WITH_OTHER_TRAIT": 1,
     "PLACED_TRAIT_COUNT_TO_STOCK": 2,
     "CX_DRAW_UP_TO_ONE_CHOOSE_SOUL": 3,

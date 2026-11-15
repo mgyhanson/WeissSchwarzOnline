@@ -49,16 +49,20 @@ export type PromptId =
   | 'COST_DISCARD'
   /** Choose the characters to rest as a cost. */
   | 'COST_REST'
+  /** Choose the face-up level cards to turn face down as a cost. */
+  | 'COST_LEVEL_FACE_DOWN'
   | 'COST_HAND_TO_CLOCK'
   /** Choose the characters on your stage to put into the waiting room as a cost. */
   | 'COST_CHARACTERS'
+  /** 搭乗: choose the character this card goes under as a marker. */
+  | 'COST_BOARD'
   /** 自分か相手の…: choose whose cards an effect applies to (options YOU, OPPONENT). */
   | 'EFFECT_PLAYER'
   /** 次のNつの効果のうち…: choose which of the effects to perform (options EFFECT_1, EFFECT_2, ...). */
   | 'EFFECT_OPTION'
   /** Put back on top of the deck: choose the card to go on top next (the first one chosen ends up on top). */
   | 'EFFECT_ORDER'
-  /** 山札の上か下に置く: put the card looked at on the top or the bottom of the deck (options DECK_TOP, DECK_BOTTOM). */
+  /** 山札の上か下（か控え室）に置く: put the card looked at on the top or the bottom of the deck (options DECK_TOP, DECK_BOTTOM or WAITING_ROOM). */
   | 'EFFECT_TOP_OR_BOTTOM'
   /** Choose the cards looked at to put back on top of the deck; the rest go to the waiting room. */
   | 'EFFECT_KEEP'
@@ -66,6 +70,8 @@ export type PromptId =
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
   | 'LOOK_NEXT'
+  /** N枚まで引く: draw one more card? */
+  | 'DRAW_NEXT'
   /** Choose a slot for a card ability. */
   | 'EFFECT_SLOT'
   | 'TRIGGER_ORDER'

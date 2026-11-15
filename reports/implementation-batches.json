@@ -103,5 +103,152 @@
    "ANM_W138": 35,
    "NIK_S135": 38
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-1 Marker、回想、搭乘、Link",
+  "done": "Marker（放到卡下面、從上面取回、作 Cost、張數及不同卡名條件、按張數加數值）、Marker 置場生效的能力、回想、搭乘、Link、思い出與 Marker 合計",
+  "next": "A/B 類及高分片段（見 BATCH_3_PRIORITY.md）",
+  "playable": 304,
+  "unsupported": 305,
+  "level3Playable": 17,
+  "level3Open": 46,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 58,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 47,
+   "STS_W140": 42,
+   "ANM_W138": 36,
+   "NIK_S135": 38
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-2 應援、記憶、思い出生效、重複行動",
+  "done": "應援的各種寫法、記憶及経験字樣、在思い出生效的能力、按思い出卡數加數值、最多抽 N 張、重複 N 次的行動、集中後按 Trigger 圖示及引號行動、卡名中的括號",
+  "next": "見 BATCH_3_PRIORITY.md",
+  "playable": 315,
+  "unsupported": 294,
+  "level3Playable": 18,
+  "level3Open": 45,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 61,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 48,
+   "STS_W140": 45,
+   "ANM_W138": 38,
+   "NIK_S135": 40
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-3 Climax Cost、正面攻擊觸發、對手角色 X、Event Cost",
+  "done": "Climax 置場的卡作 Cost、Climax 階段中放置觸發、其他角色被正面攻擊時、按對手角色張數的 X、看山札頂取多張、Standby 效果、所有玩家控え室洗回、思い出及 Clock 置場選擇、帶 Cost 的 Event",
+  "next": "見 BATCH_3_PRIORITY.md",
+  "playable": 339,
+  "unsupported": 270,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 68,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 53,
+   "STS_W140": 51,
+   "ANM_W138": 42,
+   "NIK_S135": 42
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-4 給予及取得永續能力",
+  "done": "一段時間內給予永續能力（不能移動到其他枠、不被對手選擇、戰鬥中對手不能使用助太刀或 Event）、卡自己取得的永續能力、按我方 Level 的 X、我方戰鬥中的角色、指定 Trigger 圖示的 Climax 翻出時",
+  "next": "更新卡組、完整 QA、報告",
+  "playable": 352,
+  "unsupported": 257,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 75,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 55,
+   "STS_W140": 54,
+   "ANM_W138": 43,
+   "NIK_S135": 42
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-5 卡組加入新 Level 3",
+  "done": "BDY 003、008 及 STS 003 加入測試卡組（仍 50 張、8 CX）",
+  "next": "完整 QA 及 PR",
+  "playable": 352,
+  "unsupported": 257,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 75,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 55,
+   "STS_W140": 54,
+   "ANM_W138": 43,
+   "NIK_S135": 42
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-6 移動到空枠、Trigger 及傷害 Cancel 觸發、每回合次數",
+  "done": "移動到前列／後列沒有角色的枠、這張卡 Trigger 時、這張卡造成的傷害被 Cancel 時、戰鬥中我方受到的傷害被 Cancel 時（傷害來源按 CR-4.13.2）、【ターンN】、取得多個能力（『』『』）、正面角色顏色、先攻玩家第 N 回合、看山札頂選 1 張放回、對手 Stock 底放控え室",
+  "next": "置換效果、延遲效果、其餘長尾片段",
+  "playable": 371,
+  "unsupported": 238,
+  "level3Playable": 21,
+  "level3Open": 42,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 81,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 60,
+   "STS_W140": 58,
+   "ANM_W138": 44,
+   "NIK_S135": 45
+  }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B3-7 Level 3：傷害 N 次、不需顏色條件、Level 置場翻面 Cost",
+  "done": "給予 N 點傷害 M 次、不需滿足顏色條件、對手山札頂放控え室、受到的傷害沒有被 Cancel 時、山札頂放回或放控え室、Level 置場表向卡翻成裏向作 Cost、選擇其一中帶條件的 Cost、按角色張數看山札；STS 094、ANM 058 加入卡組",
+  "next": "置換效果、延遲效果、其餘長尾片段",
+  "playable": 379,
+  "unsupported": 230,
+  "level3Playable": 26,
+  "level3Open": 37,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 81,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 61,
+   "STS_W140": 59,
+   "ANM_W138": 48,
+   "NIK_S135": 47
+  }
  }
 ]

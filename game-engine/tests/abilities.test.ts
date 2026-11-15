@@ -624,7 +624,10 @@ describe('event effects (CR-8.6.2.5.2)', () => {
   it('相手に1ダメージを与える goes through the damage process and can be cancelled', () => {
     const dealt = playEvent([{ do: 'DAMAGE', amount: 1 }], (ctx) => noClimaxes(ctx, 1));
     expect(dealt.state.zones[1].clock).toEqual([card(1, 41)]);
-    expect(dealt.events.find((e) => e.type === 'DAMAGE_DEALT')).toMatchObject({ receiver: 1, amount: 1, cancelled: false, sourceObjectId: null });
+    // CR-4.13.2.2: the event card (as it is while resolving) is the source of the damage.
+    const played = dealt.events.find((e) => e.type === 'CARD_MOVED' && e.instanceId === card(0, 0) && e.to.zone === 'resolution');
+    expect(played).toBeDefined();
+    expect(dealt.events.find((e) => e.type === 'DAMAGE_DEALT')).toMatchObject({ receiver: 1, amount: 1, cancelled: false, sourceObjectId: played?.type === 'CARD_MOVED' ? played.toObjectId : -1 });
 
     const cancelled = playEvent([{ do: 'DAMAGE', amount: 1 }]);
     expect(cancelled.state.zones[1].clock).toEqual([]);

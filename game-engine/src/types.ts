@@ -8,7 +8,7 @@
  * hashed, sent to another process and replayed.
  */
 
-import type { Ability, AutoAbility, Effect } from './abilities/types';
+import type { Ability, AutoAbility, ContinuousAbility, Effect } from './abilities/types';
 import type { Choice, Decision } from './decisions';
 import type { Frame } from './flow/frames';
 
@@ -239,6 +239,8 @@ export type WaitingAuto =
       slot: { player: PlayerId; slot: SlotId } | null;
       /** For an ability the card was given rather than printed: the ability itself (`ability` is then -1). */
       granted?: AutoAbility;
+      /** The card the ability is about, when its trigger named one (その舞台に置かれたキャラ). */
+      about?: number;
     };
 
 /** CR-4.14.2.7: a shot trigger waiting for the next damage dealt by the attacking character. */
@@ -319,5 +321,5 @@ export interface GameState {
   /** CR-10.19: how often each limited ability was played this turn, keyed by "objectId:abilityNumber". */
   abilityUses: Record<string, number>;
   /** Abilities given to cards by effects until the end of the turn. */
-  grants: { objectId: number; ability: AutoAbility; untilTurn?: number }[];
+  grants: { objectId: number; ability: AutoAbility | ContinuousAbility; untilTurn?: number }[];
 }

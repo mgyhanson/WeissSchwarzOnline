@@ -95,8 +95,7 @@ export const records: CardRecord[] = [
         effect: [
           { do: 'CHOOSE', from: 'YOUR_STAGE', filter: QUINTUPLET, other: true, min: 1, max: 1 },
           { do: 'ORIENT', target: { who: 'CHOSEN' }, to: 'REST' },
-          { do: 'CHOOSE_SLOT', which: 'EMPTY_BACK' },
-          { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'CHOSEN_SLOT' },
+          { do: 'MOVE_TO_SLOT', target: { who: 'CHOSEN' }, row: 'BACK' },
         ],
       },
     ],

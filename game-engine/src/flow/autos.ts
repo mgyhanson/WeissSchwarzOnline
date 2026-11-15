@@ -30,6 +30,20 @@ interface FoundAuto {
   granted?: AutoAbility;
 }
 
+/** The two automatic abilities a card with 回想 has (CR-10.20.2). */
+const RECOLLECT_PLACE: AutoAbility = {
+  type: 'AUTO',
+  trigger: { on: 'PLACED_ON_STAGE' },
+  condition: { if: 'MARKERS', of: 'THAT', max: 0 },
+  optional: true,
+  effect: [{ do: 'MOVE', target: { who: 'SELF' }, to: 'UNDER_THAT', face: 'UP' }],
+};
+const RECOLLECT_RETURN: AutoAbility = { type: 'AUTO', trigger: { on: 'STAGE_TO_WAITING_ROOM' }, effect: [{ do: 'MOVE', target: { who: 'SELF' }, to: 'MEMORY' }] };
+
+function hasRecollection(state: GameState, cardId: string): boolean {
+  return (state.defs[cardId]?.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.recollection === true);
+}
+
 /** Puts an automatic ability of a card into the waiting state (CR-8.7.2). */
 function wait(
   state: GameState,
@@ -38,6 +52,7 @@ function wait(
   found: FoundAuto,
   battleOpponent: number | null,
   slot: { player: PlayerId; slot: SlotId } | null = null,
+  about: number | null = null,
 ): void {
   state.waiting.push({
     id: state.nextWaitingId++,
@@ -49,12 +64,13 @@ function wait(
     battleOpponent,
     slot,
     ...(found.granted ? { granted: found.granted } : {}),
+    ...(about !== null ? { about } : {}),
   });
 }
 
 /** Whether an automatic ability of an active source is in force: アラーム ones only from the clock, others only elsewhere (CR-10.1). */
-function inForce(source: { clockTop: boolean }, ability: AutoAbility): boolean {
-  return Boolean(ability.alarm) === source.clockTop;
+function inForce(source: { clockTop: boolean; marker?: boolean; memory?: boolean }, ability: AutoAbility): boolean {
+  return Boolean(ability.alarm) === source.clockTop && (ability.zone === 'MARKER') === Boolean(source.marker) && (ability.zone === 'MEMORY') === Boolean(source.memory);
 }
 
 /**
@@ -120,6 +136,19 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
         );
         for (const found of placed) wait(state, event.to.player, card, found, null);
       }
+      // 回想 (CR-10.20.2), first ability: a character of a player put on the stage from outside the stage; each face-up
+      // 回想 card in that player's memory may go under it, if it has no marker then.
+      if (event.to.zone === 'stage' && event.from.zone !== 'stage' && state.defs[event.cardId]?.kind === 'CHARACTER') {
+        for (const id of state.zones[event.to.player].memory) {
+          const memoryCard = state.instances[id] as CardInstance;
+          if (memoryCard.face !== 'UP' || !hasRecollection(state, memoryCard.cardId)) continue;
+          wait(state, event.to.player, memoryCard, { index: -1, ability: RECOLLECT_PLACE, granted: RECOLLECT_PLACE }, null, null, card.objectId);
+        }
+      }
+      // 回想, second ability: a face-up card that moves from a marker zone to a public zone other than a marker zone goes to memory.
+      if (event.from.zone === 'marker' && !['marker', 'memory', 'hand', 'deck', 'stock'].includes(event.to.zone) && event.visibleBefore[0] && event.visibleBefore[1] && hasRecollection(state, event.cardId)) {
+        wait(state, card.owner, card, { index: -1, ability: RECOLLECT_RETURN, granted: RECOLLECT_RETURN }, null);
+      }
       // このカードが舞台から控え室に置かれた時. CR-8.7.4.1.2: the card as it was
       // on the stage, including abilities it had been given there.
       if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom') {
@@ -132,7 +161,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           for (const found of autosOf(state, card, (t) => t.on === 'THIS_CLIMAX_PLACED')) wait(state, event.to.player, card, found, null);
         }
         // あなたのクライマックスがクライマックス置場に置かれた時
-        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && !t.opponent && matchesFilter(state, event.instanceId, t.filter));
+        const climaxPhase = state.turn?.phase === 'CLIMAX';
+        sourcesWith(state, event.to.player, (t) => t.on === 'CLIMAX_PLACED' && !t.opponent && (!t.duringClimaxPhase || climaxPhase) && matchesFilter(state, event.instanceId, t.filter));
         // 相手のクライマックスがクライマックス置場に置かれた時
         sourcesWith(state, opponentOf(event.to.player), (t) => t.on === 'CLIMAX_PLACED' && t.opponent === true && matchesFilter(state, event.instanceId, t.filter));
       }
@@ -143,6 +173,27 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const checked = topOf(state.zones[event.player].resolution);
       if (checked === undefined) return;
       sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && matchesFilter(state, checked, t.filter));
+      // このカードがトリガーした時: the abilities of the turned-over card itself, there in the resolution zone.
+      const card = state.instances[checked] as CardInstance;
+      for (const found of autosOf(state, card, (t) => t.on === 'THIS_TRIGGERED', [])) wait(state, event.player, card, found, null);
+      return;
+    }
+    case 'DAMAGE_DEALT': {
+      // あなたの受けたダメージがキャンセルされなかった時
+      if (!event.cancelled) {
+        sourcesWith(state, event.receiver, (t) => t.on === 'TAKEN_DAMAGE_NOT_CANCELLED');
+        return;
+      }
+      // このカードの与えたダメージがキャンセルされた時: its source (CR-4.13.2), if still on the stage as that card.
+      const source = event.sourceObjectId === null ? undefined : state.instances.find((inst) => inst.objectId === event.sourceObjectId && inst.location.zone === 'stage');
+      if (source && source.location.zone === 'stage') {
+        for (const found of autosOf(state, source, (t) => t.on === 'DEALT_DAMAGE_CANCELLED')) wait(state, source.location.player, source, found, null);
+      }
+      // このカードのバトル中、あなたの受けたダメージがキャンセルされた時 (CR-7.2.1.5.1: the attacking and the front-attacked character).
+      for (const fighter of [attackerInstance(state), defenderInstance(state)]) {
+        if (!fighter || fighter.location.zone !== 'stage' || fighter.location.player !== event.receiver) continue;
+        for (const found of autosOf(state, fighter, (t) => t.on === 'TAKEN_DAMAGE_CANCELLED_IN_BATTLE')) wait(state, event.receiver, fighter, found, null);
+      }
       return;
     }
     case 'ABILITY_PLAYED': {
@@ -161,6 +212,26 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const placedNow = attacker.placedFromHandTurn !== undefined && attacker.placedFromHandTurn === state.turn?.number;
       for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS' && (!t.placedThisTurn || placedNow))) {
         wait(state, event.player, attacker, found, defender ? defender.objectId : null);
+      }
+      // 他のあなたの…のキャラがフロントアタックされた時: the defending player's other cards in force; the ability is about the defender.
+      if (defender && event.attackType === 'FRONT') {
+        for (const source of activeSources(state)) {
+          if (source.master === event.player || source.instanceId === defender.instanceId) continue;
+          const sourceCard = state.instances[source.instanceId] as CardInstance;
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_FRONT_ATTACKED' && matchesFilter(state, defender.instanceId, t.filter))) {
+            if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, defender.objectId);
+          }
+        }
+      }
+      // マーカー置場にこのカードがあるなら、このマーカーを持つ舞台の…キャラがアタックした時
+      for (const source of activeSources(state)) {
+        if (!source.marker) continue;
+        const sourceCard = state.instances[source.instanceId] as CardInstance;
+        const at = sourceCard.location;
+        if (at.zone !== 'marker' || at.player !== event.player || at.slot !== event.attackerSlot) continue;
+        for (const found of autosOf(state, sourceCard, (t) => t.on === 'HOLDER_ATTACKS' && matchesFilter(state, attacker.instanceId, t.filter))) {
+          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
+        }
       }
       // 他のあなたの…のキャラがアタックした時: abilities of the attacking player's other cards in force.
       for (const source of activeSources(state)) {
@@ -348,6 +419,7 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
     sourceObjectId: waiting.objectId,
     chosen: [],
     battleOpponent: waiting.battleOpponent,
+    about: waiting.about ?? null,
     sourceSlot: waiting.slot ?? (sourceLocation.zone === 'stage' ? { player: sourceLocation.player, slot: sourceLocation.slot } : null),
     ...(ability.keywords ? { keywords: [...ability.keywords] } : {}),
   };
@@ -360,7 +432,7 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
       return;
     }
     // "... なら": the condition is checked when the ability resolves.
-    if (!evalCondition(state, master, waiting.instanceId, ability.condition, waiting.battleOpponent)) {
+    if (!evalCondition(state, master, waiting.instanceId, ability.condition, waiting.battleOpponent, waiting.about ?? null)) {
       popFrame(ctx, frame);
       return;
     }
