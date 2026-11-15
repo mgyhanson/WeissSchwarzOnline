@@ -397,5 +397,26 @@
    "ANM_W138": 73,
    "NIK_S135": 71
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "B4-8 卡組及報告",
+  "done": "GUP 003、BDY 023／032、STS 037 加入測試卡組；報告更新；完整 QA（check 1047／8／0、soak 4000、validate 609/609、qa:ui 25/25）",
+  "next": "其餘 139 張：置換效果、額外回合、リプレイ等",
+  "playable": 470,
+  "unsupported": 139,
+  "level3Playable": 38,
+  "level3Open": 25,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 94,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 76,
+   "STS_W140": 73,
+   "ANM_W138": 73,
+   "NIK_S135": 71
+  }
  }
 ]
