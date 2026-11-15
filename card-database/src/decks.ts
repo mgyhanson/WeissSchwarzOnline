@@ -99,9 +99,15 @@ export const GUP_TEST_DECK: TestDeck = {
   title: 'GUP',
   note: 'Made by this project from the GUP/W141 cards in the database (yellow, green and blue); not an official or tournament list.',
   entries: [
-    gup('001', 4), gup('010', 3), gup('017', 3), gup('038', 4), gup('044', 3), gup('084', 4), gup('088', 3), gup('104', 3),
-    gup('039', 4), gup('048', 3), gup('099', 2),
-    gup('041', 3), gup('091', 3),
+    // Level 0 (16)
+    gup('001', 4), gup('038', 4), gup('084', 4), gup('010', 2), gup('044', 2),
+    // Level 1 (12)
+    gup('039', 4), gup('048', 3), gup('099', 2), gup('096', 2), gup('022', 1),
+    // Level 2 (8)
+    gup('041', 3), gup('091', 3), gup('040', 2),
+    // Level 3 (6), updated 2026-11-15 when these became playable
+    gup('004', 2), gup('036', 2), gup('092', 2),
+    // Climaxes
     gup('025', 2), gup('054', 2), gup('111', 2), gup('113', 2),
   ],
 };
@@ -127,14 +133,16 @@ export const BDY_TEST_DECK: TestDeck = {
   id: 'test-bdy',
   name: 'BanG Dream! [夢限大みゅーたいぷ] 三色測試卡組',
   title: 'BDY',
-  note: 'Made by this project from the BDY/W135 cards the engine supports (yellow, red and blue): 14 hand-written characters and four of the booster\'s climaxes; not an official or tournament list.',
+  note: 'Made by this project from the BDY/W135 cards the engine supports (yellow, red and blue): characters of every level, Level 3 included (hand-written and read by the sentence grammar), and four of the booster\'s climaxes; not an official or tournament list.',
   entries: [
     // Level 0
     bdy('013', 4), bdy('035', 4), bdy('047', 4), bdy('070', 4),
-    // Level 1
-    bdy('087', 4), bdy('006', 3), bdy('019', 3), bdy('086', 2), bdy('057', 2),
-    // Level 2 and 3
-    bdy('020', 3), bdy('051', 2), bdy('089', 2), bdy('039', 2), bdy('041', 3),
+    // Level 1 (12)
+    bdy('087', 4), bdy('006', 3), bdy('019', 3), bdy('086', 2),
+    // Level 2 (8)
+    bdy('020', 3), bdy('051', 2), bdy('089', 2), bdy('039', 1),
+    // Level 3 (6)
+    bdy('041', 2), bdy('040', 2), bdy('094', 2),
     // Climaxes: 愛は衝動 and TearJerker (named by 013), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
     bdy('026', 2), bdy('062', 2), bdy('064', 2), bdy('097', 2),
   ],
@@ -146,14 +154,16 @@ export const STS_TEST_DECK: TestDeck = {
   id: 'test-sts',
   name: 'ステラソラ 三色測試卡組',
   title: 'STS',
-  note: 'Made by this project from the STS/W140 cards the engine supports (green, red and blue): every supported character of the booster (15: three written by hand, twelve read by the sentence grammar) and two of its climaxes; not an official or tournament list.',
+  note: 'Made by this project from the STS/W140 cards the engine supports (green, red and blue): supported characters of the booster of every level, Level 3 included, and two of its climaxes; not an official or tournament list.',
   entries: entriesOf('STS/W140', {
     // Level 0 (18)
-    '025': 4, '045': 4, '054': 4, '073': 2, '086': 2, '087': 2,
-    // Level 1 (16)
-    '011': 3, '018': 2, '041': 4, '043': 4, '048': 3,
+    '025': 4, '045': 4, '054': 4, '073': 2, '086': 1, '087': 1,
+    // Level 1 (14)
+    '011': 3, '018': 2, '041': 3, '043': 3, '048': 3,
     // Level 2 (8)
     '022': 2, '023': 2, '052': 3, '093': 1,
+    // Level 3 (4)
+    '053': 4,
     // Climaxes: 黎明告げる凱旋歌 (green), その願い、たしかに届けたよ (red)
     '031': 4, '067': 4,
   }),
@@ -163,14 +173,16 @@ export const ANM_TEST_DECK: TestDeck = {
   id: 'test-anm',
   name: 'anemoi 四色測試卡組',
   title: 'ANM',
-  note: 'Made by this project from the ANM/W138 cards the engine supports: every supported character of the booster (14), its one supported event and two climaxes; not an official or tournament list.',
+  note: 'Made by this project from the ANM/W138 cards the engine supports: supported characters of the booster of every level, Level 3 included, one supported event and two climaxes; not an official or tournament list.',
   entries: entriesOf('ANM/W138', {
     // Level 0 (16)
     '004': 4, '016': 4, '028': 4, '062': 4,
-    // Level 1 (15)
-    '020': 4, '041': 4, '057': 3, '068': 4,
-    // Level 2 (10) and the level 3 event
-    '042': 2, '064': 2, '065': 1, '094': 2, '095': 2, '096': 1, '074': 1,
+    // Level 1 (13)
+    '020': 3, '041': 3, '057': 3, '068': 4,
+    // Level 2 (7)
+    '042': 2, '064': 2, '094': 1, '095': 2,
+    // Level 3 (6): four characters and the event
+    '003': 2, '014': 2, '085': 1, '074': 1,
     // Climaxes: 見つけた、大切な場所 (yellow), 好きの数だけ金平糖 (red)
     '024': 4, '075': 4,
   }),
@@ -180,14 +192,16 @@ export const NIK_TEST_DECK: TestDeck = {
   id: 'test-nik',
   name: '勝利の女神：NIKKE 四色測試卡組',
   title: 'NIK',
-  note: 'Made by this project from the NIK/S135 cards the engine supports: 17 characters, two written by hand and fifteen read by the sentence grammar, and two climaxes; not an official or tournament list.',
+  note: 'Made by this project from the NIK/S135 cards the engine supports: supported characters of every level, Level 3 included, and two climaxes; not an official or tournament list.',
   entries: entriesOf('NIK/S135', {
     // Level 0 (18)
     '011': 3, '029': 3, '031': 3, '043': 2, '059': 2, '083': 2, '087': 2, '093': 1,
     // Level 1 (12)
     '008': 4, '072': 4, '073': 4,
-    // Level 2 (12)
-    '014': 2, '020': 2, '041': 2, '042': 2, '097': 2, '105': 2,
+    // Level 2 (8)
+    '014': 2, '041': 2, '042': 2, '105': 2,
+    // Level 3 (4)
+    '035': 2, '092': 2,
     // Climaxes: yellow and green
     '024': 4, '053': 4,
   }),

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { TEST_DECKS } from '@wso/card-database';
+import { TEST_DECKS, getCard } from '@wso/card-database';
 import { playMatch } from './match';
 
 describe('test decks of the newest boosters: complete games between computer players', () => {
@@ -38,5 +38,33 @@ describe('test decks of the newest boosters: complete games between computer pla
       expect(wins).toBeGreaterThan(games * 0.1);
       expect(wins).toBeLessThan(games * 0.9);
     }
+  });
+});
+
+describe('match-ups with Level 3 characters: BDY–ANM, STS–NIK, GUP–BDY and every new deck against itself', () => {
+  const level3 = (deckId: string): Set<string> =>
+    new Set(TEST_DECKS.find((d) => d.id === deckId)!.entries.map((e) => e.cardId).filter((id) => getCard(id).def.level === 3 && getCard(id).def.kind === 'CHARACTER'));
+
+  it.each([
+    ['test-bdy', 'test-anm'],
+    ['test-sts', 'test-nik'],
+    ['test-gup', 'test-bdy'],
+    ['test-bdy', 'test-bdy'],
+    ['test-sts', 'test-sts'],
+    ['test-anm', 'test-anm'],
+    ['test-nik', 'test-nik'],
+    ['test-gup', 'test-gup'],
+  ] as [string, string][])('%s against %s: six ADVANCED games end without a rule problem, and Level 3 characters are played', (a, b) => {
+    const playedLevel3 = new Set<string>();
+    for (let g = 0; g < 6; g++) {
+      const decks: [string, string] = g % 2 === 0 ? [a, b] : [b, a];
+      const match = playMatch(['ADVANCED', 'ADVANCED'], decks, `l3-${a}-${b}-${g}`, {}, 10);
+      expect(match.problems, `game ${g}`).toEqual([]);
+      expect(match.state.result, `game ${g}`).not.toBeNull();
+      for (const p of [0, 1] as const) for (const id of match.played[p]) if (level3(decks[p]).has(id)) playedLevel3.add(id);
+    }
+    expect(level3(a).size + level3(b).size).toBeGreaterThan(0);
+    // At least one Level 3 character of these decks reached the stage in six games.
+    expect(playedLevel3.size, `Level 3 of ${a}/${b}: ${[...level3(a), ...level3(b)].join(', ')}`).toBeGreaterThan(0);
   });
 });

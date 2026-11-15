@@ -82,5 +82,26 @@
    "ANM_W138": 35,
    "NIK_S135": 38
   }
+ },
+ {
+  "date": "2026-11-15",
+  "title": "L3-5 卡組及完整 QA",
+  "done": "五副新系列卡組加入 Level 3 角色；指定配對及同系列對局；完整 QA：772 項測試、4000 局 soak、609 張卡圖、UI 25 項、網上 39 項",
+  "next": "下一批：Marker／回想、置換效果、延遲效果（見 CARD_WORKLIST.md）",
+  "playable": 289,
+  "unsupported": 320,
+  "level3Playable": 17,
+  "level3Open": 46,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 55,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 47,
+   "STS_W140": 31,
+   "ANM_W138": 35,
+   "NIK_S135": 38
+  }
  }
 ]
