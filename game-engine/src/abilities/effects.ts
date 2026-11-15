@@ -39,6 +39,12 @@ function sacrificable(state: GameState, context: EffectContext, cost: Extract<Co
   );
 }
 
+/** 搭乗: the other characters of yours with the name the cost gives. */
+function boardable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'SELF_TO_MARKER' }>): number[] {
+  const stage = state.zones[context.master].stage;
+  return SLOTS.flatMap((slot) => stage[slot]).filter((id) => id !== context.source && getDef(state, id).kind === 'CHARACTER' && getDef(state, id).name === cost.underName);
+}
+
 /** Hand cards that may be discarded for a DISCARD cost: matching ones other than the card itself. */
 function discardable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'DISCARD' }>): number[] {
   return state.zones[context.master].hand.filter((id) => id !== context.source && matchesFilter(state, id, cost.filter));
@@ -92,6 +98,17 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
       case 'STOCK_TO_CLOCK':
         stockNeeded += cost.count;
         break;
+      case 'MARKERS_TO_WAITING_ROOM': {
+        const self = sourceIfUnchanged(state, context);
+        if (!self || self.location.zone !== 'stage' || state.zones[self.location.player].marker[self.location.slot].length < cost.count) return false;
+        break;
+      }
+      case 'SELF_TO_MARKER': {
+        // 搭乗: another character of yours with that name, on the stage.
+        const self = sourceIfUnchanged(state, context);
+        if (!self || self.location.zone !== 'stage' || boardable(state, context, cost).length === 0) return false;
+        break;
+      }
       case 'CHARACTERS_TO_WAITING_ROOM': {
         // A cost that also moves this card away cannot use it here too.
         const leaves = costs.some((c) => c.pay === 'SELF_TO_WAITING_ROOM' || c.pay === 'SELF_TO_CLOCK' || c.pay === 'SELF_TO_MEMORY' || c.pay === 'SELF_TO_DECK_BOTTOM');
@@ -206,6 +223,29 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       moveCards(ctx, fromTop, { player: master, zone: 'clock' }, { reason: 'COST' });
       return;
     }
+    case 'MARKERS_TO_WAITING_ROOM': {
+      frame.index++;
+      const self = getInstance(state, context.source);
+      if (self.location.zone !== 'stage') return;
+      const markers = state.zones[self.location.player].marker[self.location.slot];
+      for (const id of markers.slice(-cost.count).reverse()) moveCard(ctx, id, { player: getInstance(state, id).owner, zone: 'waitingRoom' }, { reason: 'COST' });
+      return;
+    }
+    case 'SELF_TO_MARKER': {
+      if (!frame.asked) {
+        frame.asked = true;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'COST_BOARD', cards: boardable(state, context, cost).map((id) => getInstance(state, id).objectId), min: 1, max: 1 });
+        return;
+      }
+      frame.asked = false;
+      frame.index++;
+      const holder = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+      const location = getInstance(state, holder).location;
+      if (location.zone !== 'stage') return;
+      // Face up under that character (CR-3.7.2.1); this card's own markers go to the waiting room as it leaves its slot (CR-3.7.3.2).
+      moveCard(ctx, context.source, { player: location.player, zone: 'marker', slot: location.slot }, { reason: 'COST', face: 'UP' });
+      return;
+    }
     case 'CHARACTERS_TO_WAITING_ROOM': {
       if (!frame.asked) {
         frame.asked = true;
@@ -216,7 +256,7 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       frame.asked = false;
       frame.index++;
       const chosen = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
-      moveBatch(ctx, chosen.map((instanceId) => ({ instanceId, to: { player: getInstance(state, instanceId).owner, zone: 'waitingRoom' as const }, opts: { reason: 'COST' as const } })));
+      moveBatch(ctx, chosen.map((instanceId) => ({ instanceId, to: { player: getInstance(state, instanceId).owner, zone: cost.toMemory ? ('memory' as const) : ('waitingRoom' as const) }, opts: { reason: 'COST' as const } })));
       return;
     }
     case 'REST_CHARACTERS': {
@@ -267,6 +307,14 @@ function destinationZone(state: GameState, context: EffectContext, instanceId: n
       return { zone: { player, zone: 'deck' }, bottom: false };
     case 'DECK_BOTTOM':
       return { zone: { player, zone: 'deck' }, bottom: true };
+    case 'UNDER_SELF': {
+      const self = getInstance(state, context.source);
+      return self.objectId === context.sourceObjectId && self.location.zone === 'stage' ? { zone: { player: self.location.player, zone: 'marker', slot: self.location.slot }, bottom: false } : null;
+    }
+    case 'UNDER_THAT': {
+      const that = context.about == null ? undefined : state.instances.find((inst) => inst.objectId === context.about);
+      return that && that.location.zone === 'stage' ? { zone: { player: that.location.player, zone: 'marker', slot: that.location.slot }, bottom: false } : null;
+    }
   }
 }
 
@@ -372,6 +420,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
             reason: byChange ? ('CHANGE' as const) : ('EFFECT' as const),
             ...(destination.bottom ? { position: 'BOTTOM' as const } : {}),
             ...(effect.rested ? { orientation: 'REST' as const } : {}),
+            // CR-3.7.2: markers are face down unless the text says 表向き.
+            ...(destination.zone.zone === 'marker' ? { face: effect.face ?? ('DOWN' as const) } : {}),
           },
         }];
       });
@@ -479,7 +529,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
           : condition.if === 'DID'
             ? context.did === true
-          : evalCondition(state, master, context.source, condition, context.battleOpponent);
+          : evalCondition(state, master, context.source, condition, context.battleOpponent, context.about ?? null);
       next();
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
       return;
@@ -516,6 +566,21 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       context.did = top !== undefined && !declined;
       next();
       if (top !== undefined && !declined) moveCard(ctx, top, { player: getInstance(state, top).owner, zone: effect.to === 'STOCK' ? 'stock' : 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
+
+    case 'MARKERS_TOP': {
+      next();
+      const self = sourceIfUnchanged(state, context);
+      if (!self || self.location.zone !== 'stage') return;
+      const markers = state.zones[self.location.player].marker[self.location.slot];
+      // CR-3.7.2: markers are taken from the top.
+      const taken = markers.slice(-effect.count).reverse();
+      for (const id of taken) {
+        const owner = getInstance(state, id).owner;
+        moveCard(ctx, id, { player: owner, zone: effect.to === 'HAND' ? 'hand' : effect.to === 'STOCK' ? 'stock' : 'waitingRoom' }, { reason: 'EFFECT' });
+      }
+      context.did = taken.length > 0;
       return;
     }
 

@@ -239,6 +239,8 @@ export type WaitingAuto =
       slot: { player: PlayerId; slot: SlotId } | null;
       /** For an ability the card was given rather than printed: the ability itself (`ability` is then -1). */
       granted?: AutoAbility;
+      /** The card the ability is about, when its trigger named one (その舞台に置かれたキャラ). */
+      about?: number;
     };
 
 /** CR-4.14.2.7: a shot trigger waiting for the next damage dealt by the attacking character. */

@@ -28,6 +28,10 @@ export interface CardFilter {
   names?: string[];
   /** …か…: the card matches at least one of these (e.g. 《A》のキャラか「カード名」). */
   anyOf?: CardFilter[];
+  /** 『【リンク】 （名称）』を持つ (CR-10.17.4.1) */
+  hasLink?: string;
+  /** 『回想』を持つ (CR-10.20) */
+  hasRecollection?: boolean;
   /** レベルが相手のレベルより高い: the card's level is higher than the level of the player whose card it is. */
   levelAboveMasterLevel?: boolean;
   /** 自分のレベル以下のレベルの: the card's level is at most the level of the player whose zone it is in. */
@@ -78,11 +82,26 @@ export type Condition =
   | { if: 'COUNT'; where: CountWhere; filter?: CardFilter; other?: boolean; min?: number; max?: number }
   /** …か…: at least one of the conditions holds. */
   | { if: 'ANY'; of: Condition[] }
+  /**
+   * このカードの下にマーカーがある/ない, このカードの下の異なるカード名のマーカーがN枚以上 (CR-3.7.4): the markers in the
+   * marker zone of this card's slot (`of: 'SELF'`) or of the card the ability is about (`of: 'THAT'`). Distinct names
+   * count face-up markers only (a face-down marker has no name, CR-3.7.2.3).
+   */
+  | { if: 'MARKERS'; of: 'SELF' | 'THAT'; min?: number; max?: number; distinctNames?: boolean }
   | { if: 'ALL'; of: Condition[] }
   | { if: 'NOT'; of: Condition };
 
 /** Where a COUNT condition counts. */
-export type CountWhere = 'YOUR_WAITING_ROOM' | 'YOUR_HAND' | 'YOUR_MEMORY' | 'YOUR_CLIMAX' | 'YOUR_FRONT_ROW' | 'OPPONENT_STAGE' | 'OPPONENT_FRONT_ROW';
+export type CountWhere =
+  | 'YOUR_WAITING_ROOM'
+  | 'YOUR_HAND'
+  | 'YOUR_MEMORY'
+  | 'YOUR_CLIMAX'
+  | 'YOUR_FRONT_ROW'
+  | 'OPPONENT_STAGE'
+  | 'OPPONENT_FRONT_ROW'
+  /** あなたの、思い出とマーカー置場のカードの合計 (every card, face down too) */
+  | 'YOUR_MEMORY_AND_MARKERS';
 
 /** One action of a cost (CR-8.4). Costs are paid in the order listed (CR-8.4.2.1). */
 export type Cost =
@@ -112,8 +131,12 @@ export type Cost =
   | { pay: 'HAND_TO_CLOCK'; count: number; filter?: CardFilter }
   /** このカードを山札の下に置く */
   | { pay: 'SELF_TO_DECK_BOTTOM' }
+  /** このカードの下のマーカーをN枚控え室に置く: from the top of the marker zone (CR-3.7.2). */
+  | { pay: 'MARKERS_TO_WAITING_ROOM'; count: number }
+  /** 搭乗: このカードを表向きで他のあなたの「名称」のマーカーにする — the player chooses that character (CR-10.21). */
+  | { pay: 'SELF_TO_MARKER'; underName: string }
   /** (他の)あなたの舞台の…のキャラをN枚控え室に置く: the player chooses characters on their stage. */
-  | { pay: 'CHARACTERS_TO_WAITING_ROOM'; count: number; filter?: CardFilter; other?: boolean };
+  | { pay: 'CHARACTERS_TO_WAITING_ROOM'; count: number; filter?: CardFilter; other?: boolean; /** …を思い出にする instead of 控え室に置く */ toMemory?: boolean };
 
 /** Which cards an effect applies to. */
 export type Target =
@@ -127,6 +150,10 @@ export type Target =
   | { who: 'YOUR_SLOT'; slots: SlotId[]; other?: boolean }
   /** The cards chosen by the most recent CHOOSE of this resolution. */
   | { who: 'CHOSEN' }
+  /** その(舞台に置かれた)キャラ: the card the ability is about (its trigger named it). */
+  | { who: 'THAT' }
+  /** このマーカーを持つ舞台の…キャラ: the character in the slot whose marker zone this card is in. */
+  | { who: 'MARKER_HOLDER'; filter?: CardFilter }
   /** このカードのバトル相手 (CR-7.2.1.5.1; last known per CR-8.11.2) */
   | { who: 'BATTLE_OPPONENT' };
 
@@ -150,7 +177,9 @@ export type ChooseFrom =
   /** 相手の控え室のカード */
   | 'OPPONENT_WAITING_ROOM'
   /** 自分の思い出置場の…: face-up cards only (a face-down card has no name or traits, CR-3.12.2.2.1). */
-  | 'YOUR_MEMORY';
+  | 'YOUR_MEMORY'
+  /** 他のあなたの舞台の…キャラ, for putting under this card: as YOUR_STAGE. */
+  | 'YOUR_OTHER_STAGE';
 
 export type Destination =
   | 'HAND'
@@ -165,7 +194,11 @@ export type Destination =
   /** このカードがいた枠 / それが直前に置かれていた枠: the slot the ability's card is or was in. */
   | 'SOURCE_SLOT'
   /** The slot chosen by the most recent CHOOSE_SLOT of this resolution. */
-  | 'CHOSEN_SLOT';
+  | 'CHOSEN_SLOT'
+  /** このカードの下にマーカーとして置く (face given by the MOVE; CR-3.7.2: face down unless the text says 表向き) */
+  | 'UNDER_SELF'
+  /** その(舞台に置かれた)キャラの下のマーカーにする */
+  | 'UNDER_THAT';
 
 /** …1枚につき: multiplies an amount by the number of (other) characters of yours that match. */
 export interface PerCharacter {
@@ -185,7 +218,7 @@ export type Effect =
    */
   | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
-  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
+  | { do: 'MOVE'; target: Target; to: Destination; reveal?: boolean; rested?: boolean; /** for UNDER_SELF / UNDER_THAT: 表向き or 裏向き */ face?: 'UP' | 'DOWN'; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**
    * そのターン中、…のパワー/ソウル/レベルを＋N (`per`: …1枚につき).
    * `until: 'NEXT_OPPONENT_TURN'`: 次の相手のターンの終わりまで instead of this turn.
@@ -244,6 +277,8 @@ export type Effect =
   | { do: 'SHOW_TOP' }
   /** 自分の山札を上から1枚見て、山札の上か下に置く: the player looks at the top card and leaves it or puts it on the bottom. */
   | { do: 'TOP_OR_BOTTOM' }
+  /** このカードの下のマーカーをN枚…に置く: the top N markers of this card's slot (CR-3.7.2). */
+  | { do: 'MARKERS_TOP'; count: number; to: 'HAND' | 'STOCK' | 'WAITING_ROOM' }
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
   | { do: 'TRIGGER_CHECKS'; count: number }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
@@ -283,11 +318,15 @@ export type Trigger =
   | { on: 'STAGE_TO_WAITING_ROOM' }
   /** (あなたの/相手の)…ステップの始めに */
   | { on: 'STEP_START'; step: AttackStepName; turn: 'YOURS' | 'OPPONENT' | 'ANY' }
+  /** マーカー置場にこのカードがあるなら、このマーカーを持つ舞台の…キャラがアタックした時 (ability with zone 'MARKER') */
+  | { on: 'HOLDER_ATTACKS'; filter?: CardFilter }
   /** …した時か…した時: one ability with several trigger conditions; it triggers when any of them is met. */
   | { on: 'EITHER'; of: Trigger[] };
 
 /** Keywords that are labels without rules meaning of their own (CR-10), kept so other effects can refer to them. */
 export type Keyword =
+  /** 搭乗 (CR-10.21) */
+  | 'BOARDING'
   | 'ASSIST'
   | 'BACKUP'
   | 'BRAINSTORM'
@@ -317,6 +356,17 @@ export interface ContinuousAbility {
   alarm?: boolean;
   /** このカードは相手の効果に選ばれない: the opponent's effects cannot choose this card (CR-8.6.3.1). */
   untargetable?: boolean;
+  /** マーカー置場にこのカードがあるなら: the ability works while this card is a face-up marker, and only then (CR-2.12.2.3). */
+  zone?: 'MARKER';
+  /**
+   * 回想 (CR-10.20.2): the card has the two automatic abilities of the keyword. While it is face up in its master's
+   * memory: when a character of theirs is put on the stage from outside the stage, with no marker under it, they may
+   * put this card face up under it. When it moves from a marker zone to a public zone other than a marker zone, it
+   * goes to memory. The engine plays both (flow/autos.ts); this flag only says the card has them.
+   */
+  recollection?: boolean;
+  /** 【リンク】 （名称）: an ability with a name and no effect, looked at by other abilities (CR-10.17). */
+  link?: string;
   /** このカードはサイドアタックできない: this card cannot make a side attack (CR-7.2.1.4). */
   noSideAttack?: boolean;
   /**
@@ -332,21 +382,25 @@ export interface ContinuousAbility {
   greatPerformance?: boolean;
   condition?: Condition;
   apply: {
-    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' }>;
+    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' }>;
     stat: 'POWER' | 'SOUL' | 'LEVEL';
     amount: number;
     per?: PerCharacter;
     /** Ｘはそのキャラのレベル×N: multiplies the amount by the target's level. */
     perTargetLevel?: boolean;
+    /** このカードの下のマーカー1枚につき: multiplies the amount by the number of markers of this card's slot. */
+    perMarker?: boolean;
   }[];
   /** …に『…』を与える: automatic abilities given to the targets while this ability is active. */
-  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' }>; ability: AutoAbility }[];
+  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' }>; ability: AutoAbility }[];
 }
 
 /** 【自】 (CR-8.1.1.2) */
 export interface AutoAbility {
   type: 'AUTO';
   keywords?: Keyword[];
+  /** マーカー置場にこのカードがあるなら: triggers only while this card is a face-up marker. */
+  zone?: 'MARKER';
   /** アラーム (CR-10.1): triggers only while this card is the top card of its master's clock. */
   alarm?: boolean;
   trigger: Trigger;
@@ -454,4 +508,6 @@ export interface EffectContext {
   moved?: number[];
   /** Whether the most recent MOVE or CLOCK_TOP moved a card (for そうしたら). */
   did?: boolean;
+  /** Object id of the card the ability is about (その舞台に置かれたキャラ), when its trigger named one. */
+  about?: number | null;
 }

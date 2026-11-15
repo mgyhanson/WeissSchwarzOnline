@@ -22,20 +22,20 @@
  {
   "date": "2026-11-15",
   "cards": 609,
-  "playable": 289,
+  "playable": 304,
   "handWritten": 128,
   "wholeSentencePatterns": 54,
-  "grammar": 107,
-  "unsupported": 320,
+  "grammar": 122,
+  "unsupported": 305,
   "bySet": {
    "SY_W08_TD": 17,
    "5HY_W83_TD_ICHIKA": 18,
    "SAO_S20": 30,
-   "GUP_W141": 55,
+   "GUP_W141": 58,
    "SAO_OTHERS": 18,
    "BDY_W135": 47,
-   "STS_W140": 31,
-   "ANM_W138": 35,
+   "STS_W140": 42,
+   "ANM_W138": 36,
    "NIK_S135": 38
   }
  }

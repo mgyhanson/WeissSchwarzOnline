@@ -20,7 +20,7 @@ export interface LineParts {
   effects: string[];
 }
 
-const KEYWORDS = ['集中', '応援', 'アンコール', '絆／', '経験', '記憶', '加速', 'チェンジ', '大活躍', 'アラーム', '助太刀', '回想', '共鳴', 'シフト'];
+const KEYWORDS = ['集中', '応援', 'アンコール', '絆／', '経験', '記憶', '加速', 'チェンジ', '大活躍', 'アラーム', '助太刀', '回想', '共鳴', 'シフト', '搭乗'];
 
 /** Reminder text in round brackets is not rules text (CR-1.3.x of the card list's own notes). */
 const stripReminders = (text: string): string => text.replace(/ ?（[^（）]*(?:（[^（）]*）[^（）]*)*）/g, '');

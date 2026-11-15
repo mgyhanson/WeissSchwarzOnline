@@ -20,6 +20,8 @@ export interface ActiveSource {
   def: CardDef;
   /** True for the top card of a clock: only its アラーム abilities are in force (CR-10.1). */
   clockTop: boolean;
+  /** True for a face-up marker: only its abilities that work in the marker zone are in force. */
+  marker?: boolean;
 }
 
 /**
@@ -39,6 +41,14 @@ export function activeSources(state: GameState): ActiveSource[] {
     for (const instanceId of zones.climax) {
       const def = getDef(state, instanceId);
       if (def.kind === 'CLIMAX') sources.push({ instanceId, master, def, clockTop: false });
+    }
+    // CR-2.12.2.3: abilities of face-up markers that work in the marker zone (a face-down marker has no abilities, CR-3.7.2.3).
+    for (const slot of SLOTS) {
+      for (const instanceId of zones.marker[slot]) {
+        if (getInstance(state, instanceId).face !== 'UP') continue;
+        const def = getDef(state, instanceId);
+        if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'MARKER')) sources.push({ instanceId, master, def, clockTop: false, marker: true });
+      }
     }
     // CR-10.1 / CR-2.12.2.3: アラーム abilities of the card on top of the clock.
     const top = zones.clock[zones.clock.length - 1];
@@ -77,6 +87,8 @@ export function matchesFilter(
   if (filter.kind && def.kind !== filter.kind) return false;
   if (filter.traits && !filter.traits.some((trait) => def.traits.includes(trait))) return false;
   if (filter.anyOf && !filter.anyOf.some((part) => matchesFilter(state, instanceId, part, levelOf))) return false;
+  if (filter.hasLink !== undefined && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.link === filter.hasLink)) return false;
+  if (filter.hasRecollection && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.recollection)) return false;
   if (filter.name !== undefined && def.name !== filter.name) return false;
   if (filter.nameIncludes !== undefined && !def.name.includes(filter.nameIncludes)) return false;
   if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => def.name.includes(part))) return false;
@@ -106,7 +118,14 @@ export function matchesFilter(
  * `battleOpponent`: object id of the battle opponent the ability remembers
  * (EffectContext.battleOpponent), for the BATTLE_OPPONENT condition.
  */
-export function evalCondition(state: GameState, master: PlayerId, source: number, condition: Condition | undefined, battleOpponent: number | null = null): boolean {
+export function evalCondition(
+  state: GameState,
+  master: PlayerId,
+  source: number,
+  condition: Condition | undefined,
+  battleOpponent: number | null = null,
+  about: number | null = null,
+): boolean {
   if (!condition) return true;
   const zones = state.zones[master];
   switch (condition.if) {
@@ -142,6 +161,8 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
             ? zones.hand
             : condition.where === 'YOUR_MEMORY'
               ? zones.memory.filter((id) => !condition.filter || getInstance(state, id).face === 'UP')
+              : condition.where === 'YOUR_MEMORY_AND_MARKERS'
+                ? [...zones.memory, ...SLOTS.flatMap((slot) => zones.marker[slot])]
               : condition.where === 'YOUR_CLIMAX'
                 ? zones.climax
                 : condition.where === 'YOUR_FRONT_ROW'
@@ -153,7 +174,16 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
       return count >= (condition.min ?? 0) && count <= (condition.max ?? Infinity);
     }
     case 'ANY':
-      return condition.of.some((part) => evalCondition(state, master, source, part, battleOpponent));
+      return condition.of.some((part) => evalCondition(state, master, source, part, battleOpponent, about));
+    case 'MARKERS': {
+      const holder = condition.of === 'SELF' ? source : about === null ? null : (byObjectId(state, about)?.instanceId ?? null);
+      if (holder === null) return false;
+      const markers = markersOf(state, holder);
+      const count = condition.distinctNames
+        ? new Set(markers.filter((id) => getInstance(state, id).face === 'UP').map((id) => getDef(state, id).name)).size
+        : markers.length;
+      return count >= (condition.min ?? 0) && count <= (condition.max ?? Infinity);
+    }
     case 'LAST_MOVED':
     case 'DID':
       // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).
@@ -192,9 +222,9 @@ export function evalCondition(state: GameState, master: PlayerId, source: number
     case 'STOCK':
       return zones.stock.length <= condition.max;
     case 'ALL':
-      return condition.of.every((part) => evalCondition(state, master, source, part, battleOpponent));
+      return condition.of.every((part) => evalCondition(state, master, source, part, battleOpponent, about));
     case 'NOT':
-      return !evalCondition(state, master, source, condition.of, battleOpponent);
+      return !evalCondition(state, master, source, condition.of, battleOpponent, about);
   }
 }
 
@@ -224,7 +254,22 @@ function continuousTargets(
       return target.slots
         .flatMap((slot) => state.zones[source.master].stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === source.instanceId));
+    case 'MARKER_HOLDER':
+      return markerHolder(state, source.instanceId).filter((id) => matchesFilter(state, id, target.filter, levelOf));
   }
+}
+
+/** The character in the slot whose marker zone this card is in (このマーカーを持つ舞台のキャラ). */
+export function markerHolder(state: GameState, instanceId: number): number[] {
+  const location = getInstance(state, instanceId).location;
+  if (location.zone !== 'marker') return [];
+  return state.zones[location.player].stage[location.slot].filter((id) => getDef(state, id).kind === 'CHARACTER');
+}
+
+/** The cards in the marker zone of the slot a card on the stage is in (CR-3.7.4), bottom first. */
+export function markersOf(state: GameState, instanceId: number): number[] {
+  const location = getInstance(state, instanceId).location;
+  return location.zone === 'stage' ? [...state.zones[location.player].marker[location.slot]] : [];
 }
 
 /**
@@ -243,6 +288,8 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
   for (const source of activeSources(state)) {
     for (const ability of source.def.abilities ?? []) {
       if (ability.type !== 'CONT' || ability.inHand) continue;
+      // A marker ability works from the marker zone and only from there.
+      if ((ability.zone === 'MARKER') !== Boolean(source.marker)) continue;
       // An アラーム ability works from the top of the clock and only from there.
       if (Boolean(ability.alarm) !== source.clockTop) continue;
       if (ability.assist) {
@@ -274,7 +321,7 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
   for (const { source, ability } of continuousInForce(state)) {
     for (const part of ability.apply) {
       if (part.stat !== stat || !continuousTargets(state, source, part.target, levelOf).includes(instanceId)) continue;
-      let amount = part.amount * perCount(state, source.master, source.instanceId, part.per);
+      let amount = part.amount * perCount(state, source.master, source.instanceId, part.per) * (part.perMarker ? markersOf(state, source.instanceId).length : 1);
       // Ｘはそのキャラのレベル×N. Only power and soul use this, so levels are already settled.
       if (part.perTargetLevel) amount = part.amount * currentLevel(state, instanceId);
       total += amount;
@@ -407,6 +454,14 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       const inst = byObjectId(state, context.battleOpponent);
       return inst && inst.location.zone === 'stage' ? [inst.instanceId] : [];
     }
+    case 'THAT': {
+      const inst = context.about == null ? undefined : byObjectId(state, context.about);
+      return inst && inst.location.zone === 'stage' ? [inst.instanceId] : [];
+    }
+    case 'MARKER_HOLDER': {
+      const self = sourceIfUnchanged(state, context);
+      return self ? markerHolder(state, self.instanceId).filter((id) => matchesFilter(state, id, target.filter)) : [];
+    }
   }
 }
 
@@ -460,6 +515,9 @@ export function chooseCandidates(
       break;
     case 'YOUR_MEMORY':
       pool = zones.memory.filter((id) => getInstance(state, id).face === 'UP');
+      break;
+    case 'YOUR_OTHER_STAGE':
+      pool = stageCharacters(state, master).filter((id) => id !== context.source);
       break;
     case 'OPPONENT_BACK_ROW': {
       const opponent = state.zones[opponentOf(master)];

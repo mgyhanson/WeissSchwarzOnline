@@ -52,6 +52,8 @@ export type PromptId =
   | 'COST_HAND_TO_CLOCK'
   /** Choose the characters on your stage to put into the waiting room as a cost. */
   | 'COST_CHARACTERS'
+  /** 搭乗: choose the character this card goes under as a marker. */
+  | 'COST_BOARD'
   /** 自分か相手の…: choose whose cards an effect applies to (options YOU, OPPONENT). */
   | 'EFFECT_PLAYER'
   /** 次のNつの効果のうち…: choose which of the effects to perform (options EFFECT_1, EFFECT_2, ...). */

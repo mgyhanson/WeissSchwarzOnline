@@ -22,6 +22,7 @@
  *   data.nosync/card-worklist.json  every open card with its unknown parts
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -350,12 +351,75 @@ const checkpoint: string[] = [
 ];
 writeFileSync(join(ROOT, 'reports/IMPLEMENTATION_CHECKPOINT.md'), `${checkpoint.join('\n')}\n`);
 
+// --- reports/BATCH_3_PRIORITY.md ---------------------------------------------
+// Each unknown part scored by what it unlocks (all cards, Level 3 cards), how many sets it reaches and how hard it
+// looks. Difficulty is a rough reading of the part's own words; it only orders the list.
+const hard = /かわりに|追加の|ターン|できない|選ばれない|相手は|トリガーした時|キャンセル|入れ替え|同じカード名|次の.*の始めに|動かす|色条件/;
+const medium = /Ｘ|好きな順番|公開|マーカー|回想|リンク|与える|得る|次の\d+つ|つの効果/;
+const difficulty = (part: string): '低' | '中' | '高' => (hard.test(part) ? '高' : medium.test(part) ? '中' : '低');
+const weight = { 低: 1, 中: 2, 高: 3 } as const;
+const open3Ids = new Set(open3.map((w) => w.cardId));
+const scored = ranked
+  .map((row) => {
+    const sets = [...new Set(row.cards.map((id) => id.split('/')[0]))];
+    const l3 = row.cards.filter((id) => open3Ids.has(id)).length;
+    const l3Unlocks = row.unlocks.filter((id) => open3Ids.has(id)).length;
+    const level = difficulty(row.part);
+    const score = (row.unlocks.length * 3 + l3Unlocks * 4 + row.cards.length + l3 * 2 + sets.length) / weight[level];
+    return { ...row, sets, l3, l3Unlocks, level, score };
+  })
+  .sort((a, b) => b.score - a.score);
+const priority: string[] = [
+  '# Batch 3 實裝優先次序',
+  '',
+  '> 由 `npm run cards:worklist` 產生。請勿手改。',
+  '',
+  '分數 =（解鎖卡數×3 ＋ 解鎖的 Level 3×4 ＋ 涉及卡數 ＋ 涉及的 Level 3×2 ＋ 涉及系列數）÷ 難度（低 1、中 2、高 3）。難度只按片段本身的用語粗略判斷，用來排序，不代表已分析規則。',
+  '',
+  '| # | 片段（機制） | 解鎖卡數 | Level 3 解鎖／涉及 | 涉及卡數 | 涉及系列 | 難度 | 分數 |',
+  '|---:|---|---:|---:|---:|---|:---:|---:|',
+  ...scored.slice(0, 60).map((row, i) => `| ${i + 1} | ${row.part.replace(/\|/g, '／').slice(0, 90)} | ${row.unlocks.length} | ${row.l3Unlocks}／${row.l3} | ${row.cards.length} | ${row.sets.join(' ')} | ${row.level} | ${row.score.toFixed(1)} |`),
+  '',
+];
+writeFileSync(join(ROOT, 'reports/BATCH_3_PRIORITY.md'), `${priority.join('\n')}\n`);
+
+// --- reports/BATCH_3_PROGRESS.md ---------------------------------------------
+const b3 = batches.filter((b) => b.title.startsWith('B3'));
+const batch3: string[] = [
+  '# Batch 3 進度',
+  '',
+  '> 由 `npm run cards:worklist` 產生；每批用 `npm run cards:worklist -- --batch "B3-…" "完成內容" "下一步"` 記錄。',
+  '',
+  '| 日期 | 批次 | 完成內容 | 可對戰 | Level 3 | 未支援 | GUP | BDY | STS | ANM | NIK | 下一步 |',
+  '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
+  ...b3.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.bySet.GUP_W141} | ${b.bySet.BDY_W135} | ${b.bySet.STS_W140} | ${b.bySet.ANM_W138} | ${b.bySet.NIK_S135} | ${b.next} |`),
+  '',
+];
+writeFileSync(join(ROOT, 'reports/BATCH_3_PROGRESS.md'), `${batch3.join('\n')}\n`);
+
+// --- what changed since the previous run (data.nosync/worklist-previous.json) --
+const previousFile = join(ROOT, 'data.nosync/worklist-previous.json');
+const previous: { playable: string[]; textHash: Record<string, string> } = existsSync(previousFile) ? JSON.parse(readFileSync(previousFile, 'utf8')) : { playable: [], textHash: {} };
+const playableNow = cards.filter((c) => c.record.support === 'verified').map((c) => c.record.cardId);
+const hashOf = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
+const textHash = Object.fromEntries(cards.map((c) => [c.record.cardId, hashOf(c.official.text)]));
+const gained = playableNow.filter((id) => !previous.playable.includes(id));
+const lost = previous.playable.filter((id) => !playableNow.includes(id));
+const changedText = Object.keys(textHash).filter((id) => previous.textHash[id] !== undefined && previous.textHash[id] !== textHash[id]);
+writeFileSync(previousFile, `${JSON.stringify({ playable: playableNow, textHash })}\n`);
+
 // --- data.nosync/card-worklist.json ---------------------------------------
 mkdirSync(join(ROOT, 'data.nosync'), { recursive: true });
 writeFileSync(join(ROOT, 'data.nosync/card-worklist.json'), `${JSON.stringify({ generatedBy: 'npm run cards:worklist', cards: work, parts: ranked }, null, 1)}\n`);
 
 // --- console: compact ------------------------------------------------------
 console.log(`unsupported ${work.length}; unknown parts ${ranked.length}; one part away ${count(work, (x) => x.unknown.length === 1)}; two ${count(work, (x) => x.unknown.length === 2)}`);
+if (previous.playable.length > 0) {
+  const l3Gained = gained.filter((id) => cards.find((c) => c.record.cardId === id)!.def.level === 3);
+  console.log(`since last run: +${gained.length} playable (Level 3 +${l3Gained.length})${lost.length ? `, -${lost.length}: ${lost.join(' ')}` : ''}${changedText.length ? `, official text changed: ${changedText.join(' ')}` : ''}`);
+  if (gained.length) console.log(`  new: ${gained.map(short).join(' ')}`);
+}
+console.log(`next by priority: ${scored[0]?.part.slice(0, 100) ?? '-'} (unlocks ${scored[0]?.unlocks.length ?? 0}, Level 3 ${scored[0]?.l3 ?? 0})`);
 const partArg = args.indexOf('--part');
 if (partArg >= 0) {
   const row = ranked.find((r) => r.part.includes(args[partArg + 1] ?? '\u0000'));

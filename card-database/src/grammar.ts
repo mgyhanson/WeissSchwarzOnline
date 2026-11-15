@@ -58,6 +58,9 @@ function parseOneFilter(text: string, bare: 'STAGE' | 'ZONE'): Out<CardFilter | 
   const includes = /^カード名に「([^」]+)」を含むキャラ$/.exec(text);
   if (includes) return out(bare === 'STAGE' ? { nameIncludes: includes[1]! } : { kind: 'CHARACTER', nameIncludes: includes[1]! }, `卡名含有「${includes[1]}」的角色`);
   if (/^、?レベルが相手のレベルより高いキャラ$/.test(text)) return out({ levelAboveMasterLevel: true }, 'Level 高於對手玩家 Level 的角色');
+  if (text === '『回想』を持つキャラ') return out({ kind: 'CHARACTER', hasRecollection: true }, '有「回想」的角色');
+  const linked = /^『【リンク】 ([^』]+)』を持つキャラ$/.exec(text);
+  if (linked) return out({ kind: 'CHARACTER', hasLink: linked[1]! }, `有「Link ${linked[1]}」的角色`);
   if (/^自分のレベル以下のレベルのキャラ$/.test(text)) return out({ kind: 'CHARACTER', levelAtMostOwnLevel: true }, 'Level 不高於自己 Level 的角色');
   const m = FILTER.exec(text);
   if (!m) return null;
@@ -105,6 +108,13 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
   [
     /^このカードが手札から舞台に置かれた時か舞台から控え室に置かれた時$/,
     () => out({ on: 'EITHER', of: [{ on: 'PLACED_ON_STAGE', from: 'HAND' }, { on: 'STAGE_TO_WAITING_ROOM' }] }, '這張卡由手牌放到舞台時，或由舞台放到控え室時'),
+  ],
+  [
+    /^マーカー置場にこのカードがあるなら、このマーカーを持つ舞台の、?(.+?)がアタックした時$/,
+    (m) => {
+      const filter = parseFilter(m[1]!, 'STAGE');
+      return filter && (!filter.data || filter.data.kind === 'CHARACTER') ? out({ on: 'HOLDER_ATTACKS', ...(filter.data ? { filter: filter.data } : {}) }, `這張卡是 Marker 時，持有這個 Marker 的${filter.zh}攻擊時`) : null;
+    },
   ],
   [/^相手のCXがCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED', opponent: true }, '對手的 Climax 放到 Climax 置場時')],
   [
@@ -158,6 +168,14 @@ export function parseCostAction(raw: string): Out<Cost> {
   if (text === '【スタンド】しているこのカードを【レスト】する') return out({ pay: 'REST_SELF' }, '把 Stand 中的這張卡 Rest');
   if (text === '【スタンド】しているこのカードを思い出にする') return out({ pay: 'SELF_TO_MEMORY', standing: true }, '把 Stand 中的這張卡放到思い出');
   if (text === 'このカードを手札に戻す') return out({ pay: 'SELF_TO_HAND' }, '把這張卡放回手牌');
+  if ((m = /^このカードの下のマーカーを(\d+)枚控え室に置く$/.exec(text))) return out({ pay: 'MARKERS_TO_WAITING_ROOM', count: n(m[1]) }, `把這張卡下面的 Marker ${m[1]} 張放到控え室`);
+  if ((m = /^このカードを表向きで他のあなたの「([^」]+)」のマーカーにする$/.exec(text))) return out({ pay: 'SELF_TO_MARKER', underName: m[1]! }, `把這張卡以表向放到我方其他「${m[1]}」下面作為 Marker`);
+  if ((m = /^(他の)?あなたの舞台の(.+?)を(\d+)枚思い出にする$/.exec(text))) {
+    const filter = parseFilter(m[2]!, 'STAGE');
+    if (filter?.data && filter.data.kind === 'CHARACTER') {
+      return out({ pay: 'CHARACTERS_TO_WAITING_ROOM', count: n(m[3]), filter: filter.data, toMemory: true, ...(m[1] ? { other: true } : {}) }, `把我方舞台上${m[1] ? '其他 ' : ''}${m[3]} 張${filter.zh}放到思い出`);
+    }
+  }
   if (text === 'このカードを思い出にする') return out({ pay: 'SELF_TO_MEMORY' }, '把這張卡放到思い出');
   if (text === 'このカードをクロック置場に置く') return out({ pay: 'SELF_TO_CLOCK' }, '把這張卡放到 Clock');
   if (text === 'このカードを山札の下に置く') return out({ pay: 'SELF_TO_DECK_BOTTOM' }, '把這張卡放到山札底');
@@ -223,6 +241,13 @@ function parseOneCondition(text: string): Out<Condition> {
       );
     }
   }
+  if (text === 'このカードの下にマーカーがある') return out({ if: 'MARKERS', of: 'SELF', min: 1 }, '這張卡下面有 Marker');
+  if (text === 'このカードの下にマーカーがない') return out({ if: 'MARKERS', of: 'SELF', max: 0 }, '這張卡下面沒有 Marker');
+  if ((m = /^このカードの下の異なるカード名のマーカーが(\d+)枚以上$/.exec(text))) return out({ if: 'MARKERS', of: 'SELF', min: n(m[1]), distinctNames: true }, `這張卡下面不同卡名的 Marker 有 ${m[1]} 張或以上`);
+  if ((m = /^あなたの、?思い出とマーカー置場のカードの合計が(\d+)枚(以下|以上)$/.exec(text))) {
+    return out({ if: 'COUNT', where: 'YOUR_MEMORY_AND_MARKERS', ...(m[2] === '以下' ? { max: n(m[1]) } : { min: n(m[1]) }) }, `我方思い出及 Marker 置場的卡合計 ${m[1]} 張${m[2] === '以下' ? '或以下' : '或以上'}`);
+  }
+  if (text === 'あなたの、思い出とマーカー置場にカードがない') return out({ if: 'COUNT', where: 'YOUR_MEMORY_AND_MARKERS', max: 0 }, '我方思い出及 Marker 置場沒有卡');
   if ((m = /^(.+)がいない$/.exec(text))) {
     const some = parseOneCondition(`${m[1]}がいる`);
     if (some?.data.if === 'CHARACTERS') return out({ if: 'NOT', of: some.data }, `沒有${some.zh.replace(/有 1 張或以上$/, '')}`);
@@ -374,6 +399,8 @@ function parseAction(text: string, target: Target, noun: string): Out<Effect[]> 
   if (either && DESTINATIONS[either[1]!] && DESTINATIONS[either[2]!]) {
     return out([{ do: 'MOVE', target, to: DESTINATIONS[either[1]!]![0], orTo: DESTINATIONS[either[2]!]![0] }], `把${noun}${DESTINATIONS[either[1]!]![1]}或${DESTINATIONS[either[2]!]![1]}（自己選）`);
   }
+  const under = /^このカードの下にマーカーとして(表|裏)向きに置く$/.exec(text);
+  if (under && target.who === 'CHOSEN') return out([{ do: 'MOVE', target, to: 'UNDER_SELF', face: under[1] === '表' ? 'UP' : 'DOWN' }], `以${under[1]}向放到這張卡下面作為 Marker`);
   if (text === 'このカードがいた枠に置く' && target.who === 'CHOSEN') return out([{ do: 'MOVE', target, to: 'SOURCE_SLOT' }], '放到這張卡原本所在的枠');
   if (text === '舞台の好きな枠に【レスト】して置く' && target.who === 'CHOSEN') return out([{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target, to: 'CHOSEN_SLOT', rested: true }], '以 Rest 狀態放到我方舞台上自己選的枠');
   if (text === '舞台の好きな枠に置く' && target.who === 'CHOSEN') return out([{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target, to: 'CHOSEN_SLOT' }], `放到我方舞台上自己選的枠`);
@@ -546,6 +573,10 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   }
   if (text === '相手は自分のストックすべてを、山札に戻し、その山札をシャッフルし、自分の山札の上から同じ枚数をストック置場に置く') {
     return out([{ do: 'OPPONENT_STOCK_RESET', via: 'DECK' }], '對手把自己全部 Stock 放回山札並洗牌，再把自己山札頂同樣張數放到 Stock');
+  }
+  if ((m = /^このカードの下のマーカーを(\d+)枚(手札に戻す|ストック置場に置く|控え室に置く)$/.exec(text))) {
+    const to = m[2] === '手札に戻す' ? 'HAND' : m[2] === 'ストック置場に置く' ? 'STOCK' : 'WAITING_ROOM';
+    return out([{ do: 'MARKERS_TOP', count: n(m[1]), to }], `把這張卡下面最上面的 Marker ${m[1]} 張${to === 'HAND' ? '加入手牌' : to === 'STOCK' ? '放到 Stock' : '放到控え室'}`);
   }
   if (text === '自分の山札を上から1枚見て、山札の上か下に置く') return out([{ do: 'TOP_OR_BOTTOM' }], '查看自己山札頂 1 張，放回山札頂或放到山札底');
   if (text === '自分のクロックの上から1枚までを、控え室に置く') return out([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', optional: true }], '可以把自己 Clock 最上面 1 張放到控え室');
@@ -827,6 +858,7 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   const ability: AutoAbility = {
     type: 'AUTO',
     ...(combo ? { keywords: ['CX_COMBO'] } : {}),
+    ...(trigger.data.on === 'HOLDER_ATTACKS' ? { zone: 'MARKER' as const } : {}),
     trigger: trigger.data,
     ...(condition.data ? { condition: condition.data } : {}),
     ...(parts.cost ? { cost: cost.data } : {}),
@@ -841,7 +873,8 @@ function automatic(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
 
 function activated(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   const brainstorm = parts.marks.includes('集中');
-  if (parts.marks.some((mark) => mark !== '集中')) unknown.push({ part: 'MARK', text: parts.marks.join(' ') });
+  const boarding = parts.marks.includes('搭乗');
+  if (parts.marks.some((mark) => mark !== '集中' && mark !== '搭乗')) unknown.push({ part: 'MARK', text: parts.marks.join(' ') });
   // "…なら、…" in an activated ability: the cost can be paid anyway; the effect happens only if the condition holds then.
   const conditions = parts.conditions.map(parseCondition);
   conditions.forEach((c, i) => c === null && unknown.push({ part: 'CONDITION', text: parts.conditions[i]! }));
@@ -861,17 +894,54 @@ function activated(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   return {
     ability: {
       type: 'ACT',
-      ...(brainstorm ? { keywords: ['BRAINSTORM'] } : {}),
+      ...(brainstorm ? { keywords: ['BRAINSTORM'] } : boarding ? { keywords: ['BOARDING'] } : {}),
       timing: 'MAIN',
       cost: cost.data,
       effect: condition.data ? [{ do: 'IF', condition: condition.data, then: effects.data }] : effects.data,
     },
-    zh: `【起】${brainstorm ? '集中 ' : ''}[${cost.zh}]：${condition.zh ? `如果${condition.zh}，` : ''}${effects.zh}。`,
+    zh: `【起】${brainstorm ? '集中 ' : boarding ? '搭乘 ' : ''}[${cost.zh}]：${condition.zh ? `如果${condition.zh}，` : ''}${effects.zh}。`,
   };
 }
 
 /** 【永】: this card's or your characters' numbers, while conditions hold. */
 function continuous(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
+  // 回想 (CR-10.20.2) and 【リンク】 （名称） (CR-10.17): keyword abilities, the second with only a name.
+  if (parts.marks.join() === '回想' && parts.effects.length === 0 && parts.conditions.length === 0 && !parts.cost) {
+    return { ability: { type: 'CONT', recollection: true, apply: [] }, zh: '【永】回想（這張卡在思い出時，我方角色由舞台以外放到舞台而下面沒有 Marker 的話，可以把這張卡以表向放到它下面作為 Marker；這張卡由 Marker 置場移到其他公開區域時放到思い出）。' };
+  }
+  if (parts.marks.join() === 'リンク' && parts.effects.length === 1 && parts.conditions.length === 0 && !parts.cost) {
+    return { ability: { type: 'CONT', link: parts.effects[0]!, apply: [] }, zh: `【永】【Link】${parts.effects[0]}（本身沒有效果，供其他能力參照）。` };
+  }
+  // マーカー置場にこのカードがあるなら: the ability works from the marker zone, on the character that has the marker.
+  const fromMarker = parts.conditions[0] === 'マーカー置場にこのカードがある';
+  if (fromMarker && parts.marks.length === 0 && !parts.cost && parts.effects.length === 1) {
+    const rest = parts.conditions.slice(1);
+    let sentence = parts.effects[0]!;
+    const turn = /^(あなたのターン中|相手のターン中)、(.+)$/.exec(sentence);
+    if (turn) {
+      rest.push(turn[1]!);
+      sentence = turn[2]!;
+    }
+    const holder = /^このマーカーを持つ舞台の、?(.+?)の(パワー|ソウル)を＋(\d+)$/.exec(sentence);
+    const filter = holder && parseFilter(holder[1]!, 'STAGE');
+    const conditions = rest.map(parseCondition);
+    const condition = allOf(conditions);
+    if (holder && filter && (!filter.data || filter.data.kind === 'CHARACTER') && condition) {
+      const stat = holder[2] === 'パワー' ? 'POWER' : 'SOUL';
+      return {
+        ability: { type: 'CONT', zone: 'MARKER', ...(condition.data ? { condition: condition.data } : {}), apply: [{ target: { who: 'MARKER_HOLDER', ...(filter.data ? { filter: filter.data } : {}) }, stat, amount: n(holder[3]) }] },
+        zh: `【永】這張卡是 Marker 時，${condition.zh ? `${condition.zh}，` : ''}持有這個 Marker 的${filter.zh} ${stat === 'POWER' ? 'Power' : 'Soul'} +${holder[3]}。`,
+      };
+    }
+  }
+  const perMarker = parts.marks.length === 0 && parts.effects.length === 1 ? /^(?:(あなたのターン中)、)?このカードの下のマーカー1枚につき、このカードの(パワー|ソウル)を＋(\d+)$/.exec(parts.effects[0]!) : null;
+  if (perMarker && parts.conditions.length === 0 && !parts.cost) {
+    const stat = perMarker[2] === 'パワー' ? 'POWER' : 'SOUL';
+    return {
+      ability: { type: 'CONT', ...(perMarker[1] ? { condition: { if: 'YOUR_TURN' as const } } : {}), apply: [{ target: { who: 'SELF' }, stat, amount: n(perMarker[3]), perMarker: true }] },
+      zh: `【永】${perMarker[1] ? '我方回合中，' : ''}這張卡下面每有 1 張 Marker，這張卡 ${stat === 'POWER' ? 'Power' : 'Soul'} +${perMarker[3]}。`,
+    };
+  }
   if (parts.marks.length > 0 || parts.cost) unknown.push({ part: 'MARK', text: [...parts.marks, parts.cost ? '［cost］' : ''].join(' ') });
   // "…し、このカードは次の能力を得る。『【自】…』": the abilities this card has while the condition holds.
   const given: { ability: AutoAbility; zh: string }[] = [];
@@ -984,6 +1054,8 @@ function withoutReminders(line: string): string {
   const m = /（([^（）]*)）$/.exec(line);
   if (!m || /^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return line;
   const body = line.slice(0, m.index);
+  // 回想 has the meaning CR-10.20.2 gives it, which the engine plays; its reminder only restates it (CR-2.12.3).
+  if (body.trim() === '【永】 回想') return body.trim();
   const notes = m[1]!.split('。').filter((note) => note !== '');
   const known = notes.every((note) => {
     // CR-4.12.1.2: damage by an effect can be cancelled like any damage.
