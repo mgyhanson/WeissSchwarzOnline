@@ -173,6 +173,27 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const checked = topOf(state.zones[event.player].resolution);
       if (checked === undefined) return;
       sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && matchesFilter(state, checked, t.filter));
+      // このカードがトリガーした時: the abilities of the turned-over card itself, there in the resolution zone.
+      const card = state.instances[checked] as CardInstance;
+      for (const found of autosOf(state, card, (t) => t.on === 'THIS_TRIGGERED', [])) wait(state, event.player, card, found, null);
+      return;
+    }
+    case 'DAMAGE_DEALT': {
+      // あなたの受けたダメージがキャンセルされなかった時
+      if (!event.cancelled) {
+        sourcesWith(state, event.receiver, (t) => t.on === 'TAKEN_DAMAGE_NOT_CANCELLED');
+        return;
+      }
+      // このカードの与えたダメージがキャンセルされた時: its source (CR-4.13.2), if still on the stage as that card.
+      const source = event.sourceObjectId === null ? undefined : state.instances.find((inst) => inst.objectId === event.sourceObjectId && inst.location.zone === 'stage');
+      if (source && source.location.zone === 'stage') {
+        for (const found of autosOf(state, source, (t) => t.on === 'DEALT_DAMAGE_CANCELLED')) wait(state, source.location.player, source, found, null);
+      }
+      // このカードのバトル中、あなたの受けたダメージがキャンセルされた時 (CR-7.2.1.5.1: the attacking and the front-attacked character).
+      for (const fighter of [attackerInstance(state), defenderInstance(state)]) {
+        if (!fighter || fighter.location.zone !== 'stage' || fighter.location.player !== event.receiver) continue;
+        for (const found of autosOf(state, fighter, (t) => t.on === 'TAKEN_DAMAGE_CANCELLED_IN_BATTLE')) wait(state, event.receiver, fighter, found, null);
+      }
       return;
     }
     case 'ABILITY_PLAYED': {

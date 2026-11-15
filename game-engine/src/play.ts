@@ -3,7 +3,7 @@
  */
 
 import { canPayCost, countUse, limitReached, playAbility, pushEffects } from './abilities/effects';
-import { blockedCounters, cannotMove, evalCondition, stageCharacters } from './abilities/query';
+import { blockedCounters, cannotMove, evalCondition, ignoresColorCondition, stageCharacters } from './abilities/query';
 import type { ActivatedAbility, EffectContext } from './abilities/types';
 import type { MainAction } from './decisions';
 import { emit, findObject, pushFrame } from './flow/core';
@@ -44,7 +44,7 @@ export function canPlayFromHand(state: GameState, player: PlayerId, instanceId: 
   const def = getDef(state, instanceId);
   return (
     // The level the card has in the hand: its abilities that work there may lower it (あなたの手札のこのカードのレベルを－N).
-    meetsColorCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId))) &&
+    (ignoresColorCondition(state, instanceId) || meetsColorCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId)))) &&
     meetsLevelCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId))) &&
     state.zones[player].stock.length >= stockCost(def)
   );

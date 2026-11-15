@@ -144,7 +144,7 @@ npm run cards:import
 
 ## Batch 3（2026-11-15）
 
-可對戰的卡由 289 張增至 **352 張**，未支援由 320 張減至 **257 張**；Level 3 由 17 張增至 **21 張**。各系列可對戰：GUP 75（Level 3：5／12）、BDY 55（6／16）、STS 54（2／9）、ANM 43（6／13）、NIK 42（2／13）。新增的卡全部由句子文法自動產生，並逐張反向核對。最新數字見程式產生的 `CARD_IMPLEMENTATION_PROGRESS.md`、`LEVEL_3_IMPLEMENTATION.md`、`BATCH_3_PROGRESS.md`。
+可對戰的卡由 289 張增至 **379 張**，未支援由 320 張減至 **230 張**；Level 3 由 17 張增至 **26 張**。各系列可對戰：GUP 81（Level 3：5／12）、BDY 61（7／16）、STS 59（3／9）、ANM 48（9／13）、NIK 47（2／13）。新增的卡全部由句子文法自動產生，並逐張反向核對。最新數字見程式產生的 `CARD_IMPLEMENTATION_PROGRESS.md`、`LEVEL_3_IMPLEMENTATION.md`、`BATCH_3_PROGRESS.md`。
 
 ## Level 3 優先批次（2026-11-15）
 

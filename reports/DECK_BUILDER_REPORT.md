@@ -66,7 +66,7 @@
 
 ## 2026-11-15：Batch 3 卡組更新
 
-`test-bdy` 的 Level 3 改為 041×2、040、094、003、008（加入新支援的 003 及 008）；`test-sts` 的 Level 3 改為 053×2、003×2。兩副卡組仍是 50 張、Climax 8 張、單一 Title、全部是已驗證的卡；卡組合法性由 `card-database/tests/formats` 及 `database` 測試檢查。進階電腦對進階電腦（每副 32 局）：BDY 勝 15、STS 勝 15、ANM 勝 12、NIK 勝 7；全部正常結束。
+`test-bdy` 的 Level 3 改為 041×2、040、094、003、008（加入新支援的 003 及 008）；`test-sts` 的 Level 3 改為 053×2、003×2。兩副卡組仍是 50 張、Climax 8 張、單一 Title、全部是已驗證的卡；卡組合法性由 `card-database/tests/formats` 及 `database` 測試檢查。其後 `test-sts` 的 Level 3 再改為 053×2、003、094，`test-anm` 改為 003×2、014、058、085 及 Event 074（同樣 50 張、8 Climax）。進階電腦對進階電腦（每副 32 局）：BDY 勝 15、STS 勝 13、ANM 勝 11、NIK 勝 7；全部正常結束。
 
 ## 2026-11-15：卡組加入 Level 3 角色
 

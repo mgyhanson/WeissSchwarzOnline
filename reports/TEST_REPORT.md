@@ -6,10 +6,10 @@
 
 | 指令 | 結果 |
 |---|---|
-| `npm run check` | **869 個測試通過**（45 個測試檔），8 個慢速測試按設計略過，失敗 0；registry 檢查通過；上一批是 772 個 |
+| `npm run check` | **911 個測試通過**（46 個測試檔），8 個慢速測試按設計略過，失敗 0；registry 檢查通過；上一批是 772 個 |
 | `npm run soak` | 4000 局全部通過（INV-01 至 INV-07） |
 | `npm run cards:validate` | 609 張卡、609 張圖片，缺少 0、問題 0（沒有重新下載或改動圖片） |
-| `npm run cards:report` | 可對戰 352（人手 128＋自動 224）、未支援 257 |
+| `npm run cards:report` | 可對戰 379（人手 128＋自動 251）、未支援 230 |
 | `npm run qa:ui` | 25 項全部通過，沒有錯誤 |
 | `npm run qa:online` | 全部通過（41 項） |
 
@@ -19,7 +19,10 @@
 |---|---|
 | `game-engine/tests/abilities-markers.test.ts`（22） | Marker 表裏（裏向 Marker 不會出現在對手的 PlayerView）、從上面取回、作 Cost、角色離開舞台時 Marker 放控え室、張數及不同卡名條件、按張數加數值、思い出與 Marker 合計、Marker 置場生效的永續及自動能力、回想兩個自動能力、以回想角色作 Cost、リンク、搭乗、思い出生效的能力、最多抽 N 張、重複 N 次 |
 | `game-engine/tests/abilities-batch-7.test.ts`（12） | Climax 作 Cost、Climax 階段的放置觸發、其他角色被正面攻擊時、按對手角色張數的 X、看山札頂取多張、Standby、所有玩家控え室洗回、不能移動到其他枠、戰鬥中對手不能使用助太刀、取得永續能力、按 Level 的 X、戰鬥中的角色 |
-| `card-database/tests/grammar.test.ts` | 每張文法卡逐張反向寫回日文（新增 63 張） |
+| `game-engine/tests/abilities-batch-8.test.ts`（15） | 移動到前列／後列空枠（同一張卡、Marker 跟隨、不能移動時只 Rest）、這張卡 Trigger 時、這張卡造成的傷害被 Cancel 時（攻擊傷害及效果傷害，CR-4.13.2）、戰鬥中受到的傷害被 Cancel 時、先攻玩家第 N 回合、看山札頂選 1 張放回、對手 Stock 底、傷害 N 次（每次分開處理）、不需顏色條件、對手山札頂放控え室、傷害沒有被 Cancel 時、山札頂或控え室、Level 置場翻成裏向（對手看不到、不再提供顏色） |
+| `game-engine/tests/abilities.test.ts`（更新 1 項） | Event 造成的傷害現在以那張 Event 為傷害來源（CR-4.13.2.2），以前記錄為沒有來源 |
+| `card-database/sets/5HY_W83_TD_ICHIKA/cards.ts`（T03） | 「移動到後列空枠」改用新的 `MOVE_TO_SLOT`（Marker 跟隨、遵守不能移動），該卡原有測試不變並通過 |
+| `card-database/tests/grammar.test.ts` | 每張文法卡逐張反向寫回日文（新增 90 張） |
 | `card-database/tests/patterns.test.ts`（更新 2 項） | 帶 Cost 的 Event 現在比較 MAY_PAY 的結構；沒有支付字句的 `[(1)]` 句子仍然不讀 |
 | `web-client/tests/card-browser.test.ts`（更新） | 「已驗證 Event」清單改由資料庫計算，不再寫死 |
 | `ai/tests/deck-games.test.ts` | 五副卡組加入新 Level 3 後重新執行（BDY 對 ANM、STS 對 NIK、GUP 對 BDY、同系列對局），全部正常結束 |

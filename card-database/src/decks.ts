@@ -163,7 +163,7 @@ export const STS_TEST_DECK: TestDeck = {
     // Level 2 (8)
     '022': 2, '023': 2, '052': 3, '093': 1,
     // Level 3 (4)
-    '053': 2, '003': 2,
+    '053': 2, '003': 1, '094': 1,
     // Climaxes: 黎明告げる凱旋歌 (green), その願い、たしかに届けたよ (red)
     '031': 4, '067': 4,
   }),
@@ -181,8 +181,8 @@ export const ANM_TEST_DECK: TestDeck = {
     '020': 3, '041': 3, '057': 3, '068': 4,
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
-    // Level 3 (6): four characters and the event
-    '003': 2, '014': 2, '085': 1, '074': 1,
+    // Level 3 (6): five characters and the event
+    '003': 2, '014': 1, '058': 1, '085': 1, '074': 1,
     // Climaxes: 見つけた、大切な場所 (yellow), 好きの数だけ金平糖 (red)
     '024': 4, '075': 4,
   }),

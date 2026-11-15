@@ -139,6 +139,8 @@ export function evalCondition(
   switch (condition.if) {
     case 'YOUR_TURN':
       return state.turn?.player === master;
+    case 'FIRST_PLAYER_TURN':
+      return !!state.turn && state.turn.player === state.firstPlayer && state.turn.number === condition.turn * 2 - 1;
     case 'OPPONENT_TURN':
       return state.turn !== null && state.turn.player !== master;
     case 'CLIMAX_IN_PLAY':
@@ -406,6 +408,14 @@ export function perCount(state: GameState, master: PlayerId, source: number, per
  * not reversed. Null when there is none.
  */
 /** このカードはサイドアタックできない, while the ability is in force. */
+/** このカードは、色条件を満たさずに手札からプレイできる: an ability of the card in the hand, with its condition. */
+export function ignoresColorCondition(state: GameState, instanceId: number): boolean {
+  const inst = getInstance(state, instanceId);
+  if (inst.location.zone !== 'hand') return false;
+  const player = inst.location.player;
+  return (getDef(state, instanceId).abilities ?? []).some((ability) => ability.type === 'CONT' && ability.inHand === true && ability.ignoresColor === true && evalCondition(state, player, instanceId, ability.condition));
+}
+
 export function cannotMove(state: GameState, instanceId: number): boolean {
   return continuousInForce(state).some(({ source, ability }) => ability.cannotMove === true && source.instanceId === instanceId);
 }

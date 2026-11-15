@@ -47,6 +47,8 @@ export interface CardFilter {
 export type Condition =
   /** あなたのターン中 */
   | { if: 'YOUR_TURN' }
+  /** 先攻プレイヤーの第Nターン: the first player's Nth turn (game turn 2N-1). */
+  | { if: 'FIRST_PLAYER_TURN'; turn: number }
   /** 相手のターン中 */
   | { if: 'OPPONENT_TURN' }
   /** クライマックス置場に「…」があるなら (the usual CX combo condition); without a name: CX置場にCXがあるなら */
@@ -122,6 +124,8 @@ export type Cost =
   | { pay: 'SELF_TO_CLOCK' }
   /** (他の)あなたの(【スタンド】している)…のキャラをN枚【レスト】する: the player chooses standing characters. */
   | { pay: 'REST_CHARACTERS'; count: number; filter?: CardFilter; other?: boolean }
+  /** あなたのレベル置場の表向きのカードをN枚裏向きにする (CR-3.9.2.2: a face-down level card has no information) */
+  | { pay: 'LEVEL_FACE_DOWN'; count: number }
   /** あなたのストックの上からN枚をクロック置場に置く */
   | { pay: 'STOCK_TO_CLOCK'; count: number }
   /** このカードを思い出にする */
@@ -240,7 +244,7 @@ export type Effect =
    * 自分の山札の上からN枚を…に置く.
    * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
    */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -259,6 +263,13 @@ export type Effect =
    * (EMPTY_BACK). Skipped when the previous CHOOSE chose nothing.
    */
   | { do: 'CHOOSE_SLOT'; which: 'ANY' | 'EMPTY_BACK' }
+  /**
+   * 前列／後列のキャラのいない枠に動かす: the target character moves to an empty
+   * slot of that row of its master's stage (a move between slots, CR-3.1.4:
+   * it stays the same card and keeps its state). Nothing happens without such
+   * a slot or when the card cannot be moved (このカードは他の枠に動かせない).
+   */
+  | { do: 'MOVE_TO_SLOT'; target: Target; row: 'FRONT' | 'BACK' }
   /** 自分のクロックの上から1枚を、控え室に置く; `whose: 'OPPONENT'`: 相手のクロックの上から1枚を… */
   | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' | 'STOCK'; whose?: 'OPPONENT'; /** 1枚までを: the player may leave it. */ optional?: boolean }
   /**
@@ -277,7 +288,9 @@ export type Effect =
    * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to
    * put back (the rest go to the waiting room); then puts them back on top in the order they choose.
    */
-  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number }
+  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number; /** カードを1枚選び、山札の上に置き: exactly `keep` (as many as were looked at, if fewer) go back. */ keepExact?: boolean }
+  /** 相手のストックの下からN枚を、控え室に置く */
+  | { do: 'STOCK_BOTTOM_TO_WAITING_ROOM'; count: number; whose: 'OPPONENT' }
   /**
    * 相手は自分のストックすべてを、控え室に置き(山札に戻し、その山札をシャッフルし)、自分の山札の上から同じ枚数を
    * ストック置場に置く.
@@ -286,7 +299,7 @@ export type Effect =
   /** 自分の山札の上から1枚を公開し、… Ｘは公開されたカードのレベルに等しい: shown to both players and put back; X is its level (a climax counts as 0). */
   | { do: 'SHOW_TOP' }
   /** 自分の山札を上から1枚見て、山札の上か下に置く: the player looks at the top card and leaves it or puts it on the bottom. */
-  | { do: 'TOP_OR_BOTTOM' }
+  | { do: 'TOP_OR_BOTTOM'; /** 山札の上か控え室に置く: the other place is the waiting room. */ orWaitingRoom?: boolean }
   /** このカードの下のマーカーをN枚…に置く: the top N markers of this card's slot (CR-3.7.2). */
   | { do: 'MARKERS_TOP'; count: number; to: 'HAND' | 'STOCK' | 'WAITING_ROOM' }
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
@@ -306,6 +319,14 @@ export type Trigger =
   | { on: 'THIS_CLIMAX_PLACED' }
   /** あなたのキャラのトリガーチェックで…がでた時 */
   | { on: 'TRIGGER_CHECK_REVEALS'; filter?: CardFilter }
+  /** あなたの受けたダメージがキャンセルされなかった時: any damage you received went to your clock. */
+  | { on: 'TAKEN_DAMAGE_NOT_CANCELLED' }
+  /** このカードがトリガーした時: this card is the one turned over by a trigger check (it is in the resolution zone). */
+  | { on: 'THIS_TRIGGERED' }
+  /** このカードの与えたダメージがキャンセルされた時: a damage whose source is this card (CR-4.13.2) was cancelled. */
+  | { on: 'DEALT_DAMAGE_CANCELLED' }
+  /** このカードのバトル中、あなたの受けたダメージがキャンセルされた時 */
+  | { on: 'TAKEN_DAMAGE_CANCELLED_IN_BATTLE' }
   /** あなたがこのカードの『助太刀』を使った時 (CR-10.5.3) */
   | { on: 'USED_BACKUP' }
   /** このカードがアタックした時 */
@@ -381,6 +402,8 @@ export interface ContinuousAbility {
   link?: string;
   /** このカードはサイドアタックできない: this card cannot make a side attack (CR-7.2.1.4). */
   noSideAttack?: boolean;
+  /** このカードは、色条件を満たさずに手札からプレイできる (with inHand): the colour condition (CR-8.6.2.1.1) is not checked. */
+  ignoresColor?: boolean;
   /** このカードは他の枠に動かせない: this card cannot be moved to another slot. */
   cannotMove?: boolean;
   /** このカードのバトル中、相手は(イベントと)『助太刀』を手札からプレイできない */

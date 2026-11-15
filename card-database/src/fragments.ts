@@ -70,7 +70,7 @@ export function splitLine(raw: string, kind: 'CHARACTER' | 'EVENT' | 'CLIMAX' = 
   }
   const marks: string[] = [];
   for (;;) {
-    const mark = /^【(CXコンボ|カウンター|リンク)】 ?/.exec(line);
+    const mark = /^【(CXコンボ|カウンター|リンク|ターン\d)】 ?/.exec(line);
     if (mark) {
       marks.push(mark[1]!);
       line = line.slice(mark[0].length);

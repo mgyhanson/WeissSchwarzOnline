@@ -10,13 +10,13 @@ import { ask, emit, findObject, popFrame, pushFrame, takeAnswer, topOf } from '.
 import { pushDamage } from '../flow/damage';
 import type { Frame } from '../flow/frames';
 import type { BatchMove, Ctx } from '../moves';
-import { moveBatch, moveCard, moveCards, revealCard, setOrientation, shuffleDeck } from '../moves';
+import { moveBatch, moveCard, moveCards, revealCard, setOrientation, shuffleDeck, swapSlots } from '../moves';
 import { getDef, getInstance } from '../state';
 import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
-import { BACK_SLOTS } from '../zones';
-import { chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
+import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
+import { cannotMove, chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -118,6 +118,9 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         if (sacrificable(state, context, cost).filter((id) => !(leaves && id === context.source)).length < cost.count) return false;
         break;
       }
+      case 'LEVEL_FACE_DOWN':
+        if (state.zones[context.master].level.filter((id) => getInstance(state, id).face === 'UP').length < cost.count) return false;
+        break;
       case 'REST_CHARACTERS': {
         // A REST_SELF of the same cost rests the card first, so it cannot count here too.
         const others = restable(state, context, cost).filter((id) => !(costs.some((c) => c.pay === 'REST_SELF') && id === context.source));
@@ -266,6 +269,19 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       frame.index++;
       const chosen = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
       moveBatch(ctx, chosen.map((instanceId) => ({ instanceId, to: { player: getInstance(state, instanceId).owner, zone: cost.toMemory ? ('memory' as const) : ('waitingRoom' as const) }, opts: { reason: 'COST' as const } })));
+      return;
+    }
+    case 'LEVEL_FACE_DOWN': {
+      if (!frame.asked) {
+        frame.asked = true;
+        const cards = state.zones[master].level.filter((id) => getInstance(state, id).face === 'UP').map((id) => getInstance(state, id).objectId);
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'COST_LEVEL_FACE_DOWN', cards, min: cost.count, max: cost.count });
+        return;
+      }
+      frame.asked = false;
+      frame.index++;
+      // The card stays where it is (same zone, same object); only its face changes (CR-3.9.2.2).
+      for (const objectId of takeAnswer(ctx, 'SELECT_CARDS').cards) getInstance(state, findObject(state, objectId).instanceId).face = 'DOWN';
       return;
     }
     case 'REST_CHARACTERS': {
@@ -485,7 +501,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'DAMAGE':
       next();
-      pushDamage(ctx, opponentOf(master), effect.amount, null);
+      // CR-4.13.2.2: the card whose effect deals the damage is its source.
+      pushDamage(ctx, opponentOf(master), effect.amount, context.sourceObjectId ?? null);
       return;
 
     case 'DECK_TOP': {
@@ -500,7 +517,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         frame.step = 2;
         frame.scratch[1] = takeAnswer(ctx, 'SELECT_OPTION').option === 'OPPONENT' ? 1 : 0;
       }
-      const whose = frame.scratch[1] === 1 ? opponentOf(master) : master;
+      const whose = frame.scratch[1] === 1 || effect.whose === 'OPPONENT' ? opponentOf(master) : master;
       const done = frame.scratch[0] ?? 0;
       if (done === 0) context.moved = [];
       const top = topOf(state.zones[whose].deck);
@@ -576,6 +593,30 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           : evalCondition(state, master, context.source, condition, context.battleOpponent, context.about ?? null);
       next();
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
+      return;
+    }
+
+    case 'MOVE_TO_SLOT': {
+      if (frame.step === 0) {
+        const [id] = resolveTarget(state, context, effect.target).filter((candidate) => getInstance(state, candidate).location.zone === 'stage');
+        const inst = id === undefined ? undefined : getInstance(state, id);
+        const slots =
+          inst && inst.location.zone === 'stage' && !cannotMove(state, inst.instanceId)
+            ? (effect.row === 'FRONT' ? FRONT_SLOTS : BACK_SLOTS).filter((slot) => state.zones[inst.location.player].stage[slot].length === 0)
+            : [];
+        if (!inst || slots.length === 0) {
+          next();
+          return;
+        }
+        frame.step = 1;
+        frame.scratch = [inst.instanceId];
+        ask(ctx, { kind: 'SELECT_SLOT', player: master, prompt: 'EFFECT_SLOT', slots });
+        return;
+      }
+      const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      const inst = getInstance(state, frame.scratch[0]!);
+      next();
+      if (inst.location.zone === 'stage') swapSlots(ctx, inst.location.player, inst.location.slot, slot);
       return;
     }
 
@@ -676,6 +717,20 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       stepReorderTop(ctx, frame, effect, next);
       return;
 
+    case 'STOCK_BOTTOM_TO_WAITING_ROOM': {
+      // One card at a time from the bottom of the opponent's stock.
+      const opponent = opponentOf(master);
+      const done = frame.scratch[0] ?? 0;
+      const bottom = state.zones[opponent].stock[0];
+      if (done >= effect.count || bottom === undefined) {
+        next();
+        return;
+      }
+      frame.scratch[0] = done + 1;
+      moveCard(ctx, bottom, { player: opponent, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
+
     case 'OPPONENT_STOCK_RESET': {
       const opponent = opponentOf(master);
       if (frame.step === 0) {
@@ -709,11 +764,16 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       if (frame.step === 0) {
         frame.step = 1;
-        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: ['DECK_TOP', 'DECK_BOTTOM'], look: lookMap(state, [top]) });
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], look: lookMap(state, [top]) });
         return;
       }
-      const bottom = takeAnswer(ctx, 'SELECT_OPTION').option === 'DECK_BOTTOM';
+      const option = takeAnswer(ctx, 'SELECT_OPTION').option;
+      const bottom = option === 'DECK_BOTTOM';
       next();
+      if (option === 'WAITING_ROOM') {
+        moveCard(ctx, top, { player: master, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+        return;
+      }
       // Only its place in the deck changes; it stays hidden from the opponent and keeps its object id (same zone).
       if (bottom) {
         const deck = state.zones[master].deck;
@@ -808,7 +868,7 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
   if (frame.step === 2) {
     if (effect.keep !== undefined && looked.length > 0) {
       frame.step = 3;
-      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_KEEP', cards: objects(looked), min: 0, max: Math.min(effect.keep, looked.length), look: lookMap(state, looked) });
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_KEEP', cards: objects(looked), min: effect.keepExact ? Math.min(effect.keep, looked.length) : 0, max: Math.min(effect.keep, looked.length), look: lookMap(state, looked) });
       return;
     }
     frame.scratch = [...looked, -1];

@@ -205,7 +205,7 @@ export interface DamageDealtEvent {
   receiver: PlayerId;
   amount: number;
   cancelled: boolean;
-  /** Object id of the attacking character for attack damage (CR-4.13.2.1); null for other damage. */
+  /** Object id of the source (CR-4.13.2): the attacking character for attack damage, the card whose effect deals it otherwise; null for a shot trigger's damage. */
   sourceObjectId: number | null;
 }
 
