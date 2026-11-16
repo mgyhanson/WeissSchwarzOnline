@@ -81,3 +81,33 @@ describe('markers from memory', () => {
     expect(state.zones[1].clock).toHaveLength(4);
   });
 });
+
+describe('the opponent chooses', () => {
+  it('相手のレベル1以上のキャラを1枚選んでよい。そうしたら、相手は自分の控え室のレベルＸ以下のキャラを1枚選び、入れ替える (Ｘ＝レベル－1)', () => {
+    const swap: Ability = {
+      type: 'ACT',
+      timing: 'MAIN',
+      cost: [],
+      effect: [
+        { do: 'CHOOSE', from: 'OPPONENT_STAGE', filter: { kind: 'CHARACTER', levelMin: 1 }, min: 0, max: 1 },
+        { do: 'SET_X', count: { of: 'CHOSEN_LEVEL' }, minus: 1 },
+        { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM', levelMaxX: true },
+      ],
+    };
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [swap] }, '1:0': { level: 2 }, '1:5': { level: 1 }, '1:6': { level: 2 } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(1, 0), stageSlot(1, 'FL'));
+      put(ctx, card(1, 5), { player: 1, zone: 'waitingRoom' });
+      put(ctx, card(1, 6), { player: 1, zone: 'waitingRoom' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(1, 0))] }).state;
+    // The opponent chooses, among level 1 or lower (2 − 1) only.
+    const choice = state.pending!;
+    expect(choice).toMatchObject({ kind: 'SELECT_CARDS', player: 1 });
+    expect((choice as { cards: number[] }).cards).toEqual([oid(state, card(1, 5))]);
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(1, 5))] }).state;
+    expect(state.zones[1].stage.FL).toEqual([card(1, 5)]);
+    expect(state.zones[1].waitingRoom).toContain(card(1, 0));
+  });
+});

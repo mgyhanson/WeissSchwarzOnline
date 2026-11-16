@@ -363,6 +363,7 @@ function xCountJa(set: Extract<Effect, { do: 'SET_X' }>): string {
   const c = set.count;
   const f = c.filter ? Object.keys(c.filter).sort().join() : '';
   if (c.of === 'SELF_SOUL' && !set.plus && !set.minus && !set.tiers) return 'Ｘはこのカードのソウルに等しい';
+  if (c.of === 'CHOSEN_LEVEL' && set.minus && !set.plus && !set.tiers) return `Ｘはあなたが選んだキャラのレベル－${set.minus}に等しい`;
   if (c.of === 'MARKERS' && !c.distinctNames && !c.filter && set.tiers?.length === 3) {
     const [a1, b1, c1] = set.tiers;
     return `Ｘはこのカードの下のマーカーの枚数が${a1!.max}枚以下なら${a1!.x}、${b1!.min}枚か${b1!.max}枚なら${b1!.x}、${c1!.min}枚以上なら${c1!.x}に等しい`;
@@ -383,6 +384,7 @@ function unmarkX(list: readonly Effect[]): Effect[] {
     if (e.do === 'CHOOSE' && e.maxX) return { ...e, max: X_MARK, maxX: undefined } as Effect;
     if (e.do === 'REORDER_TOP' && e.x) return { ...e, upTo: X_MARK, keep: X_MARK, x: undefined } as Effect;
     if (e.do === 'IF') return { ...e, then: unmarkX(e.then) } as Effect;
+    if (e.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM' && e.levelMaxX) return { ...e, filter: { ...(e.filter ?? {}), levelMax: X_MARK }, levelMaxX: undefined } as Effect;
     return e;
   });
 }
@@ -445,6 +447,12 @@ export function effectsJa(effects: readonly Effect[]): string[] {
         const rest = effectsJa(effects.slice(i + 2));
         sentences.push(`自分の思い出置場の「${e.filter!.name}」すべてをこのカードの下にマーカーとして好きな順番で表向きに置き、${rest[0]}`, ...rest.slice(1));
         i = effects.length;
+        continue;
+      }
+      if (e.from === 'OPPONENT_STAGE' && e.min === 0 && effects[i + 1]?.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM') {
+        const swap = effects[i + 1] as Extract<Effect, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM' }>;
+        sentences.push(`相手の${filterJa(e.filter, 'STAGE')}を${e.max}枚選んでよい`, `そうしたら、相手は自分の控え室の${filterJa({ kind: 'CHARACTER', ...(swap.filter ?? {}) }, 'ZONE')}を1枚選び、入れ替える`);
+        i += 2;
         continue;
       }
       const given = effects[i + 1];

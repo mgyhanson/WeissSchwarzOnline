@@ -572,6 +572,11 @@ export function countForX(state: GameState, context: EffectContext, count: XCoun
   const master = context.master;
   const self = sourceIfUnchanged(state, context);
   if (count.of === 'SELF_SOUL') return self ? currentStat(state, self.instanceId, 'SOUL') : 0;
+  if (count.of === 'CHOSEN_LEVEL') {
+    // あなたが選んだキャラのレベル: as it is now, or as it last was (CR-8.11.1) when it is gone.
+    const chosen = context.chosen.map((objectId) => state.instances.find((inst) => inst.objectId === objectId)).find((inst) => inst);
+    return chosen ? currentLevel(state, chosen.instanceId) : 0;
+  }
   const pool =
     count.of === 'MOVED'
       ? (context.moved ?? []).filter((id) => getInstance(state, id))

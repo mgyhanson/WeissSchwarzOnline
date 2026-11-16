@@ -195,7 +195,7 @@ export interface DelayedTime {
 
 /** What X counts (SET_X). */
 export interface XCount {
-  of: 'MOVED' | 'OPPONENT_WAITING_ROOM' | 'YOUR_MEMORY' | 'MARKERS' | 'SELF_SOUL';
+  of: 'MOVED' | 'OPPONENT_WAITING_ROOM' | 'YOUR_MEMORY' | 'MARKERS' | 'SELF_SOUL' | 'CHOSEN_LEVEL';
   filter?: CardFilter;
   /** 異なるカード名の: count names, not cards (face-up cards only) */
   distinctNames?: boolean;
@@ -330,6 +330,11 @@ export type Effect =
   | { do: 'REPLACE_ATTACK_DAMAGE'; effects: Effect[] }
   /** あなたは追加の1ターンを得る (CR-11.2) */
   | { do: 'EXTRA_TURN' }
+  /**
+   * 相手は自分の控え室の…を1枚選び、入れ替える: the opponent chooses a matching character in their waiting room (level X or
+   * lower with levelMaxX) and it changes places with the opponent's character chosen just before. Nothing without either.
+   */
+  | { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM'; filter?: CardFilter; levelMaxX?: boolean }
   /** （リプレイ行動）を発動する (CR-11.3.2): this card's replay instruction with that name is done instead. */
   | { do: 'REPLAY'; name: string }
   /** すべてのプレイヤーは自分のクロックすべてを、控え室に置く */

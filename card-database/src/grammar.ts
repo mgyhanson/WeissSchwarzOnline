@@ -1044,6 +1044,7 @@ function readXCount(sentence: string): { set: Extract<Effect, { do: 'SET_X' }>; 
   if ((m = /^Ｘはこのカードの下のマーカーの枚数が(\d+)枚以下なら(\d+)、(\d+)枚か(\d+)枚なら(\d+)、(\d+)枚以上なら(\d+)に等しい$/.exec(sentence))) {
     return { set: { do: 'SET_X', count: { of: 'MARKERS' }, tiers: [{ max: n(m[1]), x: n(m[2]) }, { min: n(m[3]), max: n(m[4]), x: n(m[5]) }, { min: n(m[6]), x: n(m[7]) }] }, zh: `Ｘ＝這張卡下面 Marker ${m[1]} 張或以下時 ${m[2]}、${m[3]} 或 ${m[4]} 張時 ${m[5]}、${m[6]} 張或以上時 ${m[7]}` };
   }
+  if ((m = /^Ｘはあなたが選んだキャラのレベル－(\d+)に等しい$/.exec(sentence))) return { set: { do: 'SET_X', count: { of: 'CHOSEN_LEVEL' }, minus: n(m[1]) }, zh: `Ｘ＝你選的角色的 Level －${m[1]}` };
   if (sentence === 'Ｘはこのカードのソウルに等しい') return { set: { do: 'SET_X', count: { of: 'SELF_SOUL' } }, zh: 'Ｘ＝這張卡的 Soul' };
   if (sentence === 'ＸはそれらのカードのCXの枚数に等しい') return { set: { do: 'SET_X', count: { of: 'MOVED', filter: { kind: 'CLIMAX' } } }, zh: 'Ｘ＝這些卡中 Climax 的張數' };
   if ((m = /^Ｘは相手の控え室のCXの枚数－(\d+)に等しい$/.exec(sentence))) return { set: { do: 'SET_X', count: { of: 'OPPONENT_WAITING_ROOM', filter: { kind: 'CLIMAX' } }, minus: n(m[1]) }, zh: `Ｘ＝對手控え室 Climax 張數 －${m[1]}` };
@@ -1068,6 +1069,11 @@ function markX(effects: Effect[], set?: Extract<Effect, { do: 'SET_X' }>): Effec
       if (e.do === 'REORDER_TOP' && e.upTo === X_MARK && e.keep === X_MARK) return { ...e, upTo: 1, keep: 1, x: true };
       if (e.do === 'IF') return { ...e, then: walk(e.then) };
       if (e.do === 'REPLACE_ATTACK_DAMAGE') return { ...e, effects: walk(e.effects) };
+      if (e.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM' && e.filter?.levelMax === X_MARK) {
+        const { levelMax: _drop, ...rest } = e.filter;
+        void _drop;
+        return { ...e, filter: rest, levelMaxX: true };
+      }
       if (JSON.stringify(e).includes(String(X_MARK))) ok = false;
       return e;
     });
@@ -1125,7 +1131,7 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
     if (!plain) return null;
     const walked = markX(plain.data);
     if (!walked) return null;
-    const usesX = (e: Effect): boolean => /"(amountX|timesX|countX|maxX|x)":true/.test(JSON.stringify(e));
+    const usesX = (e: Effect): boolean => /"(amountX|timesX|countX|maxX|x|levelMaxX)":true/.test(JSON.stringify(e));
     const first = walked.findIndex(usesX);
     if (first < 0) return null;
     // A replacement works out X when it replaces (the soul then), so the count goes inside it.
@@ -1226,6 +1232,19 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
         { do: 'IF', condition: { if: 'LAST_MOVED', min: 1 }, then: [{ do: 'CHOOSE', from: 'THOSE', ...(filter.data ? { filter: filter.data } : {}), min: 0, max: n(shownThen[2]) }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' }, { do: 'MOVE_REST', to: 'WAITING_ROOM' }, ...more.data] },
       );
       zh.push(`可以逐張公開自己山札頂最多 ${showUpTo[1]} 張；公開了 1 張或以上的話，從中選最多 ${shownThen[2]} 張${filter.zh}加入手牌，其餘放到控え室${more.zh ? `，然後${more.zh}` : ''}`);
+      i++;
+      continue;
+    }
+    // "相手の…を1枚選んでよい。そうしたら、相手は自分の控え室の…を1枚選び、入れ替える"
+    const pickTheirs = /^(?:あなたは)?相手の(.+?)を(\d+)枚選んでよい$/.exec(sentences[i]!);
+    const theySwap = pickTheirs && /^そうしたら、相手は自分の控え室の(.+?)を1枚選び、入れ替える$/.exec(sentences[i + 1] ?? '');
+    if (pickTheirs && theySwap) {
+      const mine = parseFilter(pickTheirs[1]!, 'STAGE');
+      const theirs = parseFilter(theySwap[1]!, 'ZONE');
+      if (!mine || !theirs || (mine.data && mine.data.kind !== 'CHARACTER')) return null;
+      const theirFilter = theirs.data ? (({ kind: _k, ...rest }) => (void _k, rest))(theirs.data) : undefined;
+      effects.push({ do: 'CHOOSE', from: 'OPPONENT_STAGE', ...(mine.data ? { filter: mine.data } : {}), min: 0, max: n(pickTheirs[2]) }, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM', ...(theirFilter && Object.keys(theirFilter).length ? { filter: theirFilter } : {}) });
+      zh.push(`可以選對手 ${pickTheirs[2]} 張${mine.zh}；選了的話，對手從自己控え室選 1 張${theirs.zh}與它互換`);
       i++;
       continue;
     }

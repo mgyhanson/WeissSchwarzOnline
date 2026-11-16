@@ -523,5 +523,26 @@
    "ANM_W138": 78,
    "NIK_S135": 77
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B6-2 Level 3：思い出放成 Marker、對手互換",
+  "done": "思い出中所有指定卡以表向按次序放到這張卡下面、Marker 數目三段 Ｘ、對手從控え室選卡互換（Ｘ＝你選的角色 Level －1）、可以選擇對手角色",
+  "next": "卡組、QA、PR",
+  "playable": 505,
+  "unsupported": 104,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 101,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 82,
+   "STS_W140": 82,
+   "ANM_W138": 78,
+   "NIK_S135": 79
+  }
  }
 ]
