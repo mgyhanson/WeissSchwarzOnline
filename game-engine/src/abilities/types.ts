@@ -55,6 +55,8 @@ export interface CardFilter {
 export type Condition =
   /** あなたのターン中 */
   | { if: 'YOUR_TURN' }
+  /** このカードのソウルがN以下 */
+  | { if: 'SELF_STAT'; stat: 'SOUL' | 'POWER'; max?: number; min?: number }
   /** 先攻プレイヤーの第Nターン: the first player's Nth turn (game turn 2N-1). */
   | { if: 'FIRST_PLAYER_TURN'; turn: number }
   /** 相手のターン中 */
@@ -193,7 +195,7 @@ export interface DelayedTime {
 
 /** What X counts (SET_X). */
 export interface XCount {
-  of: 'MOVED' | 'OPPONENT_WAITING_ROOM' | 'YOUR_MEMORY' | 'MARKERS';
+  of: 'MOVED' | 'OPPONENT_WAITING_ROOM' | 'YOUR_MEMORY' | 'MARKERS' | 'SELF_SOUL';
   filter?: CardFilter;
   /** 異なるカード名の: count names, not cards (face-up cards only) */
   distinctNames?: boolean;
@@ -287,7 +289,7 @@ export type Effect =
    * 自分の山札の上からN枚を…に置く.
    * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
    */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT'; /** 上からN枚までを: the player may stop before each card. */ upTo?: boolean; /** Ｘ枚 */ countX?: boolean; /** 山札の下からN枚を */ fromBottom?: boolean; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT'; /** 上からN枚までを: the player may stop before each card. */ upTo?: boolean; /** Ｘ枚 */ countX?: boolean; /** 山札の下からN枚を */ fromBottom?: boolean; /** text only: あなたは相手の山札の… (rather than 相手は自分の山札の…) */ actor?: 'YOU'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE'; /** 相手はその山札をシャッフルし */ whose?: 'OPPONENT' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -321,6 +323,11 @@ export type Effect =
   | { do: 'STOCK_BOTTOM_TO_HAND'; count: number }
   /** 残りのカードを…: the cards just shown or moved that were not chosen */
   | { do: 'MOVE_REST'; to: 'WAITING_ROOM' }
+  /**
+   * そのアタック中、このカードが相手にアタックのダメージを与える時、かわりに…: a replacement effect (CR-8.10.1) for the
+   * rest of this attack: the attack damage of this card is not dealt at all; these effects happen instead.
+   */
+  | { do: 'REPLACE_ATTACK_DAMAGE'; effects: Effect[] }
   /** あなたは追加の1ターンを得る (CR-11.2) */
   | { do: 'EXTRA_TURN' }
   /** （リプレイ行動）を発動する (CR-11.3.2): this card's replay instruction with that name is done instead. */

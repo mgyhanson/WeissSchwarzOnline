@@ -755,6 +755,15 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'REPLACE_ATTACK_DAMAGE': {
+      next();
+      // Only for this card's current attack (そのアタック中).
+      const attacking = state.attack && state.attack.attackerObjectId === context.sourceObjectId;
+      if (!attacking || !state.turn) return;
+      state.replacements = [...(state.replacements ?? []), { kind: 'ATTACK_DAMAGE', attackerObjectId: context.sourceObjectId, attackNumber: state.turn.attackCount, turn: state.turn.number, master, sourceInstance: context.source, effects: effect.effects }];
+      return;
+    }
+
     case 'EXTRA_TURN':
       next();
       state.extraTurns = [...(state.extraTurns ?? []), master];

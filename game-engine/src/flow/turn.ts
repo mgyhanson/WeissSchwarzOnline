@@ -232,6 +232,7 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
       state.shotWatchers = [];
       state.abilityUses = {};
       state.grants = state.grants.filter((g) => g.untilTurn !== undefined && g.untilTurn > turn.number);
+      state.replacements = [];
       // CR-6.8.1.5: the turn ends only if the hand is within the limit and
       // nothing was resolved in that last check timing. Otherwise the end
       // phase is performed again from the start.

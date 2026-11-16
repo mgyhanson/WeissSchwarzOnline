@@ -398,6 +398,7 @@ function parseOneCondition(text: string): Out<Condition> {
   if (text === 'あなたのCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY' }, '我方 Climax 置場有 Climax');
   if ((m = /^すべてのプレイヤーのレベルが(\d+)以上$/.exec(text))) return out({ if: 'ALL', of: [{ if: 'LEVEL', min: n(m[1]) }, { if: 'LEVEL', whose: 'OPPONENT', min: n(m[1]) }] }, `所有玩家 Level ${m[1]} 或以上`);
   if (text === '他のあなたの前列のキャラがいない') return out({ if: 'COUNT', where: 'YOUR_FRONT_ROW', other: true, max: 0 }, '我方前列沒有其他角色');
+  if ((m = /^このカードの(ソウル|パワー)が(\d+)(以下|以上)$/.exec(text))) return out({ if: 'SELF_STAT', stat: m[1] === 'ソウル' ? 'SOUL' : 'POWER', ...(m[3] === '以下' ? { max: n(m[2]) } : { min: n(m[2]) }) }, `這張卡的 ${m[1] === 'ソウル' ? 'Soul' : 'Power'} ${m[2]} ${m[3] === '以下' ? '或以下' : '或以上'}`);
   if (text === '相手のCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY', opponent: true }, '對手 Climax 置場有 Climax');
   if ((m = /^あなたのレベルが(\d+)以上$/.exec(text))) return out({ if: 'LEVEL', min: n(m[1]) }, `我方 Level ${m[1]} 或以上`);
   if ((m = /^相手のレベルが(\d+)(以上)?$/.exec(text))) return out({ if: 'LEVEL', whose: 'OPPONENT', min: n(m[1]), ...(m[2] ? {} : { max: n(m[1]) }) }, `對手 Level ${m[1]}${m[2] ? ' 或以上' : ''}`);
@@ -562,6 +563,11 @@ function parseAction(text: string, target: Target, noun: string): Out<Effect[]> 
 const COUNT = '(\\d+)枚(まで)?';
 const range = (count: string | undefined, upTo: string | undefined) => ({ min: upTo ? 0 : n(count), max: n(count) });
 const countZh = (count: string | undefined, upTo: string | undefined) => `${upTo ? '最多 ' : ''}${count} 張`;
+
+/** leftOptional over sentences; "そうしたら、…" right after a shown card's "そのカードが…なら、…してよい" is read with it. */
+function anyLeftOptional(sentences: readonly string[]): boolean {
+  return sentences.some((s, k) => leftOptional(s) && !(s.startsWith('そうしたら、') && k > 0 && /^そのカード(?:が|の).+なら、.+てよい$/.test(sentences[k - 1]!)));
+}
 
 /** A sentence that is optional in a way only some readers handle: "そうしたら、…" or "…してよい", except after a card shown from the deck (そのカードが…なら、…してよい). */
 function leftOptional(s: string): boolean {
@@ -826,6 +832,11 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     }
   }
   if (text === 'その山札をシャッフルする') return out([{ do: 'SHUFFLE' }], '洗山札');
+  if ((m = /^そのアタック中、このカードが相手にアタックのダメージを与える時、かわりに(.+)$/.exec(text))) {
+    const instead = parseEffects([m[1]!], battle);
+    if (instead) return out([{ do: 'REPLACE_ATTACK_DAMAGE', effects: instead.data }], `這次攻擊中，這張卡對對手造成攻擊傷害時，改為${instead.zh}（置換效果）`);
+  }
+  if ((m = /^相手の山札の上から(\d+)枚を、控え室に置く$/.exec(text))) return out([{ do: 'DECK_TOP', count: n(m[1]), to: 'WAITING_ROOM', whose: 'OPPONENT', actor: 'YOU' }], `把對手山札頂 ${m[1]} 張放到控え室`);
   if (text === '追加の1ターンを得る') return out([{ do: 'EXTRA_TURN' }], '得到額外 1 個回合');
   if ((m = /^(\S+)を発動する$/.exec(text)) && !text.startsWith('『')) return out([{ do: 'REPLAY', name: m[1]! }], `發動「${m[1]}」（這張卡的 Replay）`);
   if ((m = new RegExp(`^自分のレベル置場のカードを${COUNT}選び、(.+)$`).exec(text))) {
@@ -960,7 +971,7 @@ function parseQuotedEffect(inner: string, battle: boolean): Out<Effect[]> {
     if (only?.do === 'DRAW' && !only.optional) return out([{ ...only, optional: true }], `可以${plain!.zh}`);
     return plain ? out([{ do: 'MAY', effects: plain.data }], `可以${plain.zh}`) : null;
   }
-  if (sentences.some((s) => leftOptional(s))) return null;
+  if (anyLeftOptional(sentences)) return null;
   const effects = parseEffects(sentences, battle);
   if (!effects || !paid) return effects;
   const cost = parseCost(splitCost(paid[1]!));
@@ -1025,6 +1036,7 @@ const X_MARK = 7777;
 /** "Ｘは…に等しい": the counts X can be (SET_X). */
 function readXCount(sentence: string): { set: Extract<Effect, { do: 'SET_X' }>; zh: string } | null {
   let m: RegExpExecArray | null;
+  if (sentence === 'Ｘはこのカードのソウルに等しい') return { set: { do: 'SET_X', count: { of: 'SELF_SOUL' } }, zh: 'Ｘ＝這張卡的 Soul' };
   if (sentence === 'ＸはそれらのカードのCXの枚数に等しい') return { set: { do: 'SET_X', count: { of: 'MOVED', filter: { kind: 'CLIMAX' } } }, zh: 'Ｘ＝這些卡中 Climax 的張數' };
   if ((m = /^Ｘは相手の控え室のCXの枚数－(\d+)に等しい$/.exec(sentence))) return { set: { do: 'SET_X', count: { of: 'OPPONENT_WAITING_ROOM', filter: { kind: 'CLIMAX' } }, minus: n(m[1]) }, zh: `Ｘ＝對手控え室 Climax 張數 －${m[1]}` };
   if ((m = /^Ｘはこのカードの下の異なるカード名のマーカーの枚数＋(\d+)に等しい$/.exec(sentence))) return { set: { do: 'SET_X', count: { of: 'MARKERS', distinctNames: true }, plus: n(m[1]) }, zh: `Ｘ＝這張卡下面不同卡名 Marker 的數目 +${m[1]}` };
@@ -1047,6 +1059,7 @@ function markX(effects: Effect[], set?: Extract<Effect, { do: 'SET_X' }>): Effec
       if (e.do === 'CHOOSE' && e.max === X_MARK) return { ...e, max: 1, maxX: true };
       if (e.do === 'REORDER_TOP' && e.upTo === X_MARK && e.keep === X_MARK) return { ...e, upTo: 1, keep: 1, x: true };
       if (e.do === 'IF') return { ...e, then: walk(e.then) };
+      if (e.do === 'REPLACE_ATTACK_DAMAGE') return { ...e, effects: walk(e.effects) };
       if (JSON.stringify(e).includes(String(X_MARK))) ok = false;
       return e;
     });
@@ -1107,7 +1120,9 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
     const usesX = (e: Effect): boolean => /"(amountX|timesX|countX|maxX|x)":true/.test(JSON.stringify(e));
     const first = walked.findIndex(usesX);
     if (first < 0) return null;
-    const marked = [...walked.slice(0, first), xCount.set, ...walked.slice(first)];
+    // A replacement works out X when it replaces (the soul then), so the count goes inside it.
+    const firstUse = walked[first]!;
+    const marked = firstUse.do === 'REPLACE_ATTACK_DAMAGE' ? [...walked.slice(0, first), { ...firstUse, effects: [xCount.set, ...firstUse.effects] }, ...walked.slice(first + 1)] : [...walked.slice(0, first), xCount.set, ...walked.slice(first)];
     return out(marked, `${plain.zh.replaceAll(String(X_MARK), 'Ｘ')}（${xCount.zh}）`.replace(/^/, '').replace(/$/, ''));
   }
   const xDef = all.map((s) => /^Ｘは(それらのカードのレベルの合計|公開されたカードのレベル)(?:×(\d+))?に等しい$/.exec(s)).find((m) => m);
@@ -1448,7 +1463,7 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
       optional = true;
     }
   }
-  if (sentences.some((s) => leftOptional(s))) {
+  if (anyLeftOptional(sentences)) {
     unknown.push({ part: 'OPTIONAL', text: sentences.join('。') });
     return null;
   }
@@ -1489,7 +1504,7 @@ function activated(parts: LineParts, unknown: Unknown[]): GrammarLine | null {
   const cost = parts.cost ? parseCost(parts.cost) : null;
   if (!parts.cost) unknown.push({ part: 'SHAPE', text: '【起】 without a cost' });
   else if (!cost) for (const action of parts.cost) if (!parseCostAction(action)) unknown.push({ part: 'COST', text: action });
-  if (parts.effects.some((s) => leftOptional(s))) {
+  if (anyLeftOptional(parts.effects)) {
     unknown.push({ part: 'OPTIONAL', text: parts.effects.join('。') });
     return null;
   }
@@ -1870,6 +1885,8 @@ function withoutReminders(line: string): string {
   const known = notes.every((note) => {
     // CR-4.12.1.2: damage by an effect can be cancelled like any damage.
     if (note === 'ダメージキャンセルは発生する') return /ダメージを/.test(body);
+    // The replacing damage is attack damage of the card (its source, CR-4.13.2.1), not damage by an 【自】 effect.
+    if (note === 'このダメージは【自】の効果によるダメージではない') return /アタックのダメージを与える時、かわりに/.test(body);
     // The rule's encore is an 【自】 アンコール too (CR-10.2.3), so "『【自】 アンコール』を使えない" already covers it.
     if (note === 'ルールによる『【自】 アンコール ［(3)］』も使えない') return /『【自】 アンコール』を使えない/.test(body);
     // CR-2.19.1: a climax has no level, so it counts as 0 — which is how the engine reads every level.
@@ -1934,7 +1951,7 @@ export function readEvent(text: string): { effect: Effect[]; zh: string } | null
     const conditions = allOf(parts.conditions.map(parseCondition));
     if (!cost || !conditions || parts.effects[0] !== 'あなたはコストを払ってよい' || !parts.effects[1]?.startsWith('そうしたら、')) return null;
     const rest = [parts.effects[1].slice('そうしたら、'.length), ...parts.effects.slice(2)];
-    if (rest.some((s) => leftOptional(s))) return null;
+    if (anyLeftOptional(rest)) return null;
     const bought = parseEffects(rest, false);
     if (!bought) return null;
     const pay: Effect = { do: 'MAY_PAY', cost: cost.data, then: bought.data };
@@ -1944,7 +1961,7 @@ export function readEvent(text: string): { effect: Effect[]; zh: string } | null
     };
   }
   if (parts.conditions.length > 0) return null;
-  if (parts.effects.some((s) => leftOptional(s))) return null;
+  if (anyLeftOptional(parts.effects)) return null;
   const effects = parseEffects(parts.effects, false);
   return effects ? { effect: effects.data, zh: `${effects.zh}。` } : null;
 }

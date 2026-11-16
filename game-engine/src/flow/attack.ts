@@ -25,6 +25,7 @@ import { attackerInstance, characterInSlot, defenderInstance } from './attack-st
 import { registerAttackEnd } from './autos';
 import { ask, emit, findObject, popFrame, pushCheckTiming, pushFrame, takeAnswer, topOf } from './core';
 import { pushDamage } from './damage';
+import { pushEffects } from '../abilities/effects';
 import type { Frame } from './frames';
 
 type AttackFrame = Extract<Frame, { kind: 'ATTACK_PHASE' }>;
@@ -324,7 +325,11 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
       frame.step = 'DAMAGE_END';
       const attacker = attackerInstance(state);
       // このカードはプレイヤーにダメージを与えることができない
-      if (attacker && !cannotDamagePlayers(state, attacker.instanceId)) pushDamage(ctx, opponent, getSoul(state, attacker.instanceId), attacker.objectId);
+      // CR-8.10.1: a replacement of this attack's damage: the damage is not dealt at all; the replacing events happen instead.
+      const replacement = attacker && (state.replacements ?? []).find((r) => r.kind === 'ATTACK_DAMAGE' && r.attackerObjectId === attacker.objectId && r.turn === state.turn?.number && r.attackNumber === state.turn?.attackCount);
+      if (attacker && replacement) {
+        pushEffects(ctx, replacement.effects, { master: replacement.master, source: attacker.instanceId, sourceObjectId: attacker.objectId, chosen: [], battleOpponent: null, sourceSlot: attacker.location.zone === 'stage' ? { player: attacker.location.player, slot: attacker.location.slot } : null });
+      } else if (attacker && !cannotDamagePlayers(state, attacker.instanceId)) pushDamage(ctx, opponent, getSoul(state, attacker.instanceId), attacker.objectId);
       return;
     }
 
