@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 488,
- "unsupported": 121,
+ "playable": 501,
+ "unsupported": 108,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,15 +75,15 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 97,
+   "playable": 101,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 81
+     "playable": 84
     },
     "EVENT": {
      "total": 4,
-     "playable": 1
+     "playable": 2
     },
     "CLIMAX": {
      "total": 15,
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 79,
+   "playable": 82,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 67
+     "playable": 70
     },
     "EVENT": {
      "total": 3,
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 79,
+   "playable": 81,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 66
+     "playable": 68
     },
     "EVENT": {
      "total": 4,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 75,
+   "playable": 78,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 59
+     "playable": 62
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 75,
+   "playable": 76,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 61
+     "playable": 62
     },
     "EVENT": {
      "total": 9,
@@ -216,23 +216,13 @@
   "playable": 53
  },
  "classes": {
-  "A": 36,
+  "A": 33,
   "B": 1,
-  "C": 50,
-  "D": 34,
+  "C": 45,
+  "D": 29,
   "E": 0
  },
  "topParts": [
-  {
-   "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
-   "unlocks": 2,
-   "cards": 2
-  },
-  {
-   "part": "OPTIONAL: あなたは自分の山札の上からN枚までを、公開してよい。N枚以上公開したなら、あなたはそれらのカードの《…》のキャラか「…」をN枚まで選び、手札に加え、残りのカードを控え室に置き、自分の手札をN枚選び、控え室に置く",
-   "unlocks": 2,
-   "cards": 2
-  },
   {
    "part": "SHAPE: （…）: （CXのレベルはNとして扱う。ストック置場に置かないなら元に",
    "unlocks": 2,
@@ -244,32 +234,42 @@
    "cards": 2
   },
   {
-   "part": "EFFECT: あなたは自分の控え室の《…》のキャラと思い出置場の《…》のキャラをN枚ずつ選び、入れ替える",
-   "unlocks": 1,
-   "cards": 2
-  },
-  {
-   "part": "EFFECT: あなたは自分の山札を見て自分の控え室にあるCXと同じカード名のCXをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "EFFECT: あなたはN枚まで引き、自分の手札を同じ枚数選び、控え室に置き、自分のキャラをN枚選び、そのターン中、パワーを＋N",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "EVENT: あなたは相手の山札を上からN枚見て、山札の上か控え室に置き、自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする。",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
    "part": "COST: か手札の「…」をN枚控え室に置く",
    "unlocks": 1,
    "cards": 1
   },
   {
    "part": "EFFECT: あなたは相手のキャラをN枚選び、【スタンド】して相手の舞台のキャラのいない他の枠に動かすか、他の相手のキャラをN枚選び、それぞれを【スタンド】して入れ替える",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EVENT: ［あなたの【スタンド】している《…》のキャラをN枚【レスト】する］ あなたはコストを払ってよい。そうしたら、あなたは自分の山札を見て《…》のキャラをN枚まで選んで相手に見せる。その",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: そのターン中、あなたはそのアタックしているキャラのソウルを－Nし、自分の山札の上からN枚を公開する。そのカードがレベルN以下のキャラならストック置場に置く",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: あなたは相手のキャラをN枚選び、相手の舞台のキャラのいない他の枠に動かし、次の相手のターンの終わりまで、そのキャラに次の能力を与える。『【永】 このカードは他の枠に動かせない。』",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "OPTIONAL: あなたは自分の山札の上からN枚を、控え室に置き、自分の控え室のレベルＸ以下の、《…》か《…》のキャラをN枚まで選び、手札に戻す。この効果で控え室に置かれたカードにCXがあるなら、あなたは自分の山札の上からN枚を、ストック置場に置いてよい。Ｘはこの効果で控え室に置かれたカードのレベルの合計に等しい",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "OPTIONAL: そのターン中、あなたはそのアタックしているキャラのソウルを－Nしてよい。そうしたら、そのターン中、そのアタックしているキャラのパワーを＋N",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "SHAPE: （…）: （このダメージは【自】の効果によるダメージではない。ダメージ",
    "unlocks": 1,
    "cards": 1
   }

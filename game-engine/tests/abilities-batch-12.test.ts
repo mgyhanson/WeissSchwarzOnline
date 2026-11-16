@@ -230,3 +230,80 @@ describe('batch 5 part 2: extra turns and replay', () => {
     expect(state.zones[0].clock).toEqual([card(0, 5), card(0, 6)]);
   });
 });
+
+describe('batch 5 part 3: exchanges, X from draws, reveals up to N', () => {
+  it('控え室の…と思い出置場の…を1枚ずつ選び、入れ替える / 控え室の…を1枚とこのカード (in memory) を選び、入れ替える', () => {
+    const swap = act([{ do: 'EXCHANGE_ZONES', a: { zone: 'WAITING_ROOM' }, b: { zone: 'MEMORY' }, count: 1 }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [swap] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'waitingRoom' });
+      put(ctx, card(0, 6), { player: 0, zone: 'memory' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5))] }).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 6))] }).state;
+    expect([state.zones[0].memory, state.zones[0].waitingRoom]).toEqual([[card(0, 5)], [card(0, 6)]]);
+  });
+
+  it('2枚まで引き、自分の手札を同じ枚数選び、控え室に置く: as many as were drawn', () => {
+    const loot = act([{ do: 'DRAW', count: 2, upTo: true }, { do: 'CHOOSE', from: 'YOUR_HAND', min: 0, max: 0, exactX: true }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [loot] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 5), { player: 0, zone: 'hand' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: false }).state;
+    expect(pending(state, 'SELECT_CARDS')).toMatchObject({ min: 1, max: 1 });
+  });
+
+  it('ストックの下から2枚までを、手札に戻し、…同じ枚数選び、ストック置場の下に好きな順番で置く: no card identity is shown for hand cards', () => {
+    const swap = act([{ do: 'STOCK_BOTTOM_TO_HAND', count: 2 }, { do: 'CHOOSE', from: 'YOUR_HAND', min: 0, max: 0, exactX: true }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'STOCK_BOTTOM', inOrder: true }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [swap] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      for (const k of [20, 21]) put(ctx, card(0, k), { player: 0, zone: 'stock' });
+      for (const k of [5, 6]) put(ctx, card(0, k), { player: 0, zone: 'hand' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    expect(state.zones[0].stock).toEqual([]);
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 5)), oid(state, card(0, 6))] }).state;
+    const order = pending(state, 'SELECT_CARDS');
+    expect(order.prompt).toBe('EFFECT_PLACE_ORDER');
+    expect(order.look ?? {}).toEqual({});
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 6))] }).state;
+    expect(state.zones[0].stock).toEqual([card(0, 5), card(0, 6)]);
+  });
+
+  it('山札の上から3枚までを、公開してよい。1枚以上公開したなら、それらのカードの…を1枚まで選び、手札に加え、残りのカードを控え室に置き', () => {
+    const show = act([
+      { do: 'REVEAL_DECK_TOP', count: 3, upTo: true },
+      { do: 'IF', condition: { if: 'LAST_MOVED', min: 1 }, then: [{ do: 'CHOOSE', from: 'THOSE', min: 0, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' }, { do: 'MOVE_REST', to: 'WAITING_ROOM' }] },
+    ]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [show] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: false }).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 48))] }).state;
+    expect(state.zones[0].hand).toEqual([card(0, 48)]);
+    expect(state.zones[0].waitingRoom).toEqual([card(0, 49)]);
+    // Declining at once shows nothing and does nothing.
+    const none = answer(activate(start, card(0, 0)).state, { kind: 'CONFIRM', accept: false });
+    expect(none.events.some((e) => e.type === 'CARD_REVEALED')).toBe(false);
+  });
+
+  it('自分の控え室にあるCXと同じカード名のCX / 相手の山札を上から1枚見て、山札の上か控え室に置く', () => {
+    const search = act([{ do: 'CHOOSE', from: 'YOUR_DECK', filter: { kind: 'CLIMAX', nameInWaitingRoom: true }, min: 0, max: 1 }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [search] }, '0:44': { name: 'Same' }, '0:45': { name: 'Same' } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 44), { player: 0, zone: 'waitingRoom' });
+    }).state;
+    expect(pending(activate(start, card(0, 0)).state, 'SELECT_CARDS').cards).toEqual([oid(start, card(0, 45))]);
+    const peek = act([{ do: 'TOP_OR_BOTTOM', orWaitingRoom: true, whose: 'OPPONENT' }]);
+    const s2 = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [peek] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    const done = answer(activate(s2, card(0, 0)).state, { kind: 'SELECT_OPTION', option: 'WAITING_ROOM' }).state;
+    expect(done.zones[1].waitingRoom).toEqual([card(1, 49)]);
+  });
+});

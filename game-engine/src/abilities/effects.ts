@@ -13,11 +13,11 @@ import type { BatchMove, Ctx } from '../moves';
 import { moveBatch, moveCard, moveCards, revealCard, setOrientation, shuffleDeck, swapSlots } from '../moves';
 import { getDef, getInstance } from '../state';
 import { addModifier, nextOpponentTurn } from '../stats';
-import type { GameState, ZoneRef } from '../types';
+import type { GameState, PlayerId, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
 import { cannotBeReversed, cannotMove, chooseCandidates, countForX, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
-import type { Cost, Destination, Effect, EffectContext } from './types';
+import type { CardFilter, Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
 // Costs (CR-8.4)
@@ -378,6 +378,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       // N枚まで引く: one card at a time; the player may stop before each (CR-4.10.1).
       if (effect.upTo) {
         const drawn = frame.scratch[0] ?? 0;
+        // How many were drawn: X for 同じ枚数.
+        context.x = drawn;
         if (drawn >= effect.count || state.zones[master].deck.length === 0) {
           next();
           return;
@@ -393,6 +395,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           return;
         }
         frame.scratch[0] = drawn + 1;
+        context.x = drawn + 1;
         pushFrame(ctx, { kind: 'DRAW', player: master, remaining: 1 });
         return;
       }
@@ -431,8 +434,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         // CR-8.6.3.1: as many as possible up to the number required
         // (CR-8.6.3.1.2). From a hidden zone the player may always choose
         // fewer (CR-8.6.3.1.4).
-        const max = Math.min(effect.maxX ? Math.max(0, context.x ?? 0) : effect.max, candidates.length);
-        const min = hidden ? 0 : Math.min(effect.min, candidates.length);
+        const max = Math.min(effect.maxX || effect.exactX ? Math.max(0, context.x ?? 0) : effect.max, candidates.length);
+        const min = hidden ? 0 : Math.min(effect.exactX ? Math.max(0, context.x ?? 0) : effect.min, candidates.length);
         frame.step = 1;
         // CR-4.8.1: 山札を見て — the player looks at the whole deck, not only
         // at the cards that may be chosen. Only that player is told.
@@ -469,7 +472,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
         const max = Math.min(effect.take, chosen.length);
         frame.step = 1;
-        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_SPLIT', cards: chosen.map((id) => getInstance(state, id).objectId), min: effect.exact ? max : 0, max, look: lookMap(state, chosen) });
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_SPLIT', cards: chosen.map((id) => getInstance(state, id).objectId), min: effect.exact ? max : 0, max, look: deckLook(state, master, chosen) });
         return;
       }
       if (frame.step === 1) {
@@ -481,7 +484,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const picked = frame.scratch.filter((id) => chosen.includes(id));
       if (effect.inOrder && picked.length > 1 && frame.step === 2) {
         frame.step = 3;
-        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: picked.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: lookMap(state, picked) });
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: picked.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: deckLook(state, master, picked) });
         return;
       }
       if (frame.step === 3) {
@@ -511,7 +514,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       if (effect.inOrder && targets.length > 1) {
         if (frame.step === 0) {
           frame.step = 1;
-          ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: targets.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: lookMap(state, targets) });
+          ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: targets.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: deckLook(state, master, targets) });
           return;
         }
         const first = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
@@ -651,12 +654,104 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'REVEAL_DECK_TOP': {
+      if (effect.upTo) {
+        // N枚までを、公開してよい: one card at a time from the top, the player may stop before each.
+        const deck = state.zones[master].deck;
+        const shownSoFar = frame.scratch;
+        const nextCard = deck[deck.length - 1 - shownSoFar.length];
+        if (shownSoFar.length >= effect.count || nextCard === undefined) {
+          context.moved = [...shownSoFar];
+          next();
+          return;
+        }
+        if (frame.step === 0) {
+          frame.step = 1;
+          ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'LOOK_NEXT' });
+          return;
+        }
+        frame.step = 0;
+        if (!takeAnswer(ctx, 'CONFIRM').accept) {
+          context.moved = [...shownSoFar];
+          next();
+          return;
+        }
+        frame.scratch = [...shownSoFar, nextCard];
+        revealCard(ctx, nextCard);
+        return;
+      }
       next();
       const whose = effect.whose === 'OPPONENT' ? opponentOf(master) : master;
       const deck = state.zones[whose].deck;
       const shown = deck.slice(Math.max(0, deck.length - effect.count)).reverse();
       for (const id of shown) revealCard(ctx, id);
       context.moved = shown;
+      return;
+    }
+
+    case 'EXCHANGE_ZONES': {
+      const zones = state.zones[master];
+      const self = sourceIfUnchanged(state, context);
+      const poolA = zones.waitingRoom.filter((id) => matchesFilter(state, id, effect.a.filter));
+      const poolB = effect.b === 'SELF' ? (self && self.location.zone === 'memory' ? [self.instanceId] : []) : zones.memory.filter((id) => getInstance(state, id).face === 'UP' && matchesFilter(state, id, (effect.b as { filter?: CardFilter }).filter));
+      // Both sides are needed to exchange.
+      if (poolA.length < effect.count || poolB.length < effect.count) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: poolA.map((id) => getInstance(state, id).objectId), min: effect.count, max: effect.count });
+        return;
+      }
+      if (frame.step === 1) {
+        frame.scratch = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+        if (effect.b === 'SELF') frame.step = 3;
+        else {
+          frame.step = 2;
+          ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: poolB.map((id) => getInstance(state, id).objectId), min: effect.count, max: effect.count });
+          return;
+        }
+      }
+      const fromB = effect.b === 'SELF' ? poolB : takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+      const fromA = frame.scratch;
+      next();
+      moveBatch(ctx, [
+        ...fromA.map((instanceId) => ({ instanceId, to: { player: master, zone: 'memory' as const }, opts: { reason: 'EFFECT' as const } })),
+        ...fromB.map((instanceId) => ({ instanceId, to: { player: master, zone: 'waitingRoom' as const }, opts: { reason: 'EFFECT' as const } })),
+      ]);
+      return;
+    }
+
+    case 'STOCK_BOTTOM_TO_HAND': {
+      // One at a time from the bottom; the player may stop before each. X = how many.
+      const done = frame.scratch[0] ?? 0;
+      context.x = done;
+      const bottom = state.zones[master].stock[0];
+      if (done >= effect.count || bottom === undefined) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+        return;
+      }
+      frame.step = 0;
+      if (!takeAnswer(ctx, 'CONFIRM').accept) {
+        next();
+        return;
+      }
+      frame.scratch[0] = done + 1;
+      context.x = done + 1;
+      moveCard(ctx, bottom, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
+      return;
+    }
+
+    case 'MOVE_REST': {
+      next();
+      const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
+      const rest = (context.moved ?? []).filter((id) => !chosen.includes(id) && state.instances[id] && getInstance(state, id).location.zone === 'deck');
+      moveCards(ctx, rest, { player: master, zone: 'waitingRoom' }, { reason: 'EFFECT' });
       return;
     }
 
@@ -1058,7 +1153,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'TOP_OR_BOTTOM': {
-      const top = topOf(state.zones[master].deck);
+      const deckOwner = effect.whose === 'OPPONENT' ? opponentOf(master) : master;
+      const top = topOf(state.zones[deckOwner].deck);
       if (top === undefined) {
         next();
         return;
@@ -1072,12 +1168,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const bottom = option === 'DECK_BOTTOM';
       next();
       if (option === 'WAITING_ROOM') {
-        moveCard(ctx, top, { player: master, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+        moveCard(ctx, top, { player: deckOwner, zone: 'waitingRoom' }, { reason: 'EFFECT' });
         return;
       }
       // Only its place in the deck changes; it stays hidden from the opponent and keeps its object id (same zone).
       if (bottom) {
-        const deck = state.zones[master].deck;
+        const deck = state.zones[deckOwner].deck;
         deck.splice(deck.indexOf(top), 1);
         deck.unshift(top);
       }
@@ -1148,6 +1244,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
   }
+}
+
+/** As lookMap, for only the cards in that player's own deck (others are public, or must stay hidden). */
+function deckLook(state: GameState, player: PlayerId, instanceIds: readonly number[]): Record<number, string> {
+  return lookMap(state, instanceIds.filter((id) => getInstance(state, id).location.zone === 'deck' && getInstance(state, id).location.player === player));
 }
 
 /** Card ids of the cards a player is looking at, by object id, for the decision that shows them. */

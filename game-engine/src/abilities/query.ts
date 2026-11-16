@@ -121,6 +121,10 @@ export function matchesFilter(
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
   if (filter.costMin !== undefined && (def.cost ?? 0) < filter.costMin) return false;
   if (filter.powerMax !== undefined && currentStat(state, instanceId, 'POWER') > filter.powerMax) return false;
+  if (filter.nameInWaitingRoom) {
+    const owner = getInstance(state, instanceId).owner;
+    if (!state.zones[owner].waitingRoom.some((id) => getDef(state, id).name === def.name && getDef(state, id).kind === def.kind)) return false;
+  }
   if (filter.levelMax !== undefined || filter.levelMin !== undefined) {
     const level = levelOf(state, instanceId);
     if (filter.levelMax !== undefined && level > filter.levelMax) return false;
@@ -728,6 +732,9 @@ export function chooseCandidates(
       break;
     case 'YOUR_LEVEL':
       pool = [...zones.level];
+      break;
+    case 'THOSE':
+      pool = (context.moved ?? []).filter((id) => state.instances[id]);
       break;
     case 'YOUR_DECK':
       pool = [...zones.deck];
