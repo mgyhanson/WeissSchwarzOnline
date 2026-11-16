@@ -40,9 +40,10 @@ const stripReminders = (text: string): string => {
 export function splitCost(cost: string): string[] {
   const parts: string[] = [];
   let rest = cost.trim();
-  const stock = /^\((\d+)\) ?/.exec(rest);
+  // (N) or a circled number (⑩) first: the stock to pay.
+  const stock = /^\((\d+)\) ?/.exec(rest) ?? /^([①-⑳]) ?/.exec(rest);
   if (stock) {
-    parts.push(`(${stock[1]})`);
+    parts.push(/^\d+$/.test(stock[1]!) ? `(${stock[1]})` : stock[1]!);
     rest = rest.slice(stock[0].length);
   }
   if (rest) {

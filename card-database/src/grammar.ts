@@ -63,6 +63,8 @@ function parseOneFilter(text: string, bare: 'STAGE' | 'ZONE'): Out<CardFilter | 
   if (names) return out({ names: [names[1]!, names[2]!] }, `「${names[1]}」或「${names[2]}」`);
   const includesAny = /^カード名に「([^」]+)」か「([^」]+)」を含むキャラ$/.exec(text);
   if (includesAny) return out(bare === 'STAGE' ? { nameIncludesAny: [includesAny[1]!, includesAny[2]!] } : { kind: 'CHARACTER', nameIncludesAny: [includesAny[1]!, includesAny[2]!] }, `卡名含有「${includesAny[1]}」或「${includesAny[2]}」的角色`);
+  const colour = /^(赤|青|黄|緑)のカード$/.exec(text);
+  if (colour) return out({ color: { 赤: 'red', 青: 'blue', 黄: 'yellow', 緑: 'green' }[colour[1] as '赤'] }, `${colour[1]}色的卡`);
   const power = /^(前列の|後列の)?パワー(\d+)以下のキャラ$/.exec(text);
   if (power && !power[1]) return out({ kind: 'CHARACTER', powerMax: n(power[2]) }, `Power ${power[2]} 或以下的角色`);
   const excludes = /^、?カード名に「([^」]+)」を含まない《([^》]+)》のキャラ$/.exec(text);
@@ -238,6 +240,8 @@ export function parseCostAction(raw: string): Out<Cost> {
   const text = raw.replace(/置き$/, '置く').replace(/し$/, 'する');
   let m: RegExpExecArray | null;
   if ((m = /^\((\d+)\)$/.exec(text))) return out({ pay: 'STOCK', count: n(m[1]) }, `(${m[1]})`);
+  // ⑩: a stock cost written with a circled number (as (10)).
+  if ((m = /^([①-⑳])$/.exec(text))) return out({ pay: 'STOCK', count: m[1]!.charCodeAt(0) - 0x245f }, `(${m[1]!.charCodeAt(0) - 0x245f})`);
   if (text === 'このカードを【レスト】する') return out({ pay: 'REST_SELF' }, '把這張卡 Rest');
   if (text === 'このカードを控え室に置く') return out({ pay: 'SELF_TO_WAITING_ROOM' }, '把這張卡放到控え室');
   if (text === '【スタンド】しているこのカードを控え室に置く') return out({ pay: 'SELF_TO_WAITING_ROOM', standing: true }, '把 Stand 中的這張卡放到控え室');
@@ -371,6 +375,9 @@ function parseOneCondition(text: string): Out<Condition> {
   if ((m = /^あなたのCX置場に(トリガーアイコンが(?:\[\[[a-z]+\.gif\]\])+のCX)がある$/.exec(text))) {
     const filter = parseFilter(m[1]!, 'ZONE');
     if (filter?.data) return out({ if: 'COUNT', where: 'YOUR_CLIMAX', filter: filter.data, min: 1 }, `我方 Climax 置場有${filter.zh}`);
+  }
+  if ((m = /^他のあなたの前列の、?「([^」]+)」と「([^」]+)」がいる$/.exec(text))) {
+    return out({ if: 'ALL', of: [{ if: 'COUNT', where: 'YOUR_FRONT_ROW', other: true, filter: { name: m[1]! }, min: 1 }, { if: 'COUNT', where: 'YOUR_FRONT_ROW', other: true, filter: { name: m[2]! }, min: 1 }] }, `我方前列有其他的「${m[1]}」及「${m[2]}」`);
   }
   if ((m = /^あなたの、?「([^」]+)」と「([^」]+)」がいる$/.exec(text))) {
     return out({ if: 'ALL', of: [{ if: 'CHARACTERS', min: 1, filter: { name: m[1]! } }, { if: 'CHARACTERS', min: 1, filter: { name: m[2]! } }] }, `我方有「${m[1]}」及「${m[2]}」`);
@@ -562,6 +569,23 @@ function leftOptional(s: string): boolean {
   if (/^(?:あなたは)?次の(?:効果|行動)を行ってよい$/.test(s)) return false;
   if (/^それらのカードに.+があるなら、/.test(s)) return false;
   return s.startsWith('そうしたら、') || plainForm(s) !== null;
+}
+
+/** Sentences split at 。 outside 『』. */
+function splitOutsideQuotes(text: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of text) {
+    if (ch === '『') depth++;
+    if (ch === '』') depth--;
+    if (ch === '。' && depth === 0) {
+      if (current.trim()) out.push(current.trim());
+      current = '';
+    } else current += ch;
+  }
+  if (current.trim()) out.push(current.trim());
+  return out;
 }
 
 /** 『A』『B』 (nested 『』 allowed inside) as ['『A』', '『B』']; anything else as it is. */
@@ -902,15 +926,15 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
 /** One quoted effect of a choice: plain effect sentences, or "［cost］ あなたはコストを払ってよい。そうしたら、…". */
 function parseQuotedEffect(inner: string, battle: boolean): Out<Effect[]> {
   // ［cost］ (…なら、)あなたはコストを払ってよい。そうしたら、…
-  const paid = /^［([^］]*)］ ?(?:([^。]+?)なら、)?あなたはコストを払ってよい。そうしたら、(.+)$/.exec(inner);
-  const sentences = (paid ? paid[3]! : inner).split('。').filter((s) => s !== '');
+  const paid = /^［([^］]*)］ ?(?:([^。]+?)なら、)?あなたはコストを払ってよい。そうしたら、(.+)$/s.exec(inner);
+  const sentences = splitOutsideQuotes(paid ? paid[3]! : inner);
   // One "…してよい" sentence alone: the effects that can be declined by themselves.
   if (!paid && sentences.length === 1 && plainForm(sentences[0]!) !== null) {
     const plain = parseEffects([plainForm(sentences[0]!)!], battle);
     const only = plain?.data.length === 1 ? plain.data[0] : undefined;
     if (only?.do === 'CLOCK_TOP' && !only.optional) return out([{ ...only, optional: true }], `可以${plain!.zh}`);
     if (only?.do === 'DRAW' && !only.optional) return out([{ ...only, optional: true }], `可以${plain!.zh}`);
-    return null;
+    return plain ? out([{ do: 'MAY', effects: plain.data }], `可以${plain.zh}`) : null;
   }
   if (sentences.some((s) => leftOptional(s))) return null;
   const effects = parseEffects(sentences, battle);
@@ -1197,8 +1221,10 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
     // "次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』": the player chooses one of the quoted effects.
     const choice = /^(?:あなたは)?次の(\d)つの効果のうちあなたが選んだ1つを行う$/.exec(sentences[i]!);
     if (choice) {
-      const quoted = [...(sentences[i + 1] ?? '').matchAll(/『([^『』]+)』/g)].map((q) => q[1]!);
-      if (quoted.length !== n(choice[1]) || quoted.map((q) => `『${q}』`).join('') !== sentences[i + 1]) return null;
+      // Each quoted effect may hold quotes of its own (『…『…』』).
+      const pieces = splitQuotes(sentences[i + 1] ?? '');
+      const quoted = pieces.every((q) => /^『.*』$/.test(q)) ? pieces.map((q) => q.slice(1, -1)) : [];
+      if (quoted.length !== n(choice[1])) return null;
       const options = quoted.map((q) => parseQuotedEffect(q, battle));
       if (options.some((o) => o === null)) return null;
       effects.push({ do: 'CHOOSE_ONE', options: options.map((o) => o!.data) });
@@ -1788,7 +1814,7 @@ function withoutReminders(line: string): string {
     if (note === 'CXのレベルは0として扱う') return /レベル/.test(body);
     // A card shown from the top of the deck and not taken stays where it was (REVEAL_TOP, SHOW_TOP).
     if (note === 'そうでないなら元に戻す') return /公開する。そのカード(?:が|の)[^。]*なら(?:手札に加え|ストック置場に置)/.test(body);
-    if (note === '公開したカードは元に戻す') return /公開(?:する|してよい)。そのカード(?:が|の)[^。]*なら、|山札の上から1枚を公開し、/.test(body);
+    if (note === '公開したカードは元に戻す') return /公開(?:する|してよい)。そのカード(?:が|の)[^。]*なら、|山札の上から\d+枚を公開し、/.test(body);
     return false;
   });
   return known ? body : line;

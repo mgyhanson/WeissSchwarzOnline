@@ -27,6 +27,7 @@ export function filterJa(filter: CardFilter | undefined, where: 'STAGE' | 'ZONE'
   if (keys === 'anyOf') return filter.anyOf!.map((part) => filterJa(part, 'ZONE')).join('か');
   if (keys === 'hasTrigger,kind' && filter.kind === 'CLIMAX') return `トリガーアイコンが[[${ICONS[filter.hasTrigger!]}.gif]]のCX`;
   if (keys === 'kind,triggersExactly' && filter.kind === 'CLIMAX') return `トリガーアイコンが${filter.triggersExactly!.map((t) => `[[${ICONS[t]}.gif]]`).join('')}のCX`;
+  if (keys === 'color') return `${{ red: '赤', blue: '青', yellow: '黄', green: '緑' }[filter.color!] ?? fail('colour', filter)}のカード`;
   if (keys === 'kind,powerMax' && filter.kind === 'CHARACTER') return `パワー${filter.powerMax}以下のキャラ`;
   if (keys === 'nameIncludesAny' || keys === 'kind,nameIncludesAny') return `カード名に${filter.nameIncludesAny!.map((x) => `「${x}」`).join('か')}を含むキャラ`;
   if (keys === 'kind,nameExcludes,traits' && filter.traits!.length === 1) return `、カード名に「${filter.nameExcludes}」を含まない《${filter.traits![0]}》のキャラ`;
@@ -122,7 +123,8 @@ export function triggerJa(trigger: Trigger): string {
 export function costJa(cost: Cost): string {
   switch (cost.pay) {
     case 'STOCK':
-      return `(${cost.count})`;
+      // The official text writes a stock cost of 10 or more as a circled number (⑩, NIK/S135-065, the only one).
+      return cost.count >= 10 && cost.count <= 20 ? String.fromCharCode(0x245f + cost.count) : `(${cost.count})`;
     case 'REST_SELF':
       return 'このカードを【レスト】する';
     case 'SELF_TO_WAITING_ROOM':
@@ -260,8 +262,13 @@ export function conditionJa(condition: Condition | undefined): string {
   const parts: (Condition | string)[] = [];
   for (let k = 0; k < all.length; k++) {
     const [a, b] = [named(all[k]), named(all[k + 1])];
+    const frontNamed = (c: Condition | undefined): string | undefined => (c?.if === 'COUNT' && c.where === 'YOUR_FRONT_ROW' && c.other && c.min === 1 && c.max === undefined && c.filter && Object.keys(c.filter).join() === 'name' ? c.filter.name : undefined);
+    const [fa, fb] = [frontNamed(all[k]), frontNamed(all[k + 1])];
     if (a !== undefined && b !== undefined) {
       parts.push(`あなたの「${a}」と「${b}」がいる`);
+      k++;
+    } else if (fa !== undefined && fb !== undefined) {
+      parts.push(`他のあなたの前列の、「${fa}」と「${fb}」がいる`);
       k++;
     } else parts.push(all[k]!);
   }
