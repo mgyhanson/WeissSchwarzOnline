@@ -82,6 +82,19 @@ describe('B: 他のあなたのキャラがアタックした時、そのアタ�
     expect(dealt(events)).toEqual([2]);
   });
 
+  it('（そうでないなら元に戻す）: a card that is not put into the stock is hidden again where it was', () => {
+    // The same showing as an activated ability, so that nothing takes the card afterwards.
+    const show = act([{ do: 'REVEAL_TOP', filter: { kind: 'CHARACTER', levelMax: 0 }, toStock: true }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [show] }, '0:49': character(1) }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    const { state, events } = activate(start, card(0, 0));
+    expect(events.some((e) => e.type === 'CARD_REVEALED' && e.instanceId === card(0, 49))).toBe(true);
+    expect(topOf(state, 0)).toBe(card(0, 49));
+    expect(getInstance(state, card(0, 49)).revealed).toBe(false);
+    expect(state.zones[0].stock).toEqual([]);
+    // Neither player sees a card of the deck afterwards.
+    for (const viewer of [0, 1] as const) expect(getPlayerView(state, viewer).sides[0].deck.every((c) => !('cardId' in c))).toBe(true);
+  });
+
   it('【ターン1】: once in a turn; the second attack of the turn is not changed', () => {
     const first = attack(field(character(1)), card(0, 1), 'DIRECT').state;
     const second = attack(first, card(0, 2), 'DIRECT');
