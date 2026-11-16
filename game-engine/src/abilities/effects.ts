@@ -448,6 +448,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         const sameNames = effect.sameNameAsMoved ? (context.lastMoved ?? []).flatMap((objectId) => state.instances.filter((inst) => inst.objectId === objectId).map((inst) => getDef(state, inst.instanceId).name)) : null;
         let candidates = chooseCandidates(state, context, effect.from, effect.filter, effect.other);
         if (sameNames) candidates = candidates.filter((id) => sameNames.includes(getDef(state, id).name));
+        // 他の…: not one of the cards chosen so far.
+        if (effect.otherThanChosen) {
+          const already = new Set(resolveTarget(state, context, { who: 'CHOSEN' }));
+          candidates = candidates.filter((id) => !already.has(id));
+        }
         // レベルＸ以下: X set earlier in this resolution, 0 when nothing set it.
         if (effect.levelMaxX) candidates = candidates.filter((id) => (getDef(state, id).level ?? 0) <= (context.x ?? 0));
         if (candidates.length === 0) {
@@ -504,6 +509,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
         const max = Math.min(effect.take, chosen.length);
         frame.step = 1;
+        // 相手は…選び: the opponent decides, and only among the cards shown to them (no look: they are public by now, CR-4.9.1).
+        if (effect.by === 'OPPONENT') {
+          if (!effect.reveal) throw new Error('Engine bug: the opponent chooses among cards that were not shown');
+          ask(ctx, { kind: 'SELECT_CARDS', player: opponentOf(master), prompt: 'EFFECT_SPLIT_BY_OPPONENT', cards: chosen.map((id) => getInstance(state, id).objectId), min: effect.exact ? max : 0, max });
+          return;
+        }
         ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_SPLIT', cards: chosen.map((id) => getInstance(state, id).objectId), min: effect.exact ? max : 0, max, look: deckLook(state, master, chosen) });
         return;
       }
@@ -603,9 +614,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         (effect.timesX ? (context.x ?? 0) : 1) *
         (effect.perCount ? zoneCount(state, master, context.source, effect.perCount.where, effect.perCount.filter) : 1);
       const untilTurn = effect.until === 'NEXT_OPPONENT_TURN' ? nextOpponentTurn(state, master) : undefined;
-      for (const id of resolveTarget(state, context, effect.target)) {
+      const modified = resolveTarget(state, context, effect.target);
+      for (const id of modified) {
         addModifier(state, getInstance(state, id).objectId, effect.stat, amount, untilTurn);
       }
+      // そうしたら (CR-8.6.4.1): done when there was a card to change.
+      context.did = modified.length > 0;
       next();
       return;
     }
@@ -1153,6 +1167,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
 
     case 'CHOOSE_ONE': {
+      // The choice is about a card chosen just before: without that card there is nothing to do (CR-8.6.3.1.3).
+      if (effect.afterChoice && resolveTarget(state, context, { who: 'CHOSEN' }).length === 0) {
+        next();
+        return;
+      }
       if (frame.step === 0) {
         frame.step = 1;
         ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_OPTION', options: effect.options.map((_, i) => `EFFECT_${i + 1}`) });
