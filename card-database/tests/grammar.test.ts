@@ -79,6 +79,19 @@ describe('sentence grammar', () => {
     }
   });
 
+  it('keyword-only and gain-only lines: 回想 with its reminder, and a 【永】 that only gives the card a 【起】', () => {
+    const recollection = readLine('【永】 回想 （【自】 これが思い出にあるなら、あなたのキャラが舞台以外から舞台に置かれた時、その下にマーカーがないなら、これを表でその下のマーカーにしてよい。 【自】 これがマーカー置場から離れた時、これを思い出にする）');
+    expect(recollection.unknown).toEqual([]);
+    expect(recollection.line?.ability).toEqual({ type: 'CONT', recollection: true, apply: [] });
+    const gainsAct = readLine('【永】 あなたのレベルが2以上なら、このカードは次の能力を得る。『【起】［(1) このカードを思い出にする］ あなたは自分の手札の「X」を1枚まで選び、このカードがいた枠に置く。』');
+    expect(gainsAct.unknown).toEqual([]);
+    expect(gainsAct.line?.ability).toMatchObject({ type: 'CONT', condition: { if: 'LEVEL', min: 2 }, apply: [], gains: [{ type: 'ACT' }] });
+    // No reason for an unknown line is ever an empty sentence.
+    for (const card of allCards().filter((c) => c.record.support === 'unsupported')) {
+      for (const line of ruleLines(card.official)) for (const u of readLine(line).unknown) expect(u.text.trim(), card.record.cardId).not.toBe('');
+    }
+  });
+
   it('does not compile a line with anything it does not know, and says which part that is', () => {
     const unknown = (line: string) => readLine(line).unknown.map((u) => u.part);
     expect(readLine('【自】 このカードがアタックした時、そのターン中、このカードのパワーを＋1000。').line).not.toBeNull();

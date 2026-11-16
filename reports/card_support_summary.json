@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 470,
- "unsupported": 139,
+ "playable": 473,
+ "unsupported": 136,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 73,
+   "playable": 76,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 60
+     "playable": 63
     },
     "EVENT": {
      "total": 4,
@@ -218,16 +218,11 @@
  "classes": {
   "A": 39,
   "B": 1,
-  "C": 55,
-  "D": 44,
+  "C": 54,
+  "D": 42,
   "E": 0
  },
  "topParts": [
-  {
-   "part": "EFFECT: ",
-   "unlocks": 3,
-   "cards": 3
-  },
   {
    "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
    "unlocks": 2,
@@ -270,6 +265,11 @@
   },
   {
    "part": "COST: か手札の「…」をN枚控え室に置く",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: あなたは相手のキャラをN枚選び、【スタンド】して相手の舞台のキャラのいない他の枠に動かすか、他の相手のキャラをN枚選び、それぞれを【スタンド】して入れ替える",
    "unlocks": 1,
    "cards": 1
   }

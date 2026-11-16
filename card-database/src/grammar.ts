@@ -1669,7 +1669,8 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
       changes = parseChanges(m[3]!);
     }
   }
-  const noChange = given.length > 0 && sentence === '';
+  // Only abilities gained (【自】 given, or 【永】/【起】 the card has), with no number change of its own.
+  const noChange = (given.length > 0 || gainedConts.length > 0) && sentence === '';
   if (!noChange && (!target || !changes)) unknown.push({ part: 'EFFECT', text: sentence });
   if (given.length > 0 && target && target.who !== 'SELF') unknown.push({ part: 'EFFECT', text: sentence });
   if (unknown.length > 0 || !condition) return null;
