@@ -481,5 +481,26 @@
    "ANM_W138": 78,
    "NIK_S135": 76
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B5-4 卡組及 QA",
+  "done": "GUP 031／101、BDY 024／080、STS 004／070、ANM 002、NIK 091 加入測試卡組；效能：起動能力及特徵查詢只在需要時計算；完整 QA",
+  "next": "其餘 108 張：見 CARD_WORKLIST.md",
+  "playable": 501,
+  "unsupported": 108,
+  "level3Playable": 53,
+  "level3Open": 10,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 101,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 82,
+   "STS_W140": 81,
+   "ANM_W138": 78,
+   "NIK_S135": 76
+  }
  }
 ]

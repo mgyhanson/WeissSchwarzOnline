@@ -1,6 +1,6 @@
 # TEST_REPORT — 測試結果
 
-2026-11-15，Mac（Node 24.21），分支 `feat/card-effects-batch-3`。以下全部是實際執行的結果。
+最新：2026-11-16，Mac（Node 24.21），分支 `feat/card-effects-batch-5`。以下每節註明批次及分支，全部是實際執行的結果；較早的各節是歷史紀錄。
 
 <!-- support-summary:start (由 npm run cards:worklist 產生，請勿手改；數字只以此為準) -->
 **目前卡牌支援（2026-11-16，程式計算）**：609 張中 **501 張可對戰**，未支援 108 張；Level 3 53/63。
@@ -20,6 +20,26 @@
 
 未支援分類（初步，只用作排序）：A 33、B 1、C 45、D 29、E 0。詳細見 `reports/CARD_WORKLIST.md`。
 <!-- support-summary:end -->
+
+## 自動測試（2026-11-16，Batch 5，分支 `feat/card-effects-batch-5`，全部實際執行）
+
+| 指令 | 結果 |
+|---|---|
+| `npm run check` | **1096 個測試通過**（50 個測試檔），8 個慢速測試按設計略過，失敗 0；registry 檢查通過；上一批是 1047 個 |
+| `npm run soak` | 4000 局全部通過（INV-01 至 INV-07） |
+| `npm run cards:validate` | 609 張卡、609 張圖片，缺少 0、問題 0（沒有重新下載或改動圖片） |
+| `npm run qa:ui` | 25/25 |
+| `npm run qa:online` | QA_ONLINE |
+
+### Batch 5 新增及改動的測試
+
+| 檔案 | 內容 |
+|---|---|
+| `game-engine/tests/abilities-batch-12.test.ts`（17） | Ｘ（公開的卡、對手控え室、思い出卡名、不同卡名 Marker 加減及分段）用於傷害、次數、張數、看牌上限；公開山札頂後洗牌（不再公開）；Clock 底、所有玩家 Clock；攻擊時 2 次 Trigger Check；正面角色 Soul；對手使用【起】時；直接攻擊時；放到舞台的回合 CX 階段開始時；額外回合（同一玩家再進行回合，「次の相手のターンの終わりまで」順延）；Replay（【ゲーム1】每局一次）；Clock 頂最多 2 張；控え室與思い出互換；抽最多 N 張後棄同數；Stock 底加入手牌後按次序放回（不附非山札卡的卡名）；逐張公開最多 N 張；同名 Climax；對手山札頂 |
+| `card-database/tests/grammar.test.ts` | 只有關鍵字（回想）及只得到能力的【永】的專門測試；未知原因不可為空白；新增 31 張卡的反向核對 |
+| `card-database/tests/patterns.test.ts`（更新 1 項） | 助太刀的 Cost 由原文判斷是放到控え室或思い出 |
+| 練習對局 | 發現並修正一個資訊洩漏：分配及次序選擇曾對控え室／手牌的卡附上卡名資訊 |
+| 效能 | 「108 局隨機對局」在完整測試下曾超過 5 秒上限；改為只在需要時計算得到的【起】能力及特徵給予（3.9 秒 → 3.5 秒），上限沒有改動 |
 
 ## 自動測試（2026-11-16，Batch 4，分支 `feat/card-effects-batch-4`，全部實際執行）
 

@@ -466,13 +466,24 @@ export function ignoresColorCondition(state: GameState, instanceId: number): boo
  * (a condition of a trait-giving ability that itself looks at traits).
  */
 let traitsInProgress = false;
+/** The card ids whose own abilities give traits, worked out once per set of card definitions. */
+const traitGiverCache = new WeakMap<object, Set<string>>();
+function traitGivers(state: GameState): Set<string> {
+  let set = traitGiverCache.get(state.defs);
+  if (!set) {
+    set = new Set(Object.entries(state.defs).filter(([, def]) => (def.abilities ?? []).some((a) => a.type === 'CONT' && a.giveTraits)).map(([id]) => id));
+    traitGiverCache.set(state.defs, set);
+  }
+  return set;
+}
 export function traitsOf(state: GameState, instanceId: number): readonly string[] {
   const def = getDef(state, instanceId);
   const inst = getInstance(state, instanceId);
   if (traitsInProgress || inst.location.zone !== 'stage') return def.traits;
+  const givers = traitGivers(state);
   const anyGiver =
     state.grants.some((grant) => grant.ability.type === 'CONT' && grant.ability.giveTraits) ||
-    [0, 1].some((p) => SLOTS.some((slot) => state.zones[p as PlayerId].stage[slot].some((id) => (getDef(state, id).abilities ?? []).some((a) => a.type === 'CONT' && a.giveTraits))));
+    (givers.size > 0 && [0, 1].some((p) => SLOTS.some((slot) => state.zones[p as PlayerId].stage[slot].some((id) => givers.has(getInstance(state, id).cardId)))));
   if (!anyGiver) return def.traits;
   traitsInProgress = true;
   try {
@@ -535,6 +546,8 @@ export function activatedAbilitiesOf(state: GameState, instanceId: number): { in
     if (ability.type === 'ACT') list.push({ index, ability });
   });
   if (getInstance(state, instanceId).location.zone !== 'stage') return list;
+  // Only a card with a 【永】 that gives it a 【起】 can have more (gains are this card's own).
+  if (!(getDef(state, instanceId).abilities ?? []).some((ability) => ability.type === 'CONT' && ability.gains?.some((g) => g.type === 'ACT'))) return list;
   let k = 100;
   for (const { source, ability } of continuousInForce(state)) {
     if (source.instanceId !== instanceId) continue;

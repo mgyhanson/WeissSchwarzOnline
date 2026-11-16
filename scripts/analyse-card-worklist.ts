@@ -397,21 +397,23 @@ const batch3: string[] = [
 ];
 writeFileSync(join(ROOT, 'reports/BATCH_3_PROGRESS.md'), `${batch3.join('\n')}\n`);
 
-// --- reports/BATCH_4_PROGRESS.md ---------------------------------------------
-const b4 = batches.filter((b) => b.title.startsWith('B4'));
-writeFileSync(
-  join(ROOT, 'reports/BATCH_4_PROGRESS.md'),
-  `${[
-    '# Batch 4 進度',
-    '',
-    '> 由 `npm run cards:worklist` 產生；每批用 `npm run cards:worklist -- --batch "B4-…" "完成內容" "下一步"` 記錄。',
-    '',
-    '| 日期 | 批次 | 完成內容 | 可對戰 | Level 3 | 未支援 | GUP | BDY | STS | ANM | NIK | 下一步 |',
-    '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
-    ...b4.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.bySet.GUP_W141} | ${b.bySet.BDY_W135} | ${b.bySet.STS_W140} | ${b.bySet.ANM_W138} | ${b.bySet.NIK_S135} | ${b.next} |`),
-    '',
-  ].join('\n')}\n`,
-);
+// --- reports/BATCH_4_PROGRESS.md, BATCH_5_PROGRESS.md -------------------------
+for (const n of [4, 5]) {
+  const rows = batches.filter((b) => b.title.startsWith(`B${n}`));
+  writeFileSync(
+    join(ROOT, `reports/BATCH_${n}_PROGRESS.md`),
+    `${[
+      `# Batch ${n} 進度`,
+      '',
+      `> 由 \`npm run cards:worklist\` 產生；每批用 \`npm run cards:worklist -- --batch "B${n}-…" "完成內容" "下一步"\` 記錄。`,
+      '',
+      '| 日期 | 批次 | 完成內容 | 可對戰 | Level 3 | 未支援 | GUP | BDY | STS | ANM | NIK | 下一步 |',
+      '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
+      ...rows.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.bySet.GUP_W141} | ${b.bySet.BDY_W135} | ${b.bySet.STS_W140} | ${b.bySet.ANM_W138} | ${b.bySet.NIK_S135} | ${b.next} |`),
+      '',
+    ].join('\n')}\n`,
+  );
+}
 
 // --- one source for the support numbers ------------------------------------
 // reports/card_support_summary.json, and the block between the support-summary markers in the
