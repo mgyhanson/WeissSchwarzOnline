@@ -138,12 +138,12 @@ export const BDY_TEST_DECK: TestDeck = {
     // Level 0
     bdy('013', 4), bdy('035', 4), bdy('047', 4), bdy('070', 4),
     // Level 1 (12)
-    bdy('087', 4), bdy('006', 3), bdy('019', 3), bdy('086', 2),
+    bdy('087', 4), bdy('006', 3), bdy('019', 3), bdy('036', 2),
     // Level 2 (8)
     bdy('020', 3), bdy('051', 2), bdy('089', 2), bdy('039', 1),
     // Level 3 (6)
     bdy('041', 1), bdy('094', 1), bdy('003', 1), bdy('023', 1), bdy('024', 1), bdy('080', 1),
-    // Climaxes: 愛は衝動 and TearJerker (named by 013), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
+    // Climaxes: 愛は衝動 and TearJerker (named by 013 and by the 集中 of 036), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
     bdy('026', 2), bdy('062', 2), bdy('064', 2), bdy('097', 2),
   ],
 };
@@ -176,7 +176,7 @@ export const ANM_TEST_DECK: TestDeck = {
   note: 'Made by this project from the ANM/W138 cards the engine supports: supported characters of the booster of every level, Level 3 included, one supported event and two climaxes; not an official or tournament list.',
   entries: entriesOf('ANM/W138', {
     // Level 0 (16)
-    '004': 4, '016': 4, '028': 4, '062': 4,
+    '004': 4, '016': 4, '028': 2, '027': 2, '062': 4,
     // Level 1 (13)
     '020': 3, '041': 3, '057': 3, '068': 4,
     // Level 2 (7)
@@ -195,9 +195,10 @@ export const NIK_TEST_DECK: TestDeck = {
   note: 'Made by this project from the NIK/S135 cards the engine supports: supported characters of every level, Level 3 included, and two climaxes; not an official or tournament list.',
   entries: entriesOf('NIK/S135', {
     // Level 0 (18)
-    '011': 3, '029': 3, '031': 3, '043': 2, '059': 2, '083': 2, '087': 2, '093': 1,
+    // 012 is the card NIK/S135-104 lets Choice (the climax 024) take back
+    '011': 3, '029': 3, '031': 3, '012': 2, '059': 2, '083': 2, '087': 2, '093': 1,
     // Level 1 (12)
-    '008': 4, '072': 4, '073': 4,
+    '008': 4, '072': 2, '104': 2, '073': 2, '074': 2,
     // Level 2 (8)
     '014': 2, '041': 2, '042': 2, '105': 2,
     // Level 3 (4)

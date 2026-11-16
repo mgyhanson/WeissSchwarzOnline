@@ -304,6 +304,12 @@ export function parseCostAction(raw: string): Out<Cost> {
 }
 
 function parseCost(actions: string[]): Out<Cost[]> {
+  // ［(N)か…］: the stock or the other cost, as the player chooses.
+  if (actions.length === 2 && /^\(\d+\)$/.test(actions[0]!) && actions[1]!.startsWith('か')) {
+    const a = parseCostAction(actions[0]!);
+    const b = parseCostAction(actions[1]!.slice(1));
+    return a && b ? out([{ pay: 'EITHER', options: [[a.data], [b.data]] }], `${a.zh}或${b.zh}（自己選一種）`) : null;
+  }
   const parsed = actions.map(parseCostAction);
   if (parsed.some((p) => p === null)) return null;
   return out(
@@ -832,6 +838,7 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     }
   }
   if (text === 'その山札をシャッフルする') return out([{ do: 'SHUFFLE' }], '洗山札');
+  if ((m = /^自分のストックの上から(\d+)枚を、控え室に置く$/.exec(text))) return out([{ do: 'STOCK_TOP_TO_WAITING_ROOM', count: n(m[1]) }], `把自己 Stock 最上面 ${m[1]} 張放到控え室`);
   if ((m = /^自分の思い出置場の「([^」]+)」すべてをこのカードの下にマーカーとして好きな順番で表向きに置き、(.+)$/.exec(text))) {
     const rest = parseEffects([m[2]!], battle);
     if (rest) return out([{ do: 'CHOOSE', from: 'YOUR_MEMORY', filter: { name: m[1]! }, min: 0, max: 99, all: true }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'UNDER_SELF', face: 'UP', inOrder: true }, ...rest.data], `把自己思い出中所有「${m[1]}」按喜歡的次序以表向放到這張卡下面作為 Marker，然後${rest.zh}`);
@@ -1147,7 +1154,9 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
       xDef[1] === 'それらのカードのレベルの合計'
         ? /^あなたは自分の山札の上から(\d+)枚を、控え室に置き、(.+Ｘ.*)$/.exec(sentences[0] ?? '')
         : /^あなたは自分の山札の上から1枚を公開し、(.+Ｘ.*)$/.exec(sentences[0] ?? '');
-    if (!made || sentences.length !== 1) return null;
+    // Sentences after the one that uses X: "(…があり、)Ｘが N以上／以下なら、…".
+    const xIfs = sentences.slice(1).map((s) => /^(?:(.+?)があり、)?Ｘが(\d+)(以上|以下)なら、(.+)$/.exec(s));
+    if (!made || xIfs.some((x) => !x)) return null;
     const uses = made[made.length - 1]!;
     const times = xDef[2] ? n(xDef[2]) : 1;
     let usesX: Out<Effect[]> = null;
@@ -1160,9 +1169,18 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
       if (first?.do === 'CHOOSE') usesX = out([{ ...first, levelMaxX: true }, ...chosen!.data.slice(1)], chosen!.zh.replace(/選/, '選 Level Ｘ 或以下的'));
     }
     if (!usesX) return null;
+    const ifs: Effect[] = [];
+    for (const x of xIfs) {
+      const other = x![1] ? parseCondition(`${x![1]}がある`) : null;
+      const then = parseEffects([x![4]!], battle);
+      if ((x![1] && !other?.data) || !then) return null;
+      const range = x![3] === '以上' ? { min: n(x![2]) } : { max: n(x![2]) };
+      ifs.push({ do: 'IF', condition: other?.data ? { if: 'ALL', of: [other.data, { if: 'X', ...range }] } : { if: 'X', ...range }, then: then.data });
+    }
+    usesX = out([...usesX!.data, ...ifs], usesX!.zh + (ifs.length ? '，再按 Ｘ 判斷後續' : ''));
     const maker: Effect = xDef[1] === 'それらのカードのレベルの合計' ? { do: 'DECK_TOP', count: n(made[1]), to: 'WAITING_ROOM', setX: 'LEVEL_TOTAL' } : { do: 'SHOW_TOP' };
     const makerZh = xDef[1] === 'それらのカードのレベルの合計' ? `把自己山札頂 ${made[1]} 張放到控え室（Ｘ是這些卡的 Level 合計，Climax 當作 0）` : '公開自己山札頂 1 張後放回原處（Ｘ是該卡的 Level，Climax 當作 0）';
-    return out([maker, ...usesX.data], `${makerZh}，然後${usesX.zh}`);
+    return out([maker, ...usesX!.data], `${makerZh}，然後${usesX!.zh}`);
   }
   // "…置き、次の行動を(N回)行う。『…』": the first action, then the repeated one.
   for (let k = 0; k < sentences.length; k++) {
@@ -1171,7 +1189,7 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
   }
   for (let i = 0; i < sentences.length; i++) {
     const brainstorm = /^あなたは自分の山札の上から(\d+)枚をめくり、控え室に置く$/.exec(sentences[i]!);
-    const each = brainstorm && /^それらのカードの(CX|トリガーアイコンが(?:\[\[[a-z]+\.gif\]\])+のCX)1枚につき、(.+)$/.exec(sentences[i + 1] ?? '');
+    const each = brainstorm && /^それらのカードの(CX|トリガーアイコンが(?:\[\[[a-z]+\.gif\]\])+のCX|「[^」]+」(?:か「[^」]+」)*)1枚につき、(.+)$/.exec(sentences[i + 1] ?? '');
     if (brainstorm && each) {
       const per = parseFilter(each[1]!, 'ZONE');
       // "次の行動を行う。『…』": the action is the next, quoted sentence.
@@ -1246,6 +1264,16 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
       effects.push({ do: 'CHOOSE', from: 'OPPONENT_STAGE', ...(mine.data ? { filter: mine.data } : {}), min: 0, max: n(pickTheirs[2]) }, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM', ...(theirFilter && Object.keys(theirFilter).length ? { filter: theirFilter } : {}) });
       zh.push(`可以選對手 ${pickTheirs[2]} 張${mine.zh}；選了的話，對手從自己控え室選 1 張${theirs.zh}與它互換`);
       i++;
+      continue;
+    }
+    // "そのアタック中、…トリガーチェックをN回行う。N回行ったら、…": the rest waits for that many completed checks.
+    const lastChecks = effects[effects.length - 1];
+    const afterN = /^(\d+)回行ったら、(.+)$/.exec(sentences[i]!);
+    if (afterN && lastChecks?.do === 'TRIGGER_CHECKS' && !lastChecks.then && lastChecks.count === n(afterN[1])) {
+      const then = parseEffects([afterN[2]!], battle);
+      if (!then) return null;
+      effects[effects.length - 1] = { ...lastChecks, then: then.data };
+      zh.push(`進行了 ${afterN[1]} 次的話，${then.zh}`);
       continue;
     }
     // "あなたは次の効果を行ってよい。『…』": the quoted effects, if the player wants.
@@ -1799,6 +1827,12 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
       zh: `【永】${condition.zh ? `${condition.zh}，` : ''}我方 Level 置場每有 1 張${filter.zh}（表向），這張卡 ${perLevelCard[2] === 'パワー' ? 'Power' : 'Soul'} +${perLevelCard[3]}。`,
     };
   }
+  const alsoChoose = /^あなたは((?:\[\[[a-z]+\.gif\]\](?:か)?)+)の効果で自分の控え室の「([^」]+)」を選んでよい$/.exec(sentence);
+  if (alsoChoose && given.length === 0) {
+    const icons = [...alsoChoose[1]!.matchAll(/\[\[([a-z]+\.gif)\]\]/g)].map((x) => TRIGGER_ICONS[x[1]!]);
+    if (unknown.length > 0 || !condition || condition.data || icons.some((icon) => icon !== 'CHOICE' && icon !== 'GATE')) return null;
+    return { ability: { type: 'CONT', triggerAlsoChooses: { icons: icons as ('CHOICE' | 'GATE')[], filter: { name: alsoChoose[2]! } }, apply: [] }, zh: `【永】我方的 ${icons.join('／')} 效果也可以選擇自己控え室的「${alsoChoose[2]}」。` };
+  }
   if (sentence === 'このカードはプレイヤーにダメージを与えることができない' && given.length === 0) {
     if (unknown.length > 0 || !condition || condition.data) return null;
     return { ability: { type: 'CONT', noDamageToPlayers: true, apply: [] }, zh: '【永】這張卡不能對玩家造成傷害。' };
@@ -1920,6 +1954,8 @@ function withoutReminders(line: string): string {
     if (note === 'CXのレベルは0として扱う') return /レベル/.test(body);
     // A card shown from the top of the deck and not taken stays where it was (REVEAL_TOP, SHOW_TOP).
     if (note === 'そうでないなら元に戻す') return /公開する。そのカード(?:が|の)[^。]*なら(?:手札に加え|ストック置場に置)/.test(body);
+    // The shown card stays on top unless the effect puts it into the stock (山札の上から1枚までを、ストック置場に置く).
+    if (note === 'ストック置場に置かないなら元に戻す') return /公開し、/.test(body) && /山札の上から1枚までを、ストック置場に置く/.test(body);
     if (note === '公開したカードは元に戻す') return /公開(?:する|してよい)。そのカード(?:が|の)[^。]*なら、|山札の上から\d+枚を公開し、/.test(body);
     return false;
   });
