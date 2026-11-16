@@ -130,6 +130,15 @@ export function getDecisionView(state: GameState, viewer: PlayerId): DecisionVie
   return { mine: false, id: decision.id, player: decision.player, kind: decision.kind };
 }
 
+/**
+ * The attack as both players see it: the attacker, the defender and the trigger check counts. The effects waiting
+ * for a number of checks (N回行ったら) are engine bookkeeping with their resolution context; they are not sent.
+ */
+function publicAttack(attack: AttackState): AttackState {
+  const { afterChecks: _waiting, ...shown } = attack;
+  return shown;
+}
+
 export function getPlayerView(state: GameState, viewer: PlayerId): PlayerView {
   return {
     viewer,
@@ -137,7 +146,7 @@ export function getPlayerView(state: GameState, viewer: PlayerId): PlayerView {
     sides: [viewSide(state, viewer, state.zones[0]), viewSide(state, viewer, state.zones[1])],
     firstPlayer: state.firstPlayer,
     turn: state.turn ? { ...state.turn } : null,
-    attack: state.attack ? { ...state.attack } : null,
+    attack: state.attack ? publicAttack(state.attack) : null,
     decision: getDecisionView(state, viewer),
     result: state.result ? structuredClone(state.result) : null,
     stats: stageStats(state),

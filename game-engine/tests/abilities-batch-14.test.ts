@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { type Ability, type Cost, type Ctx, type Effect, type GameEvent, type GameState, canPayCost, stageSlot } from '../src/index';
+import { type Ability, type Cost, type Ctx, type Effect, type GameEvent, type GameState, canPayCost, getPlayerView, stageSlot } from '../src/index';
 import { activate, attack, canActivate, cards, noClimaxes, played } from './ability-helpers';
 import { EVENT, answer, card, oid, pending, put, scenario } from './helpers';
 
@@ -170,6 +170,19 @@ describe('B: そのアタック中、トリガーチェックを2回行う。2�
     expect(state.zones[0].waitingRoom).toEqual([card(0, 0), card(0, 40)]);
     expect(dealt(events)).toEqual([]);
     expect(state.attack).toBeNull();
+  });
+
+  it('the waiting follow-up is engine bookkeeping: neither player’s view carries it', () => {
+    // A front attack stops at the opponent’s counter step, after the checks, with the attack still in progress.
+    const { state } = go(field([onAttack(twice)], (ctx) => put(ctx, card(1, 0), stageSlot(1, 'FC'))), 0, 'FRONT');
+    expect(state.pending?.kind).toBe('COUNTER');
+    expect(state.attack?.afterChecks).toHaveLength(1);
+    for (const viewer of [0, 1] as const) {
+      const view = getPlayerView(state, viewer);
+      expect(view.attack).toMatchObject({ player: 0, type: 'FRONT', checksDone: 2 });
+      expect(view.attack).not.toHaveProperty('afterChecks');
+      expect(JSON.stringify(view)).not.toContain('STOCK_TOP_TO_WAITING_ROOM');
+    }
   });
 
   it('as a given ability (そのターン中、次の能力を与える): the character given it, in its own attack', () => {
