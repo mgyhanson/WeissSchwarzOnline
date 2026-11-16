@@ -82,7 +82,7 @@ describe('B: 他のあなたのキャラがアタックした時、そのアタ�
     expect(dealt(events)).toEqual([2]);
   });
 
-  it('（そうでないなら元に戻す）: a card that is not put into the stock is hidden again where it was', () => {
+  it('T-PLAY-012 / CR-8.6.6: （そうでないなら元に戻す）: a card that is not put into the stock is hidden again where it was', () => {
     // The same showing as an activated ability, so that nothing takes the card afterwards.
     const show = act([{ do: 'REVEAL_TOP', filter: { kind: 'CHARACTER', levelMax: 0 }, toStock: true }]);
     const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [show] }, '0:49': character(1) }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
@@ -247,7 +247,7 @@ describe('A: 相手のキャラを1枚選び、【スタンド】して…他の
   const choose = (state: GameState, ...ids: number[]) => answer(state, { kind: 'SELECT_CARDS', cards: ids.map((id) => oid(state, id)) }).state;
   const mode = (state: GameState, k: 1 | 2) => answer(state, { kind: 'SELECT_OPTION', option: `EFFECT_${k}` }).state;
 
-  it('moved: the chosen character stands and goes to the free slot the player of the effect chooses (CR-8.6.5)', () => {
+  it('T-PLAY-011 / CR-8.6.5: moved: the chosen character stands and goes to the free slot the player of the effect chooses', () => {
     let state = activate(field({ FC: 0, BL: 1 }), card(0, 0)).state;
     // The cost is paid, once.
     expect(state.zones[0].waitingRoom).toEqual([card(0, 0)]);
@@ -284,7 +284,7 @@ describe('A: 相手のキャラを1枚選び、【スタンド】して…他の
     expect(getInstance(state, card(1, 1)).orientation).toBe('REST');
   });
 
-  it('no free slot: the character stands and stays; no second character: nothing is exchanged and nobody stands', () => {
+  it('T-GEN-002 / CR-1.3.2: no free slot: the character stands and stays; T-PLAY-013 / CR-8.6.3.1.3: no second character: nothing is exchanged and nobody stands', () => {
     let full = activate(field({ FL: 0, FC: 1, FR: 2, BL: 3, BR: 4 }), card(0, 0)).state;
     full = mode(choose(full, card(1, 1)), 1);
     expect(full.pending?.kind).toBe('MAIN');
@@ -296,7 +296,7 @@ describe('A: 相手のキャラを1枚選び、【スタンド】して…他の
     expect(getInstance(alone, card(1, 0))).toMatchObject({ orientation: 'REST', location: { zone: 'stage', slot: 'FC' } });
   });
 
-  it('no character of the opponent: the cost can be paid, nothing is asked, nothing happens', () => {
+  it('T-PLAY-014 / CR-8.6.3.1.3: no character of the opponent: the cost can be paid, nothing is asked, nothing happens', () => {
     const state = activate(field({}), card(0, 0)).state;
     expect(state.zones[0].waitingRoom).toEqual([card(0, 0)]);
     expect(state.pending?.kind).toBe('MAIN');
@@ -379,7 +379,7 @@ describe('A: …他の枠に動かし、次の相手のターンの終わりま�
     expect(at(short, 1, 'FC')).toBe(card(1, 0));
   });
 
-  it('moved without standing, and from then on it cannot be moved to another slot; other characters can', () => {
+  it('T-GEN-005 / CR-1.3.3: moved without standing, and from then on it cannot be moved to another slot; other characters can', () => {
     const state = pinned();
     expect(getInstance(state, card(1, 0))).toMatchObject({ orientation: 'REST', location: { zone: 'stage', slot: 'FR' } });
     // An effect that would move it does nothing (CR-1.3.3); the other character is moved as usual.
@@ -473,7 +473,7 @@ describe('C: 自分の山札を見て…を2枚まで選んで相手に見せる
   /** The search itself (ability 1, no cost). */
   const searching = (inDeck: number) => activate(field(inDeck), card(0, 0), 1).state;
 
-  it('two chosen: shown to the opponent, who chooses one for the waiting room; the other goes to the hand; the deck is shuffled', () => {
+  it('T-PLAY-015 / CR-8.6.5: two chosen: shown to the opponent, who chooses one for the waiting room (相手は…選び); the other goes to the hand; the deck is shuffled', () => {
     const asked = searching(3);
     expect(pending(asked, 'SELECT_CARDS')).toMatchObject({ player: 0, min: 0, max: 2 });
     expect(pending(asked, 'SELECT_CARDS').cards.map((o) => asked.instances.find((i) => i.objectId === o)!.instanceId).sort((a, b) => a - b)).toEqual([card(0, 10), card(0, 11), card(0, 12)]);
