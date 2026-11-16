@@ -398,7 +398,7 @@ const batch3: string[] = [
 writeFileSync(join(ROOT, 'reports/BATCH_3_PROGRESS.md'), `${batch3.join('\n')}\n`);
 
 // --- reports/BATCH_4_PROGRESS.md, BATCH_5_PROGRESS.md -------------------------
-for (const n of [4, 5]) {
+for (const n of [4, 5, 6]) {
   const rows = batches.filter((b) => b.title.startsWith(`B${n}`));
   writeFileSync(
     join(ROOT, `reports/BATCH_${n}_PROGRESS.md`),

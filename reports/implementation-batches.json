@@ -544,5 +544,26 @@
    "ANM_W138": 78,
    "NIK_S135": 79
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B6-4 卡組及 QA",
+  "done": "STS 028、NIK 034／107 加入測試卡組；完整 QA（check 1106／8／0、soak 4000、validate 609/609、qa:ui 25/25）",
+  "next": "其餘 104 張：見 CARD_WORKLIST.md",
+  "playable": 505,
+  "unsupported": 104,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 101,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 82,
+   "STS_W140": 82,
+   "ANM_W138": 78,
+   "NIK_S135": 79
+  }
  }
 ]
