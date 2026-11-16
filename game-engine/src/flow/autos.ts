@@ -7,6 +7,7 @@
 
 import { canPayCost, countUse, limitReached, playAbility } from '../abilities/effects';
 import { activeSources, evalCondition, grantedAutos, matchesFilter } from '../abilities/query';
+import type { DelayedTime } from '../abilities/types';
 import type { AutoAbility, EffectContext, Trigger } from '../abilities/types';
 import type { AbilityOption } from '../decisions';
 import type { GameEvent } from '../events';
@@ -117,6 +118,26 @@ function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger
   }
 }
 
+/** そのターン中、そのキャラは『【自】 アンコール』を使えない: given to the character as it was on the stage (rule encore included). */
+function barredFromEncore(state: GameState, objectId: number): boolean {
+  return state.grants.some((grant) => grant.objectId === objectId && grant.ability.type === 'CONT' && grant.ability.noEncore === true);
+}
+
+/** Delayed abilities whose time has come trigger (once) and are gone. */
+function fireDelayed(state: GameState, due: (at: DelayedTime, master: PlayerId) => boolean): void {
+  if (!state.delayed?.length) return;
+  const keep: NonNullable<GameState['delayed']> = [];
+  for (const delayed of state.delayed) {
+    if (!due(delayed.at, delayed.master)) {
+      keep.push(delayed);
+      continue;
+    }
+    const ability: AutoAbility = { type: 'AUTO', trigger: { on: 'PHASE_START', phase: 'END', turn: 'ANY' }, effect: delayed.effects };
+    state.waiting.push({ id: state.nextWaitingId++, kind: 'CARD', master: delayed.master, instanceId: delayed.instanceId, objectId: delayed.objectId, ability: -1, battleOpponent: null, slot: null, granted: ability, carried: delayed.carried });
+  }
+  state.delayed = keep;
+}
+
 /** Trigger conditions of card abilities met by one event. */
 function registerCardTriggers(state: GameState, event: GameEvent): void {
   switch (event.type) {
@@ -152,7 +173,20 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // このカードが舞台から控え室に置かれた時. CR-8.7.4.1.2: the card as it was
       // on the stage, including abilities it had been given there.
       if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom') {
-        const left = autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM', event.stageGrants ?? []);
+        // 他のあなたの…のキャラが舞台から控え室に置かれた時: the other cards of that player in force; about the card, and the slot it left.
+        for (const source of activeSources(state)) {
+          if (source.master !== event.from.player || source.instanceId === card.instanceId) continue;
+          const sourceCard = state.instances[source.instanceId] as CardInstance;
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_STAGE_TO_WAITING_ROOM' && matchesFilter(state, card.instanceId, t.filter))) {
+            if (!inForce(source, found.ability)) continue;
+            wait(state, source.master, sourceCard, found, null, null, card.objectId);
+            const waiting = state.waiting[state.waiting.length - 1]!;
+            if (waiting.kind === 'CARD') waiting.aboutSlot = { player: event.from.player, slot: event.from.slot };
+          }
+        }
+        // そのキャラは『【自】 アンコール』を使えない: its encore abilities do not trigger.
+        const noEncore = barredFromEncore(state, event.fromObjectId);
+        const left = autosOf(state, card, (t) => t.on === 'STAGE_TO_WAITING_ROOM', event.stageGrants ?? []).filter((found) => !(noEncore && (found.ability.keywords ?? []).includes('ENCORE')));
         for (const found of left) wait(state, event.from.player, card, found, null, { player: event.from.player, slot: event.from.slot });
       }
       if (event.to.zone === 'climax' && event.from.zone !== 'climax') {
@@ -172,7 +206,12 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // あなたのキャラのトリガーチェックで…がでた時. The card is in the resolution zone now.
       const checked = topOf(state.zones[event.player].resolution);
       if (checked === undefined) return;
-      sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && matchesFilter(state, checked, t.filter));
+      sourcesWith(state, event.player, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && !t.ofThisCard && matchesFilter(state, checked, t.filter));
+      // このカードのトリガーチェックで…がでた時: the attacking character's own abilities.
+      const attacking = attackerInstance(state);
+      if (attacking && attacking.location.zone === 'stage') {
+        for (const found of autosOf(state, attacking, (t) => t.on === 'TRIGGER_CHECK_REVEALS' && t.ofThisCard === true && matchesFilter(state, checked, t.filter))) wait(state, event.player, attacking, found, null);
+      }
       // このカードがトリガーした時: the abilities of the turned-over card itself, there in the resolution zone.
       const card = state.instances[checked] as CardInstance;
       for (const found of autosOf(state, card, (t) => t.on === 'THIS_TRIGGERED', [])) wait(state, event.player, card, found, null);
@@ -200,6 +239,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // あなたがこのカードの『助太刀』を使った時 (CR-10.5.3: its cost has been paid).
       const card = state.instances[event.instanceId] as CardInstance;
       const played = state.defs[card.cardId]?.abilities?.[event.ability];
+      // あなたが【起】を使った時
+      if (played?.type === 'ACT') sourcesWith(state, event.player, (t) => t.on === 'YOU_PLAYED_ACT');
       if (!played || played.type !== 'ACT' || !(played.keywords ?? []).includes('BACKUP')) return;
       for (const found of autosOf(state, card, (t) => t.on === 'USED_BACKUP', [])) wait(state, event.player, card, found, null);
       return;
@@ -218,7 +259,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
         for (const source of activeSources(state)) {
           if (source.master === event.player || source.instanceId === defender.instanceId) continue;
           const sourceCard = state.instances[source.instanceId] as CardInstance;
-          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_FRONT_ATTACKED' && matchesFilter(state, defender.instanceId, t.filter))) {
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_FRONT_ATTACKED' && matchesFilter(state, defender.instanceId, t.filter) && (!t.slots || (defender.location.zone === 'stage' && t.slots.includes(defender.location.slot))))) {
             if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, defender.objectId);
           }
         }
@@ -238,7 +279,8 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
         if (source.master !== event.player || source.instanceId === attacker.instanceId) continue;
         const sourceCard = state.instances[source.instanceId] as CardInstance;
         for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_ATTACKS' && matchesFilter(state, attacker.instanceId, t.filter))) {
-          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
+          // そのキャラ: the attacking character.
+          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, attacker.objectId);
         }
       }
       return;
@@ -250,18 +292,19 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // このカードが【リバース】した時
       // バトル中のこのカード: the attacking or defending character of a front attack (CR-7.2.1.5.1).
       for (const found of autosOf(state, card, (t) => t.on === 'REVERSED' && (!t.inBattle || opponent !== null))) {
-        wait(state, event.player, card, found, opponent ? opponent.objectId : null);
+        wait(state, event.player, card, found, opponent ? opponent.objectId : null, null, card.objectId);
       }
       // このカードのバトル相手が【リバース】した時
       if (opponent) {
         const placedNow = opponent.placedFromHandTurn !== undefined && opponent.placedFromHandTurn === state.turn?.number;
         for (const found of autosOf(state, opponent, (t) => t.on === 'BATTLE_OPPONENT_REVERSED' && matchesFilter(state, card.instanceId, t.filter) && (!t.placedThisTurn || placedNow))) {
-          wait(state, opponent.location.player, opponent, found, card.objectId);
+          wait(state, opponent.location.player, opponent, found, card.objectId, null, card.objectId);
         }
       }
       return;
     }
     case 'PHASE_STARTED':
+      fireDelayed(state, (at, master) => at.phase === event.phase && at.step === undefined && (at.whose === 'ANY' || (at.whose === 'YOURS') === (master === event.player)));
       // (あなたの/相手の)…フェイズの始めに
       sourcesWith(state, 'ANY', (t, master) => {
         const whose = master === event.player ? 'YOURS' : 'OPPONENT';
@@ -269,6 +312,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       });
       return;
     case 'STEP_STARTED':
+      fireDelayed(state, (at, master) => at.step === event.step && (at.whose === 'ANY' || (at.whose === 'YOURS') === (master === event.player)));
       // (あなたの/相手の)…ステップの始めに
       sourcesWith(state, 'ANY', (t, master) => {
         const whose = master === event.player ? 'YOURS' : 'OPPONENT';
@@ -295,7 +339,7 @@ export function registerTriggers(ctx: Ctx): void {
     // CR-10.2.2: "when this character is put from the stage into the waiting
     // room". CR-10.2.3: every character has encore [3]. The ability belongs to
     // the player on whose stage the character was (CR-8.7.4.1.2).
-    if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom' && state.defs[event.cardId]?.kind === 'CHARACTER') {
+    if (event.from.zone === 'stage' && event.to.zone === 'waitingRoom' && state.defs[event.cardId]?.kind === 'CHARACTER' && !barredFromEncore(state, event.fromObjectId)) {
       state.waiting.push({
         id: state.nextWaitingId++,
         kind: 'ENCORE',
@@ -420,6 +464,8 @@ function stepCardAuto(ctx: Ctx, frame: Extract<Frame, { kind: 'AUTO' }>, waiting
     chosen: [],
     battleOpponent: waiting.battleOpponent,
     about: waiting.about ?? null,
+    ...(waiting.aboutSlot ? { aboutSlot: waiting.aboutSlot } : {}),
+    ...(waiting.carried ? { chosen: [...waiting.carried.chosen], lastMoved: [...waiting.carried.lastMoved], placed: [...waiting.carried.placed] } : {}),
     sourceSlot: waiting.slot ?? (sourceLocation.zone === 'stage' ? { player: sourceLocation.player, slot: sourceLocation.slot } : null),
     ...(ability.keywords ? { keywords: [...ability.keywords] } : {}),
   };

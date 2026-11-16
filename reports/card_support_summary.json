@@ -1,0 +1,277 @@
+{
+ "total": 609,
+ "playable": 470,
+ "unsupported": 139,
+ "bySet": [
+  {
+   "set": "SY_W08_TD",
+   "total": 17,
+   "playable": 17,
+   "byKind": {
+    "CHARACTER": {
+     "total": 13,
+     "playable": 13
+    },
+    "EVENT": {
+     "total": 1,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 3,
+     "playable": 3
+    }
+   },
+   "level3": {
+    "total": 1,
+    "playable": 1
+   }
+  },
+  {
+   "set": "5HY_W83_TD_ICHIKA",
+   "total": 18,
+   "playable": 18,
+   "byKind": {
+    "CHARACTER": {
+     "total": 15,
+     "playable": 15
+    },
+    "EVENT": {
+     "total": 1,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 2,
+     "playable": 2
+    }
+   },
+   "level3": {
+    "total": 2,
+    "playable": 2
+   }
+  },
+  {
+   "set": "SAO_S20",
+   "total": 30,
+   "playable": 30,
+   "byKind": {
+    "CHARACTER": {
+     "total": 21,
+     "playable": 21
+    },
+    "EVENT": {
+     "total": 1,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 8,
+     "playable": 8
+    }
+   },
+   "level3": {
+    "total": 0,
+    "playable": 0
+   }
+  },
+  {
+   "set": "GUP_W141",
+   "total": 114,
+   "playable": 94,
+   "byKind": {
+    "CHARACTER": {
+     "total": 95,
+     "playable": 78
+    },
+    "EVENT": {
+     "total": 4,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 15,
+     "playable": 15
+    }
+   },
+   "level3": {
+    "total": 12,
+    "playable": 9
+   }
+  },
+  {
+   "set": "SAO_OTHERS",
+   "total": 18,
+   "playable": 18,
+   "byKind": {
+    "CHARACTER": {
+     "total": 17,
+     "playable": 17
+    },
+    "EVENT": {
+     "total": 0,
+     "playable": 0
+    },
+    "CLIMAX": {
+     "total": 1,
+     "playable": 1
+    }
+   },
+   "level3": {
+    "total": 0,
+    "playable": 0
+   }
+  },
+  {
+   "set": "BDY_W135",
+   "total": 100,
+   "playable": 76,
+   "byKind": {
+    "CHARACTER": {
+     "total": 85,
+     "playable": 64
+    },
+    "EVENT": {
+     "total": 3,
+     "playable": 0
+    },
+    "CLIMAX": {
+     "total": 12,
+     "playable": 12
+    }
+   },
+   "level3": {
+    "total": 16,
+    "playable": 12
+   }
+  },
+  {
+   "set": "STS_W140",
+   "total": 100,
+   "playable": 73,
+   "byKind": {
+    "CHARACTER": {
+     "total": 84,
+     "playable": 60
+    },
+    "EVENT": {
+     "total": 4,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 12,
+     "playable": 12
+    }
+   },
+   "level3": {
+    "total": 9,
+    "playable": 4
+   }
+  },
+  {
+   "set": "ANM_W138",
+   "total": 100,
+   "playable": 73,
+   "byKind": {
+    "CHARACTER": {
+     "total": 81,
+     "playable": 57
+    },
+    "EVENT": {
+     "total": 7,
+     "playable": 4
+    },
+    "CLIMAX": {
+     "total": 12,
+     "playable": 12
+    }
+   },
+   "level3": {
+    "total": 13,
+    "playable": 9
+   }
+  },
+  {
+   "set": "NIK_S135",
+   "total": 112,
+   "playable": 71,
+   "byKind": {
+    "CHARACTER": {
+     "total": 90,
+     "playable": 57
+    },
+    "EVENT": {
+     "total": 9,
+     "playable": 1
+    },
+    "CLIMAX": {
+     "total": 13,
+     "playable": 13
+    }
+   },
+   "level3": {
+    "total": 13,
+    "playable": 4
+   }
+  }
+ ],
+ "level3": {
+  "total": 63,
+  "playable": 38
+ },
+ "classes": {
+  "A": 39,
+  "B": 1,
+  "C": 55,
+  "D": 44,
+  "E": 0
+ },
+ "topParts": [
+  {
+   "part": "EFFECT: ",
+   "unlocks": 3,
+   "cards": 3
+  },
+  {
+   "part": "SHAPE: （…）: （ルールによる『【自】 アンコール ［(N)］』も使えない）",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "OPTIONAL: あなたは自分の山札の上からN枚までを、公開してよい。N枚以上公開したなら、あなたはそれらのカードの《…》のキャラか「…」をN枚まで選び、手札に加え、残りのカードを控え室に置き、自分の手札をN枚選び、控え室に置く",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "SHAPE: （…）: （CXのレベルはNとして扱う。ストック置場に置かないなら元に",
+   "unlocks": 2,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは自分の山札の上からN枚をめくり、控え室に置く。それらのカードの「…」か「…」N枚につき、あなたは自分の控え室の《…》のキャラをN枚まで選び、手札に戻す",
+   "unlocks": 1,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは自分の控え室の《…》のキャラと思い出置場の《…》のキャラをN枚ずつ選び、入れ替える",
+   "unlocks": 1,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは自分の山札を見て自分の控え室にあるCXと同じカード名のCXをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: あなたはN枚まで引き、自分の手札を同じ枚数選び、控え室に置き、自分のキャラをN枚選び、そのターン中、パワーを＋N",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "EVENT: あなたは相手の山札を上からN枚見て、山札の上か控え室に置き、自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、その山札をシャッフルする。",
+   "unlocks": 1,
+   "cards": 1
+  },
+  {
+   "part": "COST: か手札の「…」をN枚控え室に置く",
+   "unlocks": 1,
+   "cards": 1
+  }
+ ]
+}

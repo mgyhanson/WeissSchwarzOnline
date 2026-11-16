@@ -3,7 +3,7 @@
  */
 
 import { canPayCost, countUse, limitReached, playAbility, pushEffects } from './abilities/effects';
-import { blockedCounters, cannotMove, evalCondition, ignoresColorCondition, stageCharacters } from './abilities/query';
+import { activatedAbilitiesOf, blockedCounters, cannotMove, evalCondition, ignoresColorCondition, playRestrictionMet, stageCharacters } from './abilities/query';
 import type { ActivatedAbility, EffectContext } from './abilities/types';
 import type { MainAction } from './decisions';
 import { emit, findObject, pushFrame } from './flow/core';
@@ -44,6 +44,7 @@ export function canPlayFromHand(state: GameState, player: PlayerId, instanceId: 
   const def = getDef(state, instanceId);
   return (
     // The level the card has in the hand: its abilities that work there may lower it (あなたの手札のこのカードのレベルを－N).
+    playRestrictionMet(state, player, instanceId) &&
     (ignoresColorCondition(state, instanceId) || meetsColorCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId)))) &&
     meetsLevelCondition(state, player, def, Math.max(0, getCardLevel(state, instanceId))) &&
     state.zones[player].stock.length >= stockCost(def)
@@ -70,11 +71,12 @@ export function listMainActions(state: GameState, player: PlayerId): MainAction[
   // CR-6.5.1.2.3: activated abilities of the player's characters on the stage.
   for (const id of stageCharacters(state, player)) {
     const inst = getInstance(state, id);
-    (getDef(state, id).abilities ?? []).forEach((ability, index) => {
-      if (ability.type === 'ACT' && ability.timing === 'MAIN' && canActivate(state, player, inst, index, ability)) {
+    // Printed ones and ones the card gains (…このカードは次の能力を得る。『【起】…』).
+    for (const { index, ability } of activatedAbilitiesOf(state, id)) {
+      if (ability.timing === 'MAIN' && canActivate(state, player, inst, index, ability)) {
         actions.push({ type: 'ACTIVATE', card: inst.objectId, ability: index });
       }
-    });
+    }
   }
 
   // CR-6.5.1.2.4. Choosing two empty slots is allowed by the rules but does
@@ -198,7 +200,7 @@ function canActivate(state: GameState, player: PlayerId, source: CardInstance, i
 function activate(ctx: Ctx, player: PlayerId, objectId: number, index: number): void {
   const state = ctx.state;
   const source = findObject(state, objectId);
-  const ability = getDef(state, source.instanceId).abilities?.[index];
+  const ability = activatedAbilitiesOf(state, source.instanceId).find((a) => a.index === index)?.ability;
   if (!ability || ability.type !== 'ACT' || !canActivate(state, player, source, index, ability)) {
     throw new Error('Engine bug: tried to play an activated ability that cannot be played');
   }

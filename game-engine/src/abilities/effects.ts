@@ -16,7 +16,7 @@ import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
-import { cannotMove, chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
+import { cannotBeReversed, cannotMove, chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ function restable(state: GameState, context: EffectContext, cost: Extract<Cost, 
 function sacrificable(state: GameState, context: EffectContext, cost: Extract<Cost, { pay: 'CHARACTERS_TO_WAITING_ROOM' }>): number[] {
   const stage = state.zones[context.master].stage;
   return SLOTS.flatMap((slot) => stage[slot]).filter(
-    (id) => getDef(state, id).kind === 'CHARACTER' && !(cost.other && id === context.source) && matchesFilter(state, id, cost.filter),
+    (id) => getDef(state, id).kind === 'CHARACTER' && !(cost.other && id === context.source) && !(cost.standing && getInstance(state, id).orientation !== 'STAND') && matchesFilter(state, id, cost.filter),
   );
 }
 
@@ -82,9 +82,16 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
         if (!sourceIfUnchanged(state, context)) return false;
         break;
-      case 'SELF_TO_CLOCK':
-      case 'SELF_TO_HAND':
       case 'SELF_TO_DECK_BOTTOM':
+        if (cost.standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
+        if (!sourceIfUnchanged(state, context)) return false;
+        break;
+      case 'SELF_TO_CLOCK':
+        if ((cost as { standing?: boolean }).standing && sourceIfUnchanged(state, context)?.orientation !== 'STAND') return false;
+        if (!sourceIfUnchanged(state, context)) return false;
+        break;
+      case 'SELF_TO_HAND':
+      case 'SELF_TO_STOCK_BOTTOM':
         if (!sourceIfUnchanged(state, context)) return false;
         break;
       case 'HAND_TO_CLOCK':
@@ -205,6 +212,10 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'memory' }, { reason: 'COST' });
       return;
+    case 'SELF_TO_STOCK_BOTTOM':
+      frame.index++;
+      moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'stock' }, { reason: 'COST', position: 'BOTTOM' });
+      return;
     case 'SELF_TO_DECK_BOTTOM':
       frame.index++;
       moveCard(ctx, context.source, { player: getInstance(state, context.source).owner, zone: 'deck' }, { reason: 'COST', position: 'BOTTOM' });
@@ -314,6 +325,8 @@ function destinationZone(state: GameState, context: EffectContext, instanceId: n
   switch (to) {
     case 'CHOSEN_SLOT':
       return context.slot ? { zone: { player: context.master, zone: 'stage', slot: context.slot }, bottom: false } : null;
+    case 'ABOUT_SLOT':
+      return context.aboutSlot ? { zone: { player: context.aboutSlot.player, zone: 'stage', slot: context.aboutSlot.slot }, bottom: false } : null;
     case 'SOURCE_SLOT':
       return context.sourceSlot ? { zone: { player: context.sourceSlot.player, zone: 'stage', slot: context.sourceSlot.slot }, bottom: false } : null;
     case 'HAND':
@@ -329,6 +342,7 @@ function destinationZone(state: GameState, context: EffectContext, instanceId: n
     case 'MEMORY':
       return { zone: { player, zone: 'memory' }, bottom: false };
     case 'DECK_TOP':
+    case 'DECK':
       return { zone: { player, zone: 'deck' }, bottom: false };
     case 'DECK_BOTTOM':
       return { zone: { player, zone: 'deck' }, bottom: true };
@@ -388,9 +402,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         return;
       }
       if (effect.optional && !takeAnswer(ctx, 'CONFIRM').accept) {
+        context.did = false;
         next();
         return;
       }
+      // N枚引いたなら: whether a card was really drawn.
+      if (effect.optional) context.did = state.zones[master].deck.length > 0;
       next();
       pushFrame(ctx, { kind: 'DRAW', player: master, remaining: effect.count });
       return;
@@ -398,7 +415,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'CHOOSE': {
       if (frame.step === 0) {
+        // その手札に戻したキャラと同じカード名の: names of the cards the last MOVE moved.
+        const sameNames = effect.sameNameAsMoved ? (context.lastMoved ?? []).flatMap((objectId) => state.instances.filter((inst) => inst.objectId === objectId).map((inst) => getDef(state, inst.instanceId).name)) : null;
         let candidates = chooseCandidates(state, context, effect.from, effect.filter, effect.other);
+        if (sameNames) candidates = candidates.filter((id) => sameNames.includes(getDef(state, id).name));
         // レベルＸ以下: X set earlier in this resolution, 0 when nothing set it.
         if (effect.levelMaxX) candidates = candidates.filter((id) => (getDef(state, id).level ?? 0) <= (context.x ?? 0));
         if (candidates.length === 0) {
@@ -439,8 +459,68 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'SPLIT_CHOSEN': {
+      const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
+      if (frame.step === 0) {
+        if (chosen.length === 0) {
+          next();
+          return;
+        }
+        if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
+        const max = Math.min(effect.take, chosen.length);
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_SPLIT', cards: chosen.map((id) => getInstance(state, id).objectId), min: effect.exact ? max : 0, max, look: lookMap(state, chosen) });
+        return;
+      }
+      if (frame.step === 1) {
+        const picked = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+        frame.scratch = picked;
+        frame.step = 2;
+      }
+      // The cards for the first place, in the order the player gives (when asked), then the rest at once.
+      const picked = frame.scratch.filter((id) => chosen.includes(id));
+      if (effect.inOrder && picked.length > 1 && frame.step === 2) {
+        frame.step = 3;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: picked.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: lookMap(state, picked) });
+        return;
+      }
+      if (frame.step === 3) {
+        const first = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+        const target = destinationZone(state, context, first, effect.to);
+        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) });
+        frame.scratch = picked.filter((id) => id !== first);
+        frame.step = 2;
+        return;
+      }
+      const rest = chosen.filter((id) => !picked.includes(id));
+      next();
+      const moves: BatchMove[] = [];
+      for (const [ids, to] of [[picked, effect.to], [rest, effect.rest]] as const) {
+        for (const instanceId of ids) {
+          const target = destinationZone(state, context, instanceId, to);
+          if (target) moves.push({ instanceId, to: target.zone, opts: { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) } });
+        }
+      }
+      moveBatch(ctx, moves);
+      return;
+    }
+
     case 'MOVE': {
       const targets = resolveTarget(state, context, effect.target);
+      // …に好きな順番で置く: one card at a time, in the order the player chooses.
+      if (effect.inOrder && targets.length > 1) {
+        if (frame.step === 0) {
+          frame.step = 1;
+          ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_PLACE_ORDER', cards: targets.map((id) => getInstance(state, id).objectId), min: 1, max: 1, look: lookMap(state, targets) });
+          return;
+        }
+        const first = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+        const target = destinationZone(state, context, first, effect.to);
+        frame.step = 0;
+        context.did = true;
+        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) });
+        return;
+      }
       // …に戻すか…に置く: the player says which, when there is something to move.
       let to = effect.to;
       if (effect.orTo && targets.length > 0) {
@@ -473,6 +553,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       });
       context.did = moves.length > 0;
       moveBatch(ctx, moves);
+      // For そのキャラ (MOVED) and この効果で舞台に置かれたキャラ (PLACED) later in this resolution.
+      context.lastMoved = moves.map((m) => getInstance(state, m.instanceId).objectId);
+      const onStage = moves.filter((m) => m.to.zone === 'stage').map((m) => getInstance(state, m.instanceId).objectId);
+      if (onStage.length > 0) context.placed = [...(context.placed ?? []), ...onStage];
       return;
     }
 
@@ -493,7 +577,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'ORIENT': {
       for (const id of resolveTarget(state, context, effect.target)) {
-        if (getInstance(state, id).location.zone === 'stage') setOrientation(ctx, id, effect.to);
+        if (getInstance(state, id).location.zone === 'stage' && !(effect.to === 'REVERSE' && cannotBeReversed(state, id))) setOrientation(ctx, id, effect.to);
       }
       next();
       return;
@@ -520,7 +604,21 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const whose = frame.scratch[1] === 1 || effect.whose === 'OPPONENT' ? opponentOf(master) : master;
       const done = frame.scratch[0] ?? 0;
       if (done === 0) context.moved = [];
-      const top = topOf(state.zones[whose].deck);
+      // 山札の下からN枚を: from the bottom instead.
+      const top = effect.fromBottom ? state.zones[whose].deck[0] : topOf(state.zones[whose].deck);
+      // 上からN枚までを: the player may stop before each card.
+      if (effect.upTo && done < effect.count && top !== undefined) {
+        if (frame.step !== 3) {
+          frame.step = 3;
+          ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'DECK_TOP_NEXT' });
+          return;
+        }
+        frame.step = 2;
+        if (!takeAnswer(ctx, 'CONFIRM').accept) {
+          next();
+          return;
+        }
+      }
       if (done >= effect.count || top === undefined) {
         // Ｘはそれらのカードのレベルの合計: printed levels; a climax has none and counts as 0 (CR-2.19.1).
         if (effect.setX === 'LEVEL_TOTAL') context.x = (context.moved ?? []).reduce((sum, id) => sum + (getDef(state, id).level ?? 0), 0);
@@ -596,13 +694,141 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'DELAYED': {
+      next();
+      const source = getInstance(state, context.source);
+      state.delayed = [
+        ...(state.delayed ?? []),
+        { id: state.nextWaitingId++, master, instanceId: source.instanceId, objectId: context.sourceObjectId, at: effect.at, effects: effect.effects, carried: { chosen: [...context.chosen], lastMoved: [...(context.lastMoved ?? [])], placed: [...(context.placed ?? [])] } },
+      ];
+      return;
+    }
+
+    case 'OWNER_PLACES': {
+      const [id] = resolveTarget(state, context, effect.target);
+      if (id === undefined) {
+        next();
+        return;
+      }
+      const owner = getInstance(state, id).owner;
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_SLOT', player: owner, prompt: 'EFFECT_SLOT', slots: [...SLOTS] });
+        return;
+      }
+      const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      next();
+      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT' });
+      context.placed = [...(context.placed ?? []), getInstance(state, id).objectId];
+      return;
+    }
+
+    case 'PLACE_IN_EMPTY_SLOT': {
+      const [id] = resolveTarget(state, context, effect.target);
+      const owner = id === undefined ? master : getInstance(state, id).owner;
+      const empty = SLOTS.filter((slot) => state.zones[owner].stage[slot].length === 0);
+      if (id === undefined || empty.length === 0) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_SLOT', player: master, prompt: 'EFFECT_SLOT', slots: empty });
+        return;
+      }
+      const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      next();
+      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT' });
+      context.placed = [...(context.placed ?? []), getInstance(state, id).objectId];
+      return;
+    }
+
+    case 'SWAP_CHOSEN': {
+      next();
+      const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
+      const self = sourceIfUnchanged(state, context);
+      const pair = effect.withSelf ? [chosen[0], self?.instanceId] : [chosen[0], chosen[1]];
+      if (pair.some((id) => id === undefined) || pair[0] === pair[1]) return;
+      const [a, b] = pair.map((id) => getInstance(state, id!));
+      if (a!.location.zone !== 'stage' || b!.location.zone !== 'stage' || a!.location.player !== b!.location.player) return;
+      for (const inst of [a!, b!]) setOrientation(ctx, inst.instanceId, 'STAND');
+      if (cannotMove(state, a!.instanceId) || cannotMove(state, b!.instanceId)) return;
+      swapSlots(ctx, a!.location.player, a!.location.slot, b!.location.slot);
+      return;
+    }
+
+    case 'EXCHANGE_LEVEL_WAITING_ROOM': {
+      const zones = state.zones[master];
+      const count = Math.min(effect.count, zones.level.length, zones.waitingRoom.length);
+      if (count === 0) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: zones.level.map((id) => getInstance(state, id).objectId), min: count, max: count });
+        return;
+      }
+      if (frame.step === 1) {
+        frame.scratch = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+        frame.step = 2;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: zones.waitingRoom.map((id) => getInstance(state, id).objectId), min: count, max: count });
+        return;
+      }
+      const fromWaitingRoom = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+      const fromLevel = frame.scratch;
+      next();
+      // Both move at once; a card put into the level zone is face up (CR-3.9.2.1).
+      moveBatch(ctx, [
+        ...fromLevel.map((instanceId) => ({ instanceId, to: { player: master, zone: 'waitingRoom' as const }, opts: { reason: 'EFFECT' as const } })),
+        ...fromWaitingRoom.map((instanceId) => ({ instanceId, to: { player: master, zone: 'level' as const }, opts: { reason: 'EFFECT' as const } })),
+      ]);
+      return;
+    }
+
+    case 'SWAP_DECK_HAND': {
+      const zones = state.zones[master];
+      if (frame.step === 0) {
+        const pool = zones.deck.filter((id) => matchesFilter(state, id, effect.filter));
+        frame.step = 1;
+        if (pool.length === 0) return;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: pool.map((id) => getInstance(state, id).objectId), min: 0, max: 1, look: lookMap(state, pool) });
+        return;
+      }
+      if (frame.step === 1) {
+        const picked = zones.deck.filter((id) => matchesFilter(state, id, effect.filter)).length > 0 ? takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId) : [];
+        for (const id of picked) revealCard(ctx, id);
+        frame.scratch = picked;
+        const hand = zones.hand.filter((id) => matchesFilter(state, id, effect.handFilter ?? effect.filter));
+        frame.step = 2;
+        if (hand.length === 0) return;
+        frame.step = 3;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: hand.map((id) => getInstance(state, id).objectId), min: 0, max: 1 });
+        return;
+      }
+      const fromHand = frame.step === 3 ? takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId) : [];
+      for (const id of fromHand) revealCard(ctx, id);
+      const fromDeck = frame.scratch;
+      next();
+      // それらを入れ替え: an exchange needs one of each.
+      if (fromDeck.length === 1 && fromHand.length === 1) {
+        moveBatch(ctx, [
+          { instanceId: fromDeck[0]!, to: { player: master, zone: 'hand' }, opts: { reason: 'EFFECT' } },
+          { instanceId: fromHand[0]!, to: { player: master, zone: 'deck' }, opts: { reason: 'EFFECT' } },
+        ]);
+      } else {
+        for (const id of [...fromDeck, ...fromHand]) getInstance(state, id).revealed = false;
+      }
+      return;
+    }
+
     case 'MOVE_TO_SLOT': {
       if (frame.step === 0) {
         const [id] = resolveTarget(state, context, effect.target).filter((candidate) => getInstance(state, candidate).location.zone === 'stage');
         const inst = id === undefined ? undefined : getInstance(state, id);
         const slots =
           inst && inst.location.zone === 'stage' && !cannotMove(state, inst.instanceId)
-            ? (effect.row === 'FRONT' ? FRONT_SLOTS : BACK_SLOTS).filter((slot) => state.zones[inst.location.player].stage[slot].length === 0)
+            ? (effect.row === 'FRONT' ? FRONT_SLOTS : effect.row === 'BACK' ? BACK_SLOTS : SLOTS).filter((slot) => state.zones[inst.location.player].stage[slot].length === 0)
             : [];
         if (!inst || slots.length === 0) {
           next();
@@ -764,7 +990,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       if (frame.step === 0) {
         frame.step = 1;
-        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], look: lookMap(state, [top]) });
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: effect.anyOfThree ? ['DECK_TOP', 'DECK_BOTTOM', 'WAITING_ROOM'] : ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], look: lookMap(state, [top]) });
         return;
       }
       const option = takeAnswer(ctx, 'SELECT_OPTION').option;
@@ -795,8 +1021,31 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'MAY': {
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+        return;
+      }
+      const accept = takeAnswer(ctx, 'CONFIRM').accept;
+      context.did = accept;
+      next();
+      if (accept) pushEffects(ctx, effect.effects, context);
+      return;
+    }
+
     case 'REVEAL_TOP': {
       const top = topOf(state.zones[master].deck);
+      // 公開してよい: asked first (only when there is a card to show).
+      if (effect.optional && top !== undefined && frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+        return;
+      }
+      if (effect.optional && top !== undefined && !takeAnswer(ctx, 'CONFIRM').accept) {
+        next();
+        return;
+      }
       next();
       if (top === undefined) return;
       revealCard(ctx, top);
@@ -806,6 +1055,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       else if (hit && effect.take) moveCard(ctx, top, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
       else getInstance(state, top).revealed = false;
       if (hit && effect.then) pushEffects(ctx, effect.then, context);
+      if (!hit && effect.else) pushEffects(ctx, effect.else, context);
       return;
     }
 
@@ -963,8 +1213,21 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     return;
   }
   // The chosen card to the hand (shown first when the text says so), the rest to the waiting room, together.
-  const looked = [...frame.scratch];
+  const marker = frame.scratch.indexOf(-1);
+  const looked = marker >= 0 ? frame.scratch.slice(0, marker) : [...frame.scratch];
   const chosen = context.chosen.map((objectId) => findObject(state, objectId).instanceId);
+  // カードをN枚まで選び、ストック置場に置き: of the other cards looked at, up to N go to the stock.
+  if (effect.toStock && marker < 0) {
+    const rest = looked.filter((id) => !chosen.includes(id));
+    if (frame.step === 4 && rest.length > 0) {
+      frame.step = 5;
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: rest.map((id) => getInstance(state, id).objectId), min: 0, max: Math.min(effect.toStock, rest.length), look: lookMap(state, looked) });
+      return;
+    }
+    const toStock = frame.step === 5 ? takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId) : [];
+    frame.scratch = [...looked, -1, ...toStock];
+  }
+  const stocked = marker >= 0 || effect.toStock ? frame.scratch.slice(frame.scratch.indexOf(-1) + 1) : [];
   // 手札に加えたなら: whether a card was taken.
   context.did = chosen.length > 0;
   next();
@@ -973,7 +1236,7 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     ctx,
     looked.map((instanceId) => ({
       instanceId,
-      to: { player: master, zone: chosen.includes(instanceId) ? ('hand' as const) : ('waitingRoom' as const) },
+      to: { player: master, zone: chosen.includes(instanceId) ? ('hand' as const) : stocked.includes(instanceId) ? ('stock' as const) : ('waitingRoom' as const) },
       opts: { reason: 'EFFECT' as const },
     })),
   );

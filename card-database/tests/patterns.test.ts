@@ -439,9 +439,10 @@ describe('sentence patterns', () => {
     for (const card of allCards()) {
       if (card.record.origin !== 'PATTERN') continue;
       if (card.def.kind === 'EVENT') {
-        // An event has an effect and no abilities; its one paragraph was read by the sentence grammar.
+        // An event has an effect and no abilities other than its play restriction (このカードは、…なら、手札からプレイできない); its paragraph was read by the sentence grammar.
         expect(card.record.patterns, card.record.cardId).toEqual([GRAMMAR]);
-        expect(card.def.abilities, card.record.cardId).toBeUndefined();
+        expect((card.def.abilities ?? []).every((a) => a.type === 'CONT' && a.inHand && a.playOnlyIf && a.apply.length === 0), card.record.cardId).toBe(true);
+        expect(card.def.abilities?.length ?? 0, card.record.cardId).toBeLessThanOrEqual(1);
         expect(card.def.effect?.length ?? 0, card.record.cardId).toBeGreaterThan(0);
         continue;
       }

@@ -86,7 +86,8 @@ export function cardInfo(cardId: string): CardInfo {
     triggers: def.triggers,
     counter: def.counter,
     text,
-    abilityText: text.filter((line) => line.startsWith('【')),
+    // Ability lines, and an event's play restriction (このカードは、…なら、手札からプレイできない。), which is stored as one.
+    abilityText: text.filter((line) => line.startsWith('【') || /^このカードは、[^。]*なら、手札からプレイできない。/.test(line)),
     explanation: card.record.explanation.zh,
     explanationLabel: `${EXPLANATION_LABEL[card.record.explanation.source]}・${card.record.explanation.status}`,
     support: card.record.support,

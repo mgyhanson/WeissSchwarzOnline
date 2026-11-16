@@ -9,6 +9,7 @@
  * the attack" (CR-7.5.1.4, CR-7.6.1.5). Its check timing is in place.
  */
 
+import { cannotBeReversed, cannotDamagePlayers, triggerIconsOf } from '../abilities/query';
 import { cannotSideAttack, greatPerformer } from '../abilities/query';
 import type { AttackStepName } from '../abilities/types';
 import type { AttackOption } from '../decisions';
@@ -225,9 +226,11 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
       frame.step = 'TRIGGER_ICONS';
       moveCard(ctx, top, { player, zone: 'resolution' }, { reason: 'TRIGGER_CHECK' });
       const def = getDef(state, top);
-      frame.icons = [...def.triggers];
+      // Printed icons and icons the card gains in every zone.
+      const icons = triggerIconsOf(state, top);
+      frame.icons = [...icons];
       frame.triggerObjectId = getInstance(state, top).objectId;
-      emit(ctx, { type: 'TRIGGER_CHECK', player, cardId: def.cardId, icons: [...def.triggers] });
+      emit(ctx, { type: 'TRIGGER_CHECK', player, cardId: def.cardId, icons: [...icons] });
       return;
     }
 
@@ -317,7 +320,8 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
       // damage at all, handled by pushDamage (CR-7.5.1.2.1).
       frame.step = 'DAMAGE_END';
       const attacker = attackerInstance(state);
-      if (attacker) pushDamage(ctx, opponent, getSoul(state, attacker.instanceId), attacker.objectId);
+      // このカードはプレイヤーにダメージを与えることができない
+      if (attacker && !cannotDamagePlayers(state, attacker.instanceId)) pushDamage(ctx, opponent, getSoul(state, attacker.instanceId), attacker.objectId);
       return;
     }
 
@@ -343,8 +347,9 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
       if (attacker && defender) {
         const attackerPower = getPower(state, attacker.instanceId);
         const defenderPower = getPower(state, defender.instanceId);
-        if (attackerPower <= defenderPower) setOrientation(ctx, attacker.instanceId, 'REVERSE');
-        if (defenderPower <= attackerPower) setOrientation(ctx, defender.instanceId, 'REVERSE');
+        // そのキャラは【リバース】しない: such a character is not reversed.
+        if (attackerPower <= defenderPower && !cannotBeReversed(state, attacker.instanceId)) setOrientation(ctx, attacker.instanceId, 'REVERSE');
+        if (defenderPower <= attackerPower && !cannotBeReversed(state, defender.instanceId)) setOrientation(ctx, defender.instanceId, 'REVERSE');
       }
       // CR-7.6.1.4
       frame.step = 'ATTACK_END';

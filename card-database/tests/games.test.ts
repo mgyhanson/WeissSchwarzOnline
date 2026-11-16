@@ -98,7 +98,15 @@ describe('complete games with the real test decks', () => {
     const games: Played[] = [];
     groups.forEach((group, g) => {
       const fill = sorted.filter((c) => !group.includes(c)).slice(0, 14 - group.length);
-      const mine = expandDeck([...group, ...fill].map((c) => ({ cardId: c.record.cardId, count: 3 })).concat([{ cardId: 'BDY/W135-026', count: 4 }, { cardId: 'GUP/W141-026', count: 4 }]));
+      // The climaxes these cards name (CX combos and "CX置場に「…」が置かれた時"), so those abilities can happen; then the two usual ones.
+      const named = new Set(JSON.stringify([...group, ...fill].map((c) => c.def.abilities ?? [])).match(/"name":"[^"]+"/g)?.map((x) => x.slice(8, -1)) ?? []);
+      const climaxes = allCards()
+        .filter((c) => c.def.kind === 'CLIMAX' && c.record.support === 'verified' && named.has(c.def.name))
+        .map((c) => c.record.cardId)
+        .filter((id, k, list) => list.indexOf(id) === k)
+        .slice(0, 3);
+      const climaxEntries = [...climaxes.map((cardId) => ({ cardId, count: 2 })), { cardId: 'BDY/W135-026', count: 8 - climaxes.length * 2 - (climaxes.length < 3 ? 4 : 2) }, { cardId: 'GUP/W141-026', count: climaxes.length < 3 ? 4 : 2 }].filter((e) => e.count > 0);
+      const mine = expandDeck([...group, ...fill].map((c) => ({ cardId: c.record.cardId, count: 3 })).concat(climaxEntries));
       expect(mine).toHaveLength(50);
       for (let i = 0; i < 36; i++) {
         const other = deckList(TEST_DECKS[i % TEST_DECKS.length]!);

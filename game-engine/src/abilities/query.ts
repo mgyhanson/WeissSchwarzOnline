@@ -5,8 +5,9 @@
  */
 
 import { getDef, getInstance } from '../state';
-import type { CardDef, CardInstance, GameState, PlayerId } from '../types';
-import { SLOTS, opponentOf } from '../types';
+import type { ActivatedAbility } from './types';
+import type { CardDef, CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
+import { SLOTS, opponentOf, HAND_LIMIT } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
 import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, CountWhere, EffectContext, PerCharacter, Target } from './types';
 
@@ -93,7 +94,12 @@ export function matchesFilter(
   if (!filter) return true;
   const def = getDef(state, instanceId);
   if (filter.kind && def.kind !== filter.kind) return false;
-  if (filter.traits && !filter.traits.some((trait) => def.traits.includes(trait))) return false;
+  if (filter.traits) {
+    const traits = traitsOf(state, instanceId);
+    if (!filter.traits.some((trait) => traits.includes(trait))) return false;
+  }
+  if (filter.nameExcludes !== undefined && def.name.includes(filter.nameExcludes)) return false;
+  if (filter.triggersExactly && [...def.triggers].sort().join() !== [...filter.triggersExactly].sort().join()) return false;
   if (filter.anyOf && !filter.anyOf.some((part) => matchesFilter(state, instanceId, part, levelOf))) return false;
   if (filter.hasLink !== undefined && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.link === filter.hasLink)) return false;
   if (filter.hasRecollection && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.recollection)) return false;
@@ -111,9 +117,10 @@ export function matchesFilter(
     if (levelOf(state, instanceId) <= state.zones[location.player].level.length) return false;
   }
   if (filter.color !== undefined && def.color !== filter.color) return false;
-  if (filter.hasTrigger && !def.triggers.includes(filter.hasTrigger)) return false;
+  if (filter.hasTrigger && !triggerIconsOf(state, instanceId).includes(filter.hasTrigger)) return false;
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
   if (filter.costMin !== undefined && (def.cost ?? 0) < filter.costMin) return false;
+  if (filter.powerMax !== undefined && currentStat(state, instanceId, 'POWER') > filter.powerMax) return false;
   if (filter.levelMax !== undefined || filter.levelMin !== undefined) {
     const level = levelOf(state, instanceId);
     if (filter.levelMax !== undefined && level > filter.levelMax) return false;
@@ -144,15 +151,17 @@ export function evalCondition(
     case 'OPPONENT_TURN':
       return state.turn !== null && state.turn.player !== master;
     case 'CLIMAX_IN_PLAY':
-      return zones.climax.some((id) => getDef(state, id).kind === 'CLIMAX' && (condition.name === undefined || getDef(state, id).name === condition.name));
+      return (condition.opponent ? state.zones[opponentOf(master)] : zones).climax.some((id) => getDef(state, id).kind === 'CLIMAX' && (condition.name === undefined || getDef(state, id).name === condition.name));
     case 'CHARACTERS': {
       const count = stageCharacters(state, master).filter(
         (id) => !(condition.other && id === source) && matchesFilter(state, id, condition.filter),
       ).length;
       return count >= condition.min;
     }
-    case 'LEVEL':
-      return zones.level.length >= condition.min;
+    case 'LEVEL': {
+      const level = (condition.whose === 'OPPONENT' ? state.zones[opponentOf(master)] : zones).level.length;
+      return level >= condition.min && level <= (condition.max ?? Infinity);
+    }
     case 'EXPERIENCE': {
       // CR-10.10: refers to the cards in the level zone. A face-down card has no level (CR-3.9.2.2.1).
       let total = 0;
@@ -234,6 +243,8 @@ function continuousTargets(
       return stageCharacters(state, source.master).filter(
         (id) => !(target.other && id === source.instanceId) && matchesFilter(state, id, target.filter, levelOf),
       );
+    case 'ALL_THEIRS':
+      return stageCharacters(state, opponentOf(source.master));
     case 'IN_FRONT': {
       const location = getInstance(state, source.instanceId).location;
       if (location.zone !== 'stage') return [];
@@ -263,7 +274,8 @@ export function zoneCount(state: GameState, master: PlayerId, source: number, wh
             : where === 'YOUR_MEMORY'
               ? state.zones[master].memory.filter((id) => !filter || getInstance(state, id).face === 'UP')
               : where === 'YOUR_LEVEL'
-                ? state.zones[master].level
+                ? // CR-3.9.2.2.1: a face-down level card has no information, so it matches no filter.
+                  state.zones[master].level.filter((id) => !filter || getInstance(state, id).face === 'UP')
               : where === 'YOUR_MEMORY_AND_MARKERS'
                 ? [...state.zones[master].memory, ...SLOTS.flatMap((slot) => state.zones[master].marker[slot])]
               : where === 'YOUR_CLIMAX'
@@ -330,8 +342,21 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
   // …このカードは次の能力を得る。『【永】 …』: the abilities a card has while an ability of its own in force says so.
   for (const { source, ability } of [...found]) {
     for (const inner of ability.gains ?? []) {
-      if (!evalCondition(state, source.master, source.instanceId, inner.condition)) continue;
+      if (inner.type !== 'CONT' || !evalCondition(state, source.master, source.instanceId, inner.condition)) continue;
       found.push({ source, ability: inner });
+    }
+  }
+  // …すべてに、『【永】 …』を与える: the given continuous abilities work from each character given them.
+  for (const { source, ability } of [...found]) {
+    for (const part of ability.grantConts ?? []) {
+      for (const target of continuousTargets(state, source, part.target, currentLevel)) {
+        const inst = getInstance(state, target);
+        if (inst.location.zone !== 'stage') continue;
+        const given = { instanceId: target, master: inst.location.player, def: getDef(state, target), clockTop: false };
+        if (part.ability.assist && !BACK_SLOTS.includes(inst.location.slot)) continue;
+        if (!evalCondition(state, given.master, target, part.ability.condition)) continue;
+        found.push({ source: given, ability: part.ability });
+      }
     }
   }
   // Continuous abilities given by effects for a while (そのターン中／次の相手のターンの終わりまで、次の能力を与える), on the stage only.
@@ -355,6 +380,13 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
       if (ability.type !== 'CONT' || !ability.inHand || !evalCondition(state, location.player, instanceId, ability.condition)) continue;
       for (const part of ability.apply) if (part.stat === stat && part.target.who === 'SELF') inHand += part.amount;
     }
+    // あなたの手札の「…」のレベルを－N: continuous abilities of the owner's cards in force for matching cards in the hand.
+    if (stat === 'LEVEL') {
+      for (const { source, ability } of continuousInForce(state)) {
+        if (!ability.handCards || source.master !== location.player || !matchesFilter(state, instanceId, ability.handCards.filter)) continue;
+        inHand += ability.handCards.level;
+      }
+    }
     return inHand;
   }
   if (location.zone !== 'stage') return 0;
@@ -363,6 +395,7 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
   for (const { source, ability } of continuousInForce(state)) {
     for (const part of ability.apply) {
       if (part.stat !== stat || !continuousTargets(state, source, part.target, levelOf).includes(instanceId)) continue;
+      if (part.onlyIf && !evalCondition(state, source.master, source.instanceId, part.onlyIf)) continue;
       let amount =
         part.amount *
         perCount(state, source.master, source.instanceId, part.per) *
@@ -370,6 +403,7 @@ export function continuousTotal(state: GameState, instanceId: number, stat: Stat
         (part.perCount ? zoneCount(state, source.master, source.instanceId, part.perCount.where, part.perCount.filter) : 1);
       // Ｘはそのキャラのレベル×N. Only power and soul use this, so levels are already settled.
       if (part.perTargetLevel) amount = part.amount * currentLevel(state, instanceId);
+      if (part.perTargetSoul) amount = part.amount * currentStat(state, instanceId, 'SOUL');
       total += amount;
     }
   }
@@ -416,6 +450,89 @@ export function ignoresColorCondition(state: GameState, instanceId: number): boo
   return (getDef(state, instanceId).abilities ?? []).some((ability) => ability.type === 'CONT' && ability.inHand === true && ability.ignoresColor === true && evalCondition(state, player, instanceId, ability.condition));
 }
 
+/**
+ * The traits a card has: its printed ones and those given by continuous abilities in force (…に《…》を与える),
+ * for a character on the stage. While this is being worked out, traits asked for again are the printed ones
+ * (a condition of a trait-giving ability that itself looks at traits).
+ */
+let traitsInProgress = false;
+export function traitsOf(state: GameState, instanceId: number): readonly string[] {
+  const def = getDef(state, instanceId);
+  const inst = getInstance(state, instanceId);
+  if (traitsInProgress || inst.location.zone !== 'stage') return def.traits;
+  const anyGiver =
+    state.grants.some((grant) => grant.ability.type === 'CONT' && grant.ability.giveTraits) ||
+    [0, 1].some((p) => SLOTS.some((slot) => state.zones[p as PlayerId].stage[slot].some((id) => (getDef(state, id).abilities ?? []).some((a) => a.type === 'CONT' && a.giveTraits))));
+  if (!anyGiver) return def.traits;
+  traitsInProgress = true;
+  try {
+    const traits = [...def.traits];
+    for (const { source, ability } of continuousInForce(state)) {
+      const give = ability.giveTraits;
+      if (!give) continue;
+      const applies = give.to === 'SELF' ? source.instanceId === instanceId : source.instanceId !== instanceId && getDef(state, instanceId).kind === 'CHARACTER';
+      if (applies) traits.push(...give.traits.filter((t) => !traits.includes(t)));
+    }
+    return traits;
+  } finally {
+    traitsInProgress = false;
+  }
+}
+
+/** CR-6.8.1.2: the hand limit, raised by あなたの手札の枚数上限を＋N. */
+export function handLimit(state: GameState, player: PlayerId): number {
+  let limit = HAND_LIMIT;
+  for (const { source, ability } of continuousInForce(state)) if (ability.handLimitPlus && source.master === player) limit += ability.handLimitPlus;
+  return limit;
+}
+
+/** The trigger icons a card has: printed ones and those it gains in every zone (すべての領域にあるこのカードはトリガーアイコンに…を得る). */
+export function triggerIconsOf(state: GameState, instanceId: number): TriggerIcon[] {
+  const def = getDef(state, instanceId);
+  const icons = [...def.triggers];
+  const inst = getInstance(state, instanceId);
+  const player = inst.location.zone === 'stage' || inst.location.zone === 'marker' ? inst.location.player : inst.owner;
+  for (const ability of def.abilities ?? []) {
+    if (ability.type === 'CONT' && ability.gainsTriggerIcons && evalCondition(state, player, instanceId, ability.condition)) icons.push(...ability.gainsTriggerIcons);
+  }
+  return icons;
+}
+
+/** そのターン中、そのキャラは【リバース】しない */
+export function cannotBeReversed(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.cannotBeReversed === true && source.instanceId === instanceId);
+}
+
+/** このカードは、…なら、手札からプレイできない: whether the card's own restriction allows playing it now. */
+export function playRestrictionMet(state: GameState, player: PlayerId, instanceId: number): boolean {
+  return (getDef(state, instanceId).abilities ?? []).every((ability) => ability.type !== 'CONT' || !ability.playOnlyIf || evalCondition(state, player, instanceId, ability.playOnlyIf));
+}
+
+/** …はスタンドフェイズに【スタンド】しない */
+export function staysRestedInStandPhase(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.noStand === true && source.instanceId === instanceId);
+}
+
+/** このカードはプレイヤーにダメージを与えることができない */
+export function cannotDamagePlayers(state: GameState, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => ability.noDamageToPlayers === true && source.instanceId === instanceId);
+}
+
+/** The activated abilities a card on the stage has: printed ones by index, then ones it gains (index 100 and up, in order). */
+export function activatedAbilitiesOf(state: GameState, instanceId: number): { index: number; ability: ActivatedAbility }[] {
+  const list: { index: number; ability: ActivatedAbility }[] = [];
+  (getDef(state, instanceId).abilities ?? []).forEach((ability, index) => {
+    if (ability.type === 'ACT') list.push({ index, ability });
+  });
+  if (getInstance(state, instanceId).location.zone !== 'stage') return list;
+  let k = 100;
+  for (const { source, ability } of continuousInForce(state)) {
+    if (source.instanceId !== instanceId) continue;
+    for (const gained of ability.gains ?? []) if (gained.type === 'ACT') list.push({ index: k++, ability: gained });
+  }
+  return list;
+}
+
 export function cannotMove(state: GameState, instanceId: number): boolean {
   return continuousInForce(state).some(({ source, ability }) => ability.cannotMove === true && source.instanceId === instanceId);
 }
@@ -424,7 +541,10 @@ export function cannotMove(state: GameState, instanceId: number): boolean {
 export function blockedCounters(state: GameState, player: PlayerId): 'BACKUP' | 'EVENT_AND_BACKUP' | null {
   let blocked: 'BACKUP' | 'EVENT_AND_BACKUP' | null = null;
   const fighters = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage' && inst.location.player !== player);
+  const allFighters = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage');
   for (const { source, ability } of continuousInForce(state)) {
+    // すべてのプレイヤーは『助太刀』を手札からプレイできない: either side of this card's battle.
+    if (ability.noBackupsEveryone && allFighters.some((inst) => inst.instanceId === source.instanceId) && blocked === null) blocked = 'BACKUP';
     if (!ability.noOpponentCounters || !fighters.some((inst) => inst.instanceId === source.instanceId)) continue;
     if (ability.noOpponentCounters === 'EVENT_AND_BACKUP' || blocked === null) blocked = ability.noOpponentCounters;
   }
@@ -501,6 +621,8 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       return stageCharacters(state, context.master).filter(
         (id) => !(target.other && id === context.source) && matchesFilter(state, id, target.filter),
       );
+    case 'ALL_THEIRS':
+      return stageCharacters(state, opponentOf(context.master));
     case 'IN_FRONT': {
       const self = sourceIfUnchanged(state, context);
       if (!self || self.location.zone !== 'stage') return [];
@@ -513,6 +635,12 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       return target.slots
         .flatMap((slot) => state.zones[context.master].stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source));
+    case 'MOVED':
+    case 'PLACED':
+      return (target.who === 'MOVED' ? (context.lastMoved ?? []) : (context.placed ?? [])).flatMap((objectId) => {
+        const inst = byObjectId(state, objectId);
+        return inst ? [inst.instanceId] : [];
+      });
     case 'CHOSEN':
       return context.chosen.flatMap((objectId) => {
         const inst = byObjectId(state, objectId);
@@ -525,7 +653,8 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
     }
     case 'THAT': {
       const inst = context.about == null ? undefined : byObjectId(state, context.about);
-      return inst && inst.location.zone === 'stage' ? [inst.instanceId] : [];
+      // The same object only (CR-3.1.4: a card that changes zone is a new card): on the stage, or where the trigger saw it go.
+      return inst ? [inst.instanceId] : [];
     }
     case 'MARKER_HOLDER': {
       const self = sourceIfUnchanged(state, context);
@@ -591,6 +720,11 @@ export function chooseCandidates(
     case 'YOUR_BATTLING': {
       const mine = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage' && inst.location.player === master);
       pool = mine.map((inst) => inst.instanceId);
+      break;
+    }
+    case 'BATTLING': {
+      const both = [attackerOf(state), defenderOf(state)].filter((inst): inst is CardInstance => !!inst && inst.location.zone === 'stage');
+      pool = both.map((inst) => inst.instanceId);
       break;
     }
     case 'OPPONENT_BACK_ROW': {

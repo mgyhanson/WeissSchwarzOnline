@@ -2,6 +2,48 @@
 
 2026-11-15，Mac（Node 24.21），分支 `feat/card-effects-batch-3`。以下全部是實際執行的結果。
 
+<!-- support-summary:start (由 npm run cards:worklist 產生，請勿手改；數字只以此為準) -->
+**目前卡牌支援（2026-11-15，程式計算）**：609 張中 **470 張可對戰**，未支援 139 張；Level 3 38/63。
+
+| 系列 | 卡數 | 可對戰 | 角色 | Event | Climax | Level 3 |
+|---|---:|---:|---:|---:|---:|---:|
+| SY/W08_TD | 17 | 17 | 13/13 | 1/1 | 3/3 | 1/1 |
+| 5HY/W83_TD_ICHIKA | 18 | 18 | 15/15 | 1/1 | 2/2 | 2/2 |
+| SAO/S20 | 30 | 30 | 21/21 | 1/1 | 8/8 | - |
+| GUP/W141 | 114 | 94 | 78/95 | 1/4 | 15/15 | 9/12 |
+| SAO/OTHERS | 18 | 18 | 17/17 | 0/0 | 1/1 | - |
+| BDY/W135 | 100 | 76 | 64/85 | 0/3 | 12/12 | 12/16 |
+| STS/W140 | 100 | 73 | 60/84 | 1/4 | 12/12 | 4/9 |
+| ANM/W138 | 100 | 73 | 57/81 | 4/7 | 12/12 | 9/13 |
+| NIK/S135 | 112 | 71 | 57/90 | 1/9 | 13/13 | 4/13 |
+| **合計** | 609 | 470 | | | | 五個補充包 38/63 |
+
+未支援分類（初步，只用作排序）：A 39、B 1、C 55、D 44、E 0。詳細見 `reports/CARD_WORKLIST.md`。
+<!-- support-summary:end -->
+
+## 自動測試（2026-11-16，Batch 4，分支 `feat/card-effects-batch-4`，全部實際執行）
+
+| 指令 | 結果 |
+|---|---|
+| `npm run check` | **1047 個測試通過**（49 個測試檔），8 個慢速測試按設計略過，失敗 0；registry 檢查通過；上一批是 911 個 |
+| `npm run soak` | 4000 局全部通過（INV-01 至 INV-07） |
+| `npm run cards:validate` | 609 張卡、609 張圖片，缺少 0、問題 0（沒有重新下載或改動圖片） |
+| `npm run qa:ui` | 25/25 |
+| `npm run qa:online` | 41/41 全部通過 |
+
+### Batch 4 新增及改動的測試
+
+| 檔案 | 內容 |
+|---|---|
+| `game-engine/tests/abilities-batch-9.test.ts`（19） | Stand 中的 Cost、放回山札、山札頂最多 N 張、抽了才執行、三選一放置、回合分開的永續、卡名不含／兩個 Soul 圖示篩選、特徵給予（雙方其他角色、一回合）、手牌上限、Level 置場面朝下不計、使用【起】時、這張卡的 Trigger Check、公開分支及可選後續、選出的卡分配、按次序放置、Power 上限 |
+| `game-engine/tests/abilities-batch-10.test.ts`（14） | 延遲能力（下一個我方回合開始時、回合結束時，在正確的回合觸發一次）、由主人選枠放置、放到空枠、互換位置、Level 置場與控え室互換、山札與手牌的 Climax 互換（兩邊都有才換）、同名再選、攻擊中的角色、不會被 Reverse（仍在舞台）、不能 Encore（連規則 Encore）、所有玩家不能用助太刀、得到 Trigger 圖示、手牌指定卡 Level、對手 Climax 條件、按目標 Soul 的 X |
+| `game-engine/tests/abilities-batch-11.test.ts`（12） | Event 使用限制、Stand 階段不 Stand、對手所有角色得到 Encore、Stock 底 Cost、其他角色離開舞台時放回原枠、對手山札底、不能對玩家造成傷害、給予後列應援、得到【起】能力、山札頂分配到手牌及 Stock、對手 Level 條件、效果中途支付 Cost |
+| `card-database/tests/grammar.test.ts` | 每張文法卡逐張反向寫回日文（新增 91 張）；Event 的使用限制一併核對 |
+| `card-database/tests/games.test.ts`（改進，門檻不變） | 文法卡練習卡組加入其卡上指名的 Climax，令 CX Combo 能力在對局中出現；「最少 75% 能力被執行」的門檻沒有改動 |
+| `card-database/tests/patterns.test.ts`（更新 1 項） | Event 除使用限制外不可有其他能力（以前是不可有任何能力） |
+| `game-engine/tests/abilities.test.ts`（更新 1 項，Batch 3） | Event 造成的傷害以那張 Event 為來源（CR-4.13.2.2） |
+| `web-client/src/model/cards.ts` | Event 的使用限制一行計作它的能力文字 |
+
 ## 自動測試（2026-11-15，Batch 3，分支 `feat/card-effects-batch-3`，全部實際執行）
 
 | 指令 | 結果 |
