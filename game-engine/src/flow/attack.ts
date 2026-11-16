@@ -9,7 +9,7 @@
  * the attack" (CR-7.5.1.4, CR-7.6.1.5). Its check timing is in place.
  */
 
-import { cannotBeReversed, cannotDamagePlayers, triggerIconsOf } from '../abilities/query';
+import { attackTriggerChecks, cannotBeReversed, cannotDamagePlayers, triggerIconsOf } from '../abilities/query';
 import { cannotSideAttack, greatPerformer } from '../abilities/query';
 import type { AttackStepName } from '../abilities/types';
 import type { AttackOption } from '../decisions';
@@ -94,6 +94,9 @@ function declareAttack(ctx: Ctx, player: PlayerId, option: AttackOption): void {
     defenderObjectId: option.type === 'FRONT' && defender ? defender.objectId : null,
     defenderSlot: option.type === 'FRONT' && defender && facing ? facing : null,
   };
+  // このカードのアタック中、あなたはトリガーステップにトリガーチェックをN回行う
+  const checks = attackTriggerChecks(state, attacker.instanceId);
+  if (checks !== undefined) state.attack.triggerChecks = checks;
   (state.turn as NonNullable<GameState['turn']>).attackCount++;
   emit(ctx, {
     type: 'ATTACK_DECLARED',

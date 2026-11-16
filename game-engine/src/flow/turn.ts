@@ -239,7 +239,16 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
         frame.step = 'END_START';
         return;
       }
-      state.turn = { number: turn.number + 1, player: opponentOf(player), phase: 'STAND', attackCount: 0 };
+      // CR-11.2.1 / 11.2.2: an extra turn (the latest gained) instead of the opponent; others wait for the next turn.
+      const extra = state.extraTurns?.length ? state.extraTurns[state.extraTurns.length - 1]! : null;
+      if (extra !== null) state.extraTurns = state.extraTurns!.slice(0, -1);
+      // The turn player takes another turn: every later turn comes one turn later, so durations that end at a
+      // later turn (次の相手のターンの終わりまで) move with it.
+      if (extra === player) {
+        for (const m of state.modifiers) if (m.untilTurn !== undefined && m.untilTurn > turn.number) m.untilTurn++;
+        for (const g of state.grants) if (g.untilTurn !== undefined && g.untilTurn > turn.number) g.untilTurn++;
+      }
+      state.turn = { number: turn.number + 1, player: extra ?? opponentOf(player), phase: 'STAND', attackCount: 0 };
       frame.step = 'STAND_START';
       return;
   }

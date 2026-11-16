@@ -106,7 +106,7 @@ export const GUP_TEST_DECK: TestDeck = {
     // Level 2 (8)
     gup('041', 3), gup('091', 3), gup('040', 2),
     // Level 3 (6), updated 2026-11-15 when these became playable
-    gup('004', 1), gup('003', 1), gup('036', 2), gup('092', 2),
+    gup('004', 1), gup('003', 1), gup('036', 1), gup('031', 1), gup('092', 1), gup('101', 1),
     // Climaxes
     gup('025', 2), gup('054', 2), gup('111', 2), gup('113', 2),
   ],
@@ -142,7 +142,7 @@ export const BDY_TEST_DECK: TestDeck = {
     // Level 2 (8)
     bdy('020', 3), bdy('051', 2), bdy('089', 2), bdy('039', 1),
     // Level 3 (6)
-    bdy('041', 1), bdy('040', 1), bdy('094', 1), bdy('003', 1), bdy('023', 1), bdy('032', 1),
+    bdy('041', 1), bdy('094', 1), bdy('003', 1), bdy('023', 1), bdy('024', 1), bdy('080', 1),
     // Climaxes: 愛は衝動 and TearJerker (named by 013), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
     bdy('026', 2), bdy('062', 2), bdy('064', 2), bdy('097', 2),
   ],
@@ -163,7 +163,7 @@ export const STS_TEST_DECK: TestDeck = {
     // Level 2 (8)
     '022': 2, '023': 2, '052': 3, '093': 1,
     // Level 3 (4)
-    '053': 1, '037': 1, '003': 1, '094': 1,
+    '053': 1, '004': 1, '003': 1, '070': 1,
     // Climaxes: 黎明告げる凱旋歌 (green), その願い、たしかに届けたよ (red)
     '031': 4, '067': 4,
   }),
@@ -182,7 +182,7 @@ export const ANM_TEST_DECK: TestDeck = {
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
     // Level 3 (6): five characters and the event
-    '003': 2, '014': 1, '058': 1, '085': 1, '074': 1,
+    '003': 2, '014': 1, '058': 1, '002': 1, '074': 1,
     // Climaxes: 見つけた、大切な場所 (yellow), 好きの数だけ金平糖 (red)
     '024': 4, '075': 4,
   }),
@@ -201,7 +201,7 @@ export const NIK_TEST_DECK: TestDeck = {
     // Level 2 (8)
     '014': 2, '041': 2, '042': 2, '105': 2,
     // Level 3 (4)
-    '035': 2, '092': 2,
+    '035': 2, '092': 1, '091': 1,
     // Climaxes: yellow and green
     '024': 4, '053': 4,
   }),

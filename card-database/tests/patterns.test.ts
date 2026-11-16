@@ -187,7 +187,9 @@ const CHECKS: Record<string, (cardId: string, ability: Ability, line: string) =>
   },
   BACKUP: (cardId, ability, line) => {
     const m = /助太刀(\d+) レベル(\d) ［(?:\((\d)\) )?/.exec(line)!;
-    expect(ability).toEqual(backup(Number(m[1]), Number(m[2]), [...(m[3] ? [{ pay: 'STOCK' as const, count: Number(m[3]) }] : []), { pay: 'SELF_TO_WAITING_ROOM' as const }]));
+    // The card from the hand goes to the waiting room, or to memory when the cost says 思い出にする.
+    const self = line.includes('手札のこのカードを思い出にする') ? { pay: 'SELF_TO_MEMORY' as const } : { pay: 'SELF_TO_WAITING_ROOM' as const };
+    expect(ability).toEqual(backup(Number(m[1]), Number(m[2]), [...(m[3] ? [{ pay: 'STOCK' as const, count: Number(m[3]) }] : []), self]));
     expect(printed(cardId).counter).toBe(true);
   },
   POWER_WITH_OTHER_TRAIT: (cardId, ability, line) => {

@@ -5,7 +5,7 @@
  */
 
 import { getDef, getInstance } from '../state';
-import type { ActivatedAbility } from './types';
+import type { ActivatedAbility, XCount } from './types';
 import type { CardDef, CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
 import { SLOTS, opponentOf, HAND_LIMIT } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
@@ -121,6 +121,10 @@ export function matchesFilter(
   if (filter.costMax !== undefined && (def.cost ?? 0) > filter.costMax) return false;
   if (filter.costMin !== undefined && (def.cost ?? 0) < filter.costMin) return false;
   if (filter.powerMax !== undefined && currentStat(state, instanceId, 'POWER') > filter.powerMax) return false;
+  if (filter.nameInWaitingRoom) {
+    const owner = getInstance(state, instanceId).owner;
+    if (!state.zones[owner].waitingRoom.some((id) => getDef(state, id).name === def.name && getDef(state, id).kind === def.kind)) return false;
+  }
   if (filter.levelMax !== undefined || filter.levelMin !== undefined) {
     const level = levelOf(state, instanceId);
     if (filter.levelMax !== undefined && level > filter.levelMax) return false;
@@ -245,6 +249,12 @@ function continuousTargets(
       );
     case 'ALL_THEIRS':
       return stageCharacters(state, opponentOf(source.master));
+    case 'FACING': {
+      // このカードの正面のキャラ (CR-3.6.4)
+      const location = getInstance(state, source.instanceId).location;
+      const facing = location.zone === 'stage' ? facingSlot(location.slot) : null;
+      return facing ? state.zones[opponentOf(location.player)].stage[facing].filter((id) => getDef(state, id).kind === 'CHARACTER') : [];
+    }
     case 'IN_FRONT': {
       const location = getInstance(state, source.instanceId).location;
       if (location.zone !== 'stage') return [];
@@ -456,13 +466,24 @@ export function ignoresColorCondition(state: GameState, instanceId: number): boo
  * (a condition of a trait-giving ability that itself looks at traits).
  */
 let traitsInProgress = false;
+/** The card ids whose own abilities give traits, worked out once per set of card definitions. */
+const traitGiverCache = new WeakMap<object, Set<string>>();
+function traitGivers(state: GameState): Set<string> {
+  let set = traitGiverCache.get(state.defs);
+  if (!set) {
+    set = new Set(Object.entries(state.defs).filter(([, def]) => (def.abilities ?? []).some((a) => a.type === 'CONT' && a.giveTraits)).map(([id]) => id));
+    traitGiverCache.set(state.defs, set);
+  }
+  return set;
+}
 export function traitsOf(state: GameState, instanceId: number): readonly string[] {
   const def = getDef(state, instanceId);
   const inst = getInstance(state, instanceId);
   if (traitsInProgress || inst.location.zone !== 'stage') return def.traits;
+  const givers = traitGivers(state);
   const anyGiver =
     state.grants.some((grant) => grant.ability.type === 'CONT' && grant.ability.giveTraits) ||
-    [0, 1].some((p) => SLOTS.some((slot) => state.zones[p as PlayerId].stage[slot].some((id) => (getDef(state, id).abilities ?? []).some((a) => a.type === 'CONT' && a.giveTraits))));
+    (givers.size > 0 && [0, 1].some((p) => SLOTS.some((slot) => state.zones[p as PlayerId].stage[slot].some((id) => givers.has(getInstance(state, id).cardId)))));
   if (!anyGiver) return def.traits;
   traitsInProgress = true;
   try {
@@ -525,12 +546,39 @@ export function activatedAbilitiesOf(state: GameState, instanceId: number): { in
     if (ability.type === 'ACT') list.push({ index, ability });
   });
   if (getInstance(state, instanceId).location.zone !== 'stage') return list;
+  // Only a card with a 【永】 that gives it a 【起】 can have more (gains are this card's own).
+  if (!(getDef(state, instanceId).abilities ?? []).some((ability) => ability.type === 'CONT' && ability.gains?.some((g) => g.type === 'ACT'))) return list;
   let k = 100;
   for (const { source, ability } of continuousInForce(state)) {
     if (source.instanceId !== instanceId) continue;
     for (const gained of ability.gains ?? []) if (gained.type === 'ACT') list.push({ index: k++, ability: gained });
   }
   return list;
+}
+
+/** このカードのアタック中、あなたはトリガーステップにトリガーチェックをN回行う: the number for this character, if any. */
+export function attackTriggerChecks(state: GameState, instanceId: number): number | undefined {
+  let checks: number | undefined;
+  for (const { source, ability } of continuousInForce(state)) if (ability.triggerChecks && source.instanceId === instanceId) checks = Math.max(checks ?? 0, ability.triggerChecks);
+  return checks;
+}
+
+/** What X counts (SET_X). */
+export function countForX(state: GameState, context: EffectContext, count: XCount): number {
+  const master = context.master;
+  const self = sourceIfUnchanged(state, context);
+  const pool =
+    count.of === 'MOVED'
+      ? (context.moved ?? []).filter((id) => getInstance(state, id))
+      : count.of === 'OPPONENT_WAITING_ROOM'
+        ? state.zones[opponentOf(master)].waitingRoom
+        : count.of === 'YOUR_MEMORY'
+          ? state.zones[master].memory.filter((id) => getInstance(state, id).face === 'UP')
+          : self && self.location.zone === 'stage'
+            ? state.zones[self.location.player].marker[self.location.slot].filter((id) => !count.distinctNames || getInstance(state, id).face === 'UP')
+            : [];
+  const matching = pool.filter((id) => matchesFilter(state, id, count.filter));
+  return count.distinctNames ? new Set(matching.map((id) => getDef(state, id).name)).size : matching.length;
 }
 
 export function cannotMove(state: GameState, instanceId: number): boolean {
@@ -623,6 +671,11 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       );
     case 'ALL_THEIRS':
       return stageCharacters(state, opponentOf(context.master));
+    case 'FACING': {
+      const self = sourceIfUnchanged(state, context);
+      const facing = self && self.location.zone === 'stage' ? facingSlot(self.location.slot) : null;
+      return self && facing && self.location.zone === 'stage' ? state.zones[opponentOf(self.location.player)].stage[facing].filter((id) => getDef(state, id).kind === 'CHARACTER') : [];
+    }
     case 'IN_FRONT': {
       const self = sourceIfUnchanged(state, context);
       if (!self || self.location.zone !== 'stage') return [];
@@ -689,6 +742,12 @@ export function chooseCandidates(
       break;
     case 'YOUR_CLOCK':
       pool = [...zones.clock];
+      break;
+    case 'YOUR_LEVEL':
+      pool = [...zones.level];
+      break;
+    case 'THOSE':
+      pool = (context.moved ?? []).filter((id) => state.instances[id]);
       break;
     case 'YOUR_DECK':
       pool = [...zones.deck];

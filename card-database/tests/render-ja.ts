@@ -27,6 +27,8 @@ export function filterJa(filter: CardFilter | undefined, where: 'STAGE' | 'ZONE'
   if (keys === 'anyOf') return filter.anyOf!.map((part) => filterJa(part, 'ZONE')).join('か');
   if (keys === 'hasTrigger,kind' && filter.kind === 'CLIMAX') return `トリガーアイコンが[[${ICONS[filter.hasTrigger!]}.gif]]のCX`;
   if (keys === 'kind,triggersExactly' && filter.kind === 'CLIMAX') return `トリガーアイコンが${filter.triggersExactly!.map((t) => `[[${ICONS[t]}.gif]]`).join('')}のCX`;
+  if (keys === 'kind,nameInWaitingRoom' && filter.kind === 'CLIMAX') return '自分の控え室にあるCXと同じカード名のCX';
+  if (keys === 'color') return `${{ red: '赤', blue: '青', yellow: '黄', green: '緑' }[filter.color!] ?? fail('colour', filter)}のカード`;
   if (keys === 'kind,powerMax' && filter.kind === 'CHARACTER') return `パワー${filter.powerMax}以下のキャラ`;
   if (keys === 'nameIncludesAny' || keys === 'kind,nameIncludesAny') return `カード名に${filter.nameIncludesAny!.map((x) => `「${x}」`).join('か')}を含むキャラ`;
   if (keys === 'kind,nameExcludes,traits' && filter.traits!.length === 1) return `、カード名に「${filter.nameExcludes}」を含まない《${filter.traits![0]}》のキャラ`;
@@ -52,9 +54,12 @@ export function triggerJa(trigger: Trigger): string {
     case 'PLACED_ON_STAGE':
       return trigger.from === 'HAND' ? 'このカードが手札から舞台に置かれた時' : trigger.from === 'HAND_OR_MEMORY' ? 'このカードが手札か思い出置場から舞台に置かれた時' : fail('trigger', trigger);
     case 'ATTACKS':
+      if (trigger.attackType === 'DIRECT') return trigger.placedThisTurn ? fail('trigger', trigger) : 'このカードがダイレクトアタックした時';
       return `${trigger.placedThisTurn ? 'このカードが手札から舞台に置かれたターン中、' : ''}このカードがアタックした時`;
     case 'ATTACK_END':
       return 'このカードのアタックの終わりに';
+    case 'OPPONENT_PLAYED_ACT':
+      return '相手が【起】を使った時';
     case 'YOU_PLAYED_ACT':
       return 'あなたが【起】を使った時';
     case 'TAKEN_DAMAGE_NOT_CANCELLED':
@@ -69,6 +74,7 @@ export function triggerJa(trigger: Trigger): string {
     {
       // …した時か…した時: when both parts have the subject "このカードが", it is said once. "このカードのアタックの終わりに"
       // joins as "…終わりか", and the next part keeps its subject.
+      if (JSON.stringify(trigger.of) === JSON.stringify([{ on: 'REVERSED' }, { on: 'BATTLE_OPPONENT_REVERSED' }])) return 'このカードかこのカードのバトル相手が【リバース】した時';
       const texts = trigger.of.map(triggerJa);
       const shared = texts.every((t) => t.startsWith('このカードが'));
       return texts.map((t, i) => (i > 0 && shared ? t.replace(/^このカードが/, '') : t)).join('か').replace(/終わりにか/, '終わりか');
@@ -89,6 +95,7 @@ export function triggerJa(trigger: Trigger): string {
       if (Object.keys(trigger.filter).join() !== 'name') return fail('trigger', trigger);
       return trigger.duringClimaxPhase ? `あなたのCXフェイズ中、CX置場に「${trigger.filter.name}」が置かれた時` : `あなたのCX置場に「${trigger.filter.name}」が置かれた時`;
     case 'PHASE_START':
+      if (trigger.placedThisTurn) return trigger.turn === 'YOURS' && trigger.phase === 'CLIMAX' ? 'このカードが手札から舞台に置かれたターン中、あなたのCXフェイズの始めに' : fail('trigger', trigger);
       if (trigger.turn === 'OPPONENT' && trigger.phase === 'ATTACK') return '相手のアタックフェイズの始めに';
       if (trigger.turn !== 'YOURS') return fail('trigger', trigger);
       return trigger.phase === 'CLIMAX' ? 'あなたのCXフェイズの始めに' : trigger.phase === 'ATTACK' ? 'あなたのアタックフェイズの始めに' : fail('trigger', trigger);
@@ -118,7 +125,8 @@ export function triggerJa(trigger: Trigger): string {
 export function costJa(cost: Cost): string {
   switch (cost.pay) {
     case 'STOCK':
-      return `(${cost.count})`;
+      // The official text writes a stock cost of 10 or more as a circled number (⑩, NIK/S135-065, the only one).
+      return cost.count >= 10 && cost.count <= 20 ? String.fromCharCode(0x245f + cost.count) : `(${cost.count})`;
     case 'REST_SELF':
       return 'このカードを【レスト】する';
     case 'SELF_TO_WAITING_ROOM':
@@ -184,6 +192,7 @@ function oneConditionJa(c: Condition): string {
       if (!c.distinctNames && c.max === 0 && c.min === undefined) return 'このカードの下にマーカーがない';
       return fail('condition', c);
     case 'COUNT': {
+      if (c.where === 'YOUR_FRONT_ROW' && c.other && c.max === 0 && !c.filter && c.min === undefined) return '他のあなたの前列のキャラがいない';
       const bound = c.min !== undefined && c.max === undefined ? (c.min === 1 && c.where !== 'YOUR_WAITING_ROOM' && c.where !== 'YOUR_HAND' && c.where !== 'YOUR_MEMORY' ? (c.where === 'YOUR_CLIMAX' ? 'がある' : 'がいる') : `が${c.min}枚以上`) : c.max !== undefined && c.min === undefined ? `が${c.max}枚以下` : fail('condition', c);
       if (c.where === 'YOUR_MEMORY_AND_MARKERS') return c.filter ? fail('condition', c) : c.max === 0 && c.min === undefined ? 'あなたの、思い出とマーカー置場にカードがない' : `あなたの、思い出とマーカー置場のカードの合計${bound}`;
       if (c.where === 'YOUR_WAITING_ROOM') return `あなたの控え室の${filterJa(c.filter, 'ZONE')}${bound}`;
@@ -255,10 +264,20 @@ export function conditionJa(condition: Condition | undefined): string {
   const parts: (Condition | string)[] = [];
   for (let k = 0; k < all.length; k++) {
     const [a, b] = [named(all[k]), named(all[k + 1])];
+    const frontNamed = (c: Condition | undefined): string | undefined => (c?.if === 'COUNT' && c.where === 'YOUR_FRONT_ROW' && c.other && c.min === 1 && c.max === undefined && c.filter && Object.keys(c.filter).join() === 'name' ? c.filter.name : undefined);
+    const [fa, fb] = [frontNamed(all[k]), frontNamed(all[k + 1])];
     if (a !== undefined && b !== undefined) {
       parts.push(`あなたの「${a}」と「${b}」がいる`);
       k++;
+    } else if (fa !== undefined && fb !== undefined) {
+      parts.push(`他のあなたの前列の、「${fa}」と「${fb}」がいる`);
+      k++;
     } else parts.push(all[k]!);
+  }
+  // すべてのプレイヤーのレベルがN以上: yours and the opponent's, said once.
+  for (let k = 0; k < parts.length - 1; k++) {
+    const [a, b] = [parts[k], parts[k + 1]];
+    if (typeof a === 'object' && typeof b === 'object' && a.if === 'LEVEL' && b.if === 'LEVEL' && !a.whose && b.whose === 'OPPONENT' && a.min === b.min && a.max === undefined && b.max === undefined) parts.splice(k, 2, `すべてのプレイヤーのレベルが${a.min}以上`);
   }
   return parts
     .map((part, i) => {
@@ -333,10 +352,42 @@ function actionJa(effects: readonly Effect[], i: number, target: Target): { text
   return fail('action', e);
 }
 
-const count = (e: { min: number; max: number }): string => (e.min === e.max ? `${e.max}枚` : e.min === 0 ? `${e.max}枚まで` : fail('count', e));
+const count = (e: { min: number; max: number; exactX?: boolean }): string => (e.exactX ? '同じ枚数' : e.min === e.max ? `${e.max}枚` : e.min === 0 ? `${e.max}枚まで` : fail('count', e));
 
 /** The effect sentences for a list of effects, each without "あなたは" and "。". */
+const X_MARK = 7777;
+/** "Ｘは…に等しい" for a SET_X. */
+function xCountJa(set: Extract<Effect, { do: 'SET_X' }>): string {
+  const c = set.count;
+  const f = c.filter ? Object.keys(c.filter).sort().join() : '';
+  if (c.of === 'MOVED' && f === 'kind' && c.filter!.kind === 'CLIMAX' && !set.plus && !set.minus && !set.tiers) return 'ＸはそれらのカードのCXの枚数に等しい';
+  if (c.of === 'OPPONENT_WAITING_ROOM' && f === 'kind' && c.filter!.kind === 'CLIMAX' && set.minus && !set.plus && !set.tiers) return `Ｘは相手の控え室のCXの枚数－${set.minus}に等しい`;
+  if (c.of === 'MARKERS' && c.distinctNames && !c.filter && set.plus && !set.tiers) return `Ｘはこのカードの下の異なるカード名のマーカーの枚数＋${set.plus}に等しい`;
+  if (c.of === 'MARKERS' && c.distinctNames && !c.filter && set.tiers?.length === 2 && set.tiers[0]!.max !== undefined && set.tiers[1]!.min !== undefined) return `Ｘはこのカードの下の異なるカード名のマーカーが${set.tiers[0]!.max}枚以下なら${set.tiers[0]!.x}、${set.tiers[1]!.min}枚以上なら${set.tiers[1]!.x}に等しい`;
+  if (c.of === 'YOUR_MEMORY' && f === 'names' && c.filter!.names!.length === 2) return `Ｘはあなたの思い出置場の、「${c.filter!.names![0]}」と「${c.filter!.names![1]}」の枚数に等しい`;
+  return fail('x', set);
+}
+/** The X fields back as the placeholder number, so the sentences can be written with it. */
+function unmarkX(list: readonly Effect[]): Effect[] {
+  return list.map((e) => {
+    if (e.do === 'DAMAGE' && e.amountX) return { ...e, amount: X_MARK, amountX: undefined } as Effect;
+    if (e.do === 'REPEAT') return { ...e, effects: unmarkX(e.effects), ...(e.timesX ? { times: X_MARK, timesX: undefined } : {}) } as Effect;
+    if (e.do === 'DECK_TOP' && e.countX) return { ...e, count: X_MARK, countX: undefined } as Effect;
+    if (e.do === 'CHOOSE' && e.maxX) return { ...e, max: X_MARK, maxX: undefined } as Effect;
+    if (e.do === 'REORDER_TOP' && e.x) return { ...e, upTo: X_MARK, keep: X_MARK, x: undefined } as Effect;
+    if (e.do === 'IF') return { ...e, then: unmarkX(e.then) } as Effect;
+    return e;
+  });
+}
+
 export function effectsJa(effects: readonly Effect[]): string[] {
+  // Ｘ set by SET_X: the sentences with Ｘ, then "Ｘは…に等しい".
+  const setX = effects.find((e): e is Extract<Effect, { do: 'SET_X' }> => e.do === 'SET_X');
+  if (setX) {
+    const strip = (o: unknown): unknown => (Array.isArray(o) ? o.map(strip) : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined).map(([k, v]) => [k, strip(v)])) : o);
+    const rest = strip(unmarkX(effects.filter((e) => e !== setX))) as Effect[];
+    return [...effectsJa(rest).map((t) => t.replaceAll(String(X_MARK), 'Ｘ')), xCountJa(setX)];
+  }
   // Ｘ made by the first effect and used by what follows: one sentence, then "Ｘは…に等しい".
   const maker = effects[0];
   if (maker && ((maker.do === 'DECK_TOP' && maker.setX) || maker.do === 'SHOW_TOP')) {
@@ -375,6 +426,12 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       continue;
     }
     if (e.do === 'CHOOSE') {
+      if (e.from === 'OPPONENT_WAITING_ROOM' && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string }).to === 'DECK' && effects[i + 2]?.do === 'SHUFFLE' && (effects[i + 2] as { whose?: string }).whose === 'OPPONENT') {
+        const rest = effectsJa(effects.slice(i + 3));
+        sentences.push(`相手の控え室の${filterJa(e.filter, 'ZONE')}を${count(e)}選び、山札に戻し、相手はその山札をシャッフルし、${rest[0]}`, ...rest.slice(1));
+        i = effects.length;
+        continue;
+      }
       const given = effects[i + 1];
       if (e.from === 'BATTLING' && given?.do === 'GRANT' && given.ability.type === 'CONT' && given.ability.noDamageToPlayers && !given.until) {
         sentences.push(`バトル中のキャラを${count(e)}選び、そのターン中、次の能力を与える。『【永】 このカードはプレイヤーにダメージを与えることができない。』`);
@@ -473,6 +530,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
               ? '自分の手札'
               : e.from === 'YOUR_HAND'
                 ? `自分の手札の${filterJa(e.filter, 'ZONE')}`
+              : e.from === 'BATTLING' && !e.filter
+                ? 'バトル中のキャラ'
+              : e.from === 'YOUR_LEVEL' && !e.filter
+                ? '自分のレベル置場のカード'
               : e.from === 'YOUR_CLOCK' && !e.filter
                 ? '自分のクロック'
                 : e.from === 'YOUR_CLOCK'
@@ -512,7 +573,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
         k++;
       }
       const g = effects[k];
-      if (g?.do === 'GRANT' && g.target.who === 'SELF' && g.ability.type !== 'CONT') {
+      if (g?.do === 'GRANT' && g.target.who === 'SELF' && !(g.ability.type === 'CONT' && g.ability.giveTraits)) {
         const until = g.until === 'NEXT_OPPONENT_TURN' ? '次の相手のターンの終わりまで' : 'そのターン中';
         sentences.push(`${until}、このカード${changes.length ? `の${changes.join('し、')}し、このカード` : ''}は次の能力を得る`, `『${abilityJa(g.ability)}』`);
         i = k + 1;
@@ -592,20 +653,54 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       const [a, b] = e.options.map((option) => effectsJa(option));
       if (e.options.length !== 2 || a!.length !== 1 || b!.length !== 1) fail('or', e);
       sentences.push(`${a![0]}か、${b![0]}`);
-    } else if (e.do === 'CLOCK_TOP' && e.optional && effects[i]?.do !== 'MODIFY') {
+    } else if (e.do === 'CLOCK_TOP' && e.optional && (e.count ?? 1) === 1 && effects[i]?.do !== 'MODIFY') {
       if (e.to !== 'WAITING_ROOM' || e.whose) fail('clock', e);
       sentences.push('自分のクロックの上から1枚までを、控え室に置く');
-    } else if (e.do === 'CLOCK_TOP' && e.optional) {
+    } else if (e.do === 'CLOCK_TOP' && e.optional && (e.count ?? 1) === 1) {
       // 1枚までを、控え室に置き、そのターン中、このカードの…: said in one sentence with what follows.
       const next = effects[i];
       if (e.to !== 'WAITING_ROOM' || e.whose || next?.do !== 'MODIFY' || next.target.who !== 'SELF') fail('clock', e);
       const action = actionJa(effects, i, { who: 'SELF' });
       sentences.push(`自分のクロックの上から1枚までを、控え室に置き、${action.text.replace('、', '、このカードの')}`);
       i += action.used;
+    } else if (e.do === 'CLOCK_TOP' && e.fromBottom) sentences.push(e.count === undefined && !e.optional && !e.whose ? `自分のクロックの下から1枚を、${e.to === 'STOCK' ? 'ストック置場' : '控え室'}に置く` : fail('clock', e));
+    else if (e.do === 'CLOCK_TOP' && (e.count ?? 1) > 1) sentences.push(e.optional && e.to === 'WAITING_ROOM' && !e.whose ? `自分のクロックの上から${e.count}枚までを、控え室に置く` : fail('clock', e));
+    else if (e.do === 'EXTRA_TURN') sentences.push('追加の1ターンを得る');
+    else if (e.do === 'EXCHANGE_ZONES' && e.b === 'SELF') sentences.push(`自分の控え室の${filterJa(e.a.filter, 'ZONE')}を${e.count}枚とこのカードを選び、入れ替える`);
+    else if (e.do === 'EXCHANGE_ZONES' && e.b !== 'SELF') sentences.push(`自分の控え室の${filterJa(e.a.filter, 'ZONE')}と思い出置場の${filterJa(e.b.filter, 'ZONE')}を${e.count}枚ずつ選び、入れ替える`);
+    else if (e.do === 'DRAW' && e.upTo && effects[i]?.do === 'CHOOSE' && (effects[i] as { exactX?: boolean }).exactX && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string }).to === 'WAITING_ROOM') {
+      sentences.push(`${e.count}枚まで引き、自分の手札を同じ枚数選び、控え室に置く`);
+      i += 2;
+    } else if (e.do === 'STOCK_BOTTOM_TO_HAND' && effects[i]?.do === 'CHOOSE' && (effects[i] as { exactX?: boolean }).exactX && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string; inOrder?: boolean }).to === 'STOCK_BOTTOM' && (effects[i + 1] as { inOrder?: boolean }).inOrder) {
+      sentences.push(`自分のストックの下から${e.count}枚までを、手札に戻し、自分の手札を同じ枚数選び、ストック置場の下に好きな順番で置く`);
+      i += 2;
+    } else if (e.do === 'REVEAL_DECK_TOP' && e.upTo && effects[i]?.do === 'IF') {
+      const after = effects[i] as Extract<Effect, { do: 'IF' }>;
+      const [choose, take, rest, ...more] = after.then;
+      if (after.condition.if !== 'LAST_MOVED' || after.condition.min !== 1 || choose?.do !== 'CHOOSE' || choose.from !== 'THOSE' || take?.do !== 'MOVE' || take.to !== 'HAND' || rest?.do !== 'MOVE_REST') fail('reveal', e);
+      const moreText = effectsJa(more);
+      sentences.push(`自分の山札の上から${e.count}枚までを、公開してよい`, `1枚以上公開したなら、それらのカードの${filterJa((choose as Extract<Effect, { do: 'CHOOSE' }>).filter, 'ZONE')}を${(choose as Extract<Effect, { do: 'CHOOSE' }>).max}枚まで選び、手札に加え、残りのカードを控え室に置く`, ...moreText);
+      i++;
+    }
+    else if (e.do === 'REPLAY') sentences.push(`${e.name}を発動する`);
+    else if (e.do === 'CLOCK_ALL_TO_WAITING_ROOM') sentences.push('すべてのプレイヤーは自分のクロックすべてを、控え室に置く');
+    else if (e.do === 'REVEAL_DECK_TOP' && effects[i]?.do === 'SHUFFLE') {
+      const shuffle = effects[i] as Extract<Effect, { do: 'SHUFFLE' }>;
+      const after = effects[i + 1];
+      if (e.whose === 'OPPONENT') {
+        if (shuffle.whose !== 'OPPONENT' || after?.do !== 'DECK_TOP' || after.whose !== 'OPPONENT' || after.to !== 'CLOCK') fail('reveal', e);
+        sentences.push(`相手は自分の山札の上から${e.count}枚を公開し、その山札をシャッフルし、自分の山札の上から${(after as Extract<Effect, { do: 'DECK_TOP' }>).count}枚を、クロック置場に置く`);
+        i += 2;
+      } else {
+        if (shuffle.whose) fail('reveal', e);
+        const rest = effectsJa(effects.slice(i + 1));
+        sentences.push(`自分の山札の上から${e.count}枚を公開し、その山札をシャッフルし、${rest[0]}`, ...rest.slice(1));
+        i = effects.length;
+      }
     } else if (e.do === 'CLOCK_TOP') sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}のクロックの上から1枚を、${e.to === 'STOCK' ? 'ストック置場' : '控え室'}に置く`);
     else if (e.do === 'MARKERS_TOP') sentences.push(`このカードの下のマーカーを${e.count}枚${e.to === 'HAND' ? '手札に戻す' : e.to === 'STOCK' ? 'ストック置場に置く' : '控え室に置く'}`);
     else if (e.do === 'ICON_EFFECT') sentences.push('[[standby.gif]]の効果を行う');
-    else if (e.do === 'WAITING_ROOM_TO_DECK' && e.everyone) sentences.push('すべてのプレイヤーは自分の控え室のカードすべてを、山札に戻し、それらの山札をシャッフルする'); else if (e.do === 'TOP_OR_BOTTOM') sentences.push(`自分の山札を上から1枚見て、山札の上か${e.anyOfThree ? '下か控え室' : e.orWaitingRoom ? '控え室' : '下'}に置く`);
+    else if (e.do === 'WAITING_ROOM_TO_DECK' && e.everyone) sentences.push('すべてのプレイヤーは自分の控え室のカードすべてを、山札に戻し、それらの山札をシャッフルする'); else if (e.do === 'TOP_OR_BOTTOM') sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}の山札を上から1枚見て、山札の上か${e.anyOfThree ? '下か控え室' : e.orWaitingRoom ? '控え室' : '下'}に置く`);
     else if (e.do === 'TRIGGER_CHECKS') sentences.push(`そのアタック中、トリガーステップにトリガーチェックを${e.count}回行う`);
     else if (e.do === 'IF' && e.condition.if === 'DID' && !e.else && (effects[i - 2]?.do === 'LOOK_TOP' || (effects[i - 2]?.do === 'SHUFFLE' && effects[i - 3]?.do === 'MOVE'))) {
       const inner = effectsJa(e.then);
@@ -646,6 +741,13 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     } else if (e.do === 'REVEAL_TOP') {
       const then = e.then ? effectsJa(e.then) : [];
       const otherwise = e.else ? effectsJa(e.else) : [];
+      // "…してよい。そうしたら、…" after the shown card: two sentences.
+      if (e.then?.length === 2 && e.then[0]!.do === 'MAY' && e.then[1]!.do === 'IF' && (e.then[1] as { condition: Condition }).condition.if === 'DID' && !e.take && !e.else) {
+        const which = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
+        const after = effectsJa((e.then[1] as Extract<Effect, { do: 'IF' }>).then);
+        sentences.push(`自分の山札の上から1枚を公開${e.optional ? 'してよい' : 'する'}`, `そのカード${which}なら、${then[0]}`, `そうしたら、${after[0]}`, ...after.slice(1));
+        continue;
+      }
       if (then.length > 1 || otherwise.length > 1 || (!e.take && then.length === 0)) fail('reveal', e);
       const which = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
       sentences.push(`自分の山札の上から1枚を公開${e.optional ? 'してよい' : 'する'}`, `そのカード${which}なら${e.take ? (then.length > 0 ? `手札に加え、${then[0]}` : '手札に加える') : `、${otherwise.length ? then[0]!.replace(/戻す$/, '戻し').replace(/置く$/, '置き') : then[0]}`}${otherwise.length ? `、そうでないなら、${otherwise[0]}` : ''}`);
@@ -736,6 +838,9 @@ export function abilityJa(ability: Ability): string {
       const part = ability.grantConts[0]!;
       return ability.grantConts.length === 1 && part.target.who === 'YOUR_SLOT' && part.target.slots.join() === 'BL,BR' && part.target.other && ability.apply.length === 0 && !ability.condition ? `【永】 他のあなたの後列のキャラすべてに、『${abilityJa(part.ability)}』を与える。` : fail('ability', ability);
     }
+    if (ability.replay) return ability.apply.length === 0 && !ability.condition ? `【リプレイ】${ability.replay.oncePerGame ? '【ゲーム1】' : ''} ${ability.replay.name} ${effectsJa(ability.replay.effects).join('。')}。` : fail('ability', ability);
+    if (ability.noDamageToPlayers) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードはプレイヤーにダメージを与えることができない。' : fail('ability', ability);
+    if (ability.triggerChecks) return ability.apply.length === 0 && !ability.condition && !ability.grant ? `【永】 このカードのアタック中、あなたはトリガーステップにトリガーチェックを${ability.triggerChecks}回行う。` : fail('ability', ability);
     if (ability.noBackupsEveryone) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードのバトル中、すべてのプレイヤーは『助太刀』を手札からプレイできない。' : fail('ability', ability);
     if (ability.anyNumberInDeck) return ability.apply.length === 0 && !ability.condition && !ability.grant ? '【永】 このカードと同じカード名のカードは、デッキに好きな枚数入れることができる。' : fail('ability', ability);
     if (ability.gainsTriggerIcons) return ability.apply.length === 0 && !ability.grant && ability.gainsTriggerIcons.length === 1 ? `【永】 ${conditionJa(ability.condition)}すべての領域にあるこのカードはトリガーアイコンに[[${ICONS[ability.gainsTriggerIcons[0]!]}.gif]]を得る。` : fail('ability', ability);
@@ -781,6 +886,8 @@ export function abilityJa(ability: Ability): string {
       ? ''
       : target.who === 'SELF'
         ? `このカードの${changes}`
+        : target.who === 'FACING'
+          ? `このカードの正面のキャラの${changes}`
         : target.who === 'ALL_YOURS'
           ? `${target.other ? '他の' : ''}あなたの${filterJa(target.filter, 'STAGE')}すべてに、${changes}`
           : fail('target', target);
@@ -841,6 +948,8 @@ export function sameWords(text: string): string {
   return text
     .replace(/(【自】 アンコール ［[^］]*］) （[^（）]*）$/, '$1')
     .replace(/（ダメージキャンセルは発生する）$/, '')
+    // The reminder that the rule's encore is included restates what 『【自】 アンコール』を使えない means (CR-10.2.3, CR-2.12.3).
+    .replace(/。?（ルールによる『【自】 アンコール ［\(3\)］』も使えない）$/, '')
     .replace(/（CXのレベルは0として扱う）$/, '')
     .replace(/（(?:(?:CXのレベルは0として扱う|そうでないなら元に戻す|公開したカードは元に戻す|ダメージキャンセルは発生する)。?)+）$/, '')
     .replace(/、次の能力を与える。『((?:[^『』]|『[^『』]*』)+?)。?』/g, '、『$1』を与える')
@@ -861,6 +970,8 @@ export function sameWords(text: string): string {
     .replace(/置き、/g, '置く。')
     .replace(/戻し、/g, '戻す。')
     .replace(/シャッフルし、/g, 'シャッフルする。')
+    // "N枚を、クロック置場に置く" and "N枚をクロック置場に置く": a comma only.
+    .replace(/枚を、/g, '枚を')
     .replace(/ダメージを与え、(?!あなたはコストを払ってよい|コストを払ってよい)/g, 'ダメージを与える。')
     .replace(/枚まで引き、/g, '枚まで引く。')
     // "次の行動を行う。『X』" (once) says the same as X itself.

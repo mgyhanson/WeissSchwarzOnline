@@ -106,9 +106,9 @@ const LINE_PATTERNS: LinePattern[] = [
   },
   {
     id: 'BACKUP',
-    re: new RegExp(`^【起】【カウンター】 助太刀(\\d+) レベル(\\d) ［(?:\\((\\d)\\) )?手札のこのカードを控え室に置く］${REMINDER}$`),
+    re: new RegExp(`^【起】【カウンター】 助太刀(\\d+) レベル(\\d) ［(?:\\((\\d)\\) )?手札のこのカードを(控え室に置く|思い出にする)］${REMINDER}$`),
     build: (m) => ({
-      ability: backup(n(m[1]), n(m[2]), [...(m[3] ? [{ pay: 'STOCK' as const, count: n(m[3]) }] : []), { pay: 'SELF_TO_WAITING_ROOM' as const }]),
+      ability: backup(n(m[1]), n(m[2]), [...(m[3] ? [{ pay: 'STOCK' as const, count: n(m[3]) }] : []), m[4] === '思い出にする' ? { pay: 'SELF_TO_MEMORY' as const } : { pay: 'SELF_TO_WAITING_ROOM' as const }]),
       zh: `【起】【Counter】助太刀${m[1]} Level ${m[2]} [${m[3] ? `(${m[3]}) ` : ''}把手牌的這張卡放到控え室]：對手正面攻擊時的 Counter 步驟使用，選我方 1 張被正面攻擊的角色，該回合 Power +${m[1]}。自己的 Level 要達到 ${m[2]}。`,
     }),
   },

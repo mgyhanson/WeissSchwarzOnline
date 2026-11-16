@@ -40,9 +40,10 @@ const stripReminders = (text: string): string => {
 export function splitCost(cost: string): string[] {
   const parts: string[] = [];
   let rest = cost.trim();
-  const stock = /^\((\d+)\) ?/.exec(rest);
+  // (N) or a circled number (⑩) first: the stock to pay.
+  const stock = /^\((\d+)\) ?/.exec(rest) ?? /^([①-⑳]) ?/.exec(rest);
   if (stock) {
-    parts.push(`(${stock[1]})`);
+    parts.push(/^\d+$/.test(stock[1]!) ? `(${stock[1]})` : stock[1]!);
     rest = rest.slice(stock[0].length);
   }
   if (rest) {
@@ -122,7 +123,8 @@ export function splitLine(raw: string, kind: 'CHARACTER' | 'EVENT' | 'CLIMAX' = 
   // Leading conditions: "…なら、" (a condition never contains "、あなたは").
   for (;;) {
     const cond = /^((?:(?!あなたは|そのターン中)[^『』])*?)なら、/.exec(first);
-    if (!cond || cond[1]!.includes('時')) break;
+    // A "時" outside card names means it is still a trigger (「夏のひと時 ノンナ」 is a name).
+    if (!cond || outsideNames(cond[1]!).includes('時')) break;
     conditions.push(cond[1]!);
     first = first.slice(cond[0].length);
   }
