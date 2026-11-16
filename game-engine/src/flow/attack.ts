@@ -275,6 +275,16 @@ export function stepAttackPhase(ctx: Ctx, frame: AttackFrame): void {
       if (card && card.location.zone === 'resolution') {
         moveCard(ctx, card.instanceId, { player, zone: 'stock' }, { reason: 'TRIGGER_CHECK' });
       }
+      // One more trigger check completed (CR-7.3.1.2.3). An effect waiting for exactly this many goes on now, once.
+      if (state.attack) {
+        const done = (state.attack.checksDone ?? 0) + 1;
+        state.attack.checksDone = done;
+        for (const waiting of state.attack.afterChecks ?? []) {
+          if (waiting.done || waiting.count !== done) continue;
+          waiting.done = true;
+          pushEffects(ctx, waiting.effects, waiting.context);
+        }
+      }
       return;
     }
 

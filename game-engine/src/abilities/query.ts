@@ -195,6 +195,7 @@ export function evalCondition(
     }
     case 'LAST_MOVED':
     case 'DID':
+    case 'X':
       // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).
       return false;
     case 'BATTLE_OPPONENT': {
@@ -589,6 +590,11 @@ export function countForX(state: GameState, context: EffectContext, count: XCoun
             : [];
   const matching = pool.filter((id) => matchesFilter(state, id, count.filter));
   return count.distinctNames ? new Set(matching.map((id) => getDef(state, id).name)).size : matching.length;
+}
+
+/** Whether an icon's effect for this player may also choose this card (…の効果で自分の控え室の「…」を選んでよい). */
+export function triggerMayAlsoChoose(state: GameState, player: PlayerId, icon: TriggerIcon, instanceId: number): boolean {
+  return continuousInForce(state).some(({ source, ability }) => source.master === player && ability.triggerAlsoChooses?.icons.includes(icon) === true && matchesFilter(state, instanceId, ability.triggerAlsoChooses.filter));
 }
 
 export function cannotMove(state: GameState, instanceId: number): boolean {

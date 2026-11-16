@@ -55,6 +55,12 @@ function discardable(state: GameState, context: EffectContext, cost: Extract<Cos
  * it must be possible, each counted separately.
  */
 export function canPayCost(state: GameState, context: EffectContext, costs: readonly Cost[]): boolean {
+  // ［AかB］: payable when the rest can be paid with at least one of the choices.
+  const either = costs.findIndex((cost) => cost.pay === 'EITHER');
+  if (either >= 0) {
+    const choice = costs[either] as Extract<Cost, { pay: 'EITHER' }>;
+    return choice.options.some((option) => canPayCost(state, context, [...costs.slice(0, either), ...option, ...costs.slice(either + 1)]));
+  }
   const zones = state.zones[context.master];
   let stockNeeded = 0;
   let discardsNeeded = 0;
@@ -166,6 +172,26 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
   }
 
   switch (cost.pay) {
+    case 'EITHER': {
+      // Only the choices that can be paid (with the costs still to pay after this one) are offered; one alone is taken.
+      const after = frame.costs.slice(frame.index + 1);
+      const payable = cost.options.map((option, k) => ({ option, k })).filter(({ option }) => canPayCost(state, context, [...option, ...after]));
+      let picked: (typeof payable)[number] | undefined = payable[0];
+      if (payable.length > 1) {
+        if (!frame.asked) {
+          frame.asked = true;
+          ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'COST_CHOICE', options: payable.map(({ k }) => `COST_${k + 1}`) });
+          return;
+        }
+        frame.asked = false;
+        const answer = takeAnswer(ctx, 'SELECT_OPTION').option;
+        picked = payable.find(({ k }) => `COST_${k + 1}` === answer);
+      }
+      if (!picked) throw new Error('Engine bug: an either-cost with no payable choice was paid');
+      // The chosen costs take its place and are paid in turn.
+      frame.costs.splice(frame.index, 1, ...picked.option);
+      return;
+    }
     case 'STOCK': {
       // CR-8.4.3 / CR-3.10.2: from the top of the stock down.
       const fromTop = zones.stock.slice(zones.stock.length - cost.count).reverse();
@@ -866,8 +892,14 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'IF': {
       const condition = effect.condition;
+      // Ｘが…なら: X of this resolution; with other conditions (…があり、Ｘが…なら), all of them.
+      const xHolds = (c: typeof condition): boolean =>
+        c.if === 'X' ? (context.x ?? 0) >= (c.min ?? -Infinity) && (context.x ?? 0) <= (c.max ?? Infinity) : c.if === 'ALL' ? c.of.every(xHolds) : evalCondition(state, master, context.source, c, context.battleOpponent, context.about ?? null);
+      const usesX = JSON.stringify(condition).includes('"if":"X"');
       const holds =
-        condition.if === 'LAST_MOVED'
+        usesX
+          ? xHolds(condition)
+          : condition.if === 'LAST_MOVED'
           ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
           : condition.if === 'DID'
             ? context.did === true
@@ -1113,7 +1145,11 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     case 'TRIGGER_CHECKS':
       next();
       // Only during an attack of the ability's master, before its trigger step is over.
-      if (state.attack && state.attack.player === master) state.attack.triggerChecks = effect.count;
+      if (state.attack && state.attack.player === master) {
+        state.attack.triggerChecks = effect.count;
+        // N回行ったら: this effect goes on when this attack has completed that many checks.
+        if (effect.then) state.attack.afterChecks = [...(state.attack.afterChecks ?? []), { count: effect.count, effects: effect.then, context: structuredClone(context), done: false }];
+      }
       return;
 
     case 'CHOOSE_ONE': {
@@ -1152,6 +1188,19 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       // 上からＸ枚まで見て、カードをＸ枚まで選び: X of this resolution.
       stepReorderTop(ctx, frame, effect.x ? { ...effect, upTo: context.x ?? 0, keep: context.x ?? 0 } : effect, next);
       return;
+
+    case 'STOCK_TOP_TO_WAITING_ROOM': {
+      // One card at a time from the top of your stock.
+      const done = frame.scratch[0] ?? 0;
+      const top = topOf(state.zones[master].stock);
+      if (done >= effect.count || top === undefined) {
+        next();
+        return;
+      }
+      frame.scratch[0] = done + 1;
+      moveCard(ctx, top, { player: master, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
 
     case 'STOCK_BOTTOM_TO_WAITING_ROOM': {
       // One card at a time from the bottom of the opponent's stock.

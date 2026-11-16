@@ -7,6 +7,7 @@
  * is skipped without a question.
  */
 
+import { triggerMayAlsoChoose } from '../abilities/query';
 import type { PromptId } from '../decisions';
 import type { BatchMove, Ctx } from '../moves';
 import { moveBatch, moveCard, revealCard } from '../moves';
@@ -44,7 +45,7 @@ function takeUpToOne(ctx: Ctx): CardInstance | null {
  * Icons of the form "you may choose one card in your waiting room that ...
  * and return it to your hand": comeback, gate and focus.
  */
-function stepSalvage(ctx: Ctx, frame: IconFrame, prompt: PromptId, accept: (def: CardDef) => boolean): void {
+function stepSalvage(ctx: Ctx, frame: IconFrame, prompt: PromptId, accept: (def: CardDef, instanceId: number) => boolean): void {
   const { player } = frame;
   if (frame.step === 0) {
     const cards = waitingRoomCards(ctx.state, player, accept);
@@ -208,7 +209,7 @@ export function stepTriggerIcon(ctx: Ctx, frame: IconFrame): void {
 
     // CR-4.14.2.9: may return one climax card from the waiting room to hand.
     case 'GATE':
-      return stepSalvage(ctx, frame, 'TRIGGER_GATE', (def) => def.kind === 'CLIMAX');
+      return stepSalvage(ctx, frame, 'TRIGGER_GATE', (def, id) => def.kind === 'CLIMAX' || triggerMayAlsoChoose(ctx.state, frame.player, 'GATE', id));
 
     // CR-4.14.2.10: may choose a character in the waiting room whose level
     // is at most the player's level + 1 and put it in any slot, rested.
@@ -249,7 +250,7 @@ export function stepTriggerIcon(ctx: Ctx, frame: IconFrame): void {
     // soul trigger icon and put it into the hand or the stock.
     case 'CHOICE': {
       if (frame.step === 0) {
-        const cards = waitingRoomCards(state, player, (def) => def.kind === 'CHARACTER' && def.triggers.includes('SOUL'));
+        const cards = waitingRoomCards(state, player, (def, id) => (def.kind === 'CHARACTER' && def.triggers.includes('SOUL')) || triggerMayAlsoChoose(state, player, 'CHOICE', id));
         if (cards.length === 0) {
           popFrame(ctx, frame);
           return;

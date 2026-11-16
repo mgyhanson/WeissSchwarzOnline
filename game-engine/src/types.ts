@@ -8,7 +8,7 @@
  * hashed, sent to another process and replayed.
  */
 
-import type { Ability, AutoAbility, ContinuousAbility, DelayedTime, Effect } from './abilities/types';
+import type { Ability, AutoAbility, ContinuousAbility, DelayedTime, Effect, EffectContext } from './abilities/types';
 import type { Choice, Decision } from './decisions';
 import type { Frame } from './flow/frames';
 
@@ -190,6 +190,10 @@ export interface AttackState {
   defenderSlot: SlotId | null;
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う: how many trigger checks this attack's trigger step makes (default 1). */
   triggerChecks?: number;
+  /** How many trigger checks this attack's trigger step has completed (CR-7.3.1.2.3). */
+  checksDone?: number;
+  /** N回行ったら、…: the rest of an effect waiting for that many completed checks of this attack (each done once). */
+  afterChecks?: { count: number; effects: Effect[]; context: EffectContext; done: boolean }[];
 }
 
 /**
