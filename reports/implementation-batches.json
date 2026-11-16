@@ -502,5 +502,68 @@
    "ANM_W138": 78,
    "NIK_S135": 76
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B6-1 規則登記表、置換效果",
+  "done": "規則登記表核對（CR-3.7.2.3、10.17、10.20、10.21、11.2、11.3 標為已測試並以 ID 命名測試；新增 CR-11.2.2 測試）、攻擊傷害的置換效果（CR-8.10.1）、這張卡 Soul 條件、Ｘ＝Soul、公開後可以…這樣做了的話（兩句）、對手山札頂",
+  "next": "Level 3：NIK-002 等",
+  "playable": 503,
+  "unsupported": 106,
+  "level3Playable": 55,
+  "level3Open": 8,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 101,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 82,
+   "STS_W140": 82,
+   "ANM_W138": 78,
+   "NIK_S135": 77
+  }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B6-2 Level 3：思い出放成 Marker、對手互換",
+  "done": "思い出中所有指定卡以表向按次序放到這張卡下面、Marker 數目三段 Ｘ、對手從控え室選卡互換（Ｘ＝你選的角色 Level －1）、可以選擇對手角色",
+  "next": "卡組、QA、PR",
+  "playable": 505,
+  "unsupported": 104,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 101,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 82,
+   "STS_W140": 82,
+   "ANM_W138": 78,
+   "NIK_S135": 79
+  }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B6-4 卡組及 QA",
+  "done": "STS 028、NIK 034／107 加入測試卡組；完整 QA（check 1106／8／0、soak 4000、validate 609/609、qa:ui 25/25）",
+  "next": "其餘 104 張：見 CARD_WORKLIST.md",
+  "playable": 505,
+  "unsupported": 104,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 101,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 82,
+   "STS_W140": 82,
+   "ANM_W138": 78,
+   "NIK_S135": 79
+  }
  }
 ]

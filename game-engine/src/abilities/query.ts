@@ -150,6 +150,10 @@ export function evalCondition(
   switch (condition.if) {
     case 'YOUR_TURN':
       return state.turn?.player === master;
+    case 'SELF_STAT': {
+      const value = currentStat(state, source, condition.stat);
+      return value >= (condition.min ?? -Infinity) && value <= (condition.max ?? Infinity);
+    }
     case 'FIRST_PLAYER_TURN':
       return !!state.turn && state.turn.player === state.firstPlayer && state.turn.number === condition.turn * 2 - 1;
     case 'OPPONENT_TURN':
@@ -567,6 +571,12 @@ export function attackTriggerChecks(state: GameState, instanceId: number): numbe
 export function countForX(state: GameState, context: EffectContext, count: XCount): number {
   const master = context.master;
   const self = sourceIfUnchanged(state, context);
+  if (count.of === 'SELF_SOUL') return self ? currentStat(state, self.instanceId, 'SOUL') : 0;
+  if (count.of === 'CHOSEN_LEVEL') {
+    // あなたが選んだキャラのレベル: as it is now, or as it last was (CR-8.11.1) when it is gone.
+    const chosen = context.chosen.map((objectId) => state.instances.find((inst) => inst.objectId === objectId)).find((inst) => inst);
+    return chosen ? currentLevel(state, chosen.instanceId) : 0;
+  }
   const pool =
     count.of === 'MOVED'
       ? (context.moved ?? []).filter((id) => getInstance(state, id))

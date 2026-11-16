@@ -430,6 +430,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           next();
           return;
         }
+        // …すべて: every one of them, without asking.
+        if (effect.all) {
+          context.chosen = candidates.map((id) => getInstance(state, id).objectId);
+          next();
+          return;
+        }
         const hidden = effect.from === 'YOUR_DECK';
         // CR-8.6.3.1: as many as possible up to the number required
         // (CR-8.6.3.1.2). From a hidden zone the player may always choose
@@ -521,7 +527,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         const target = destinationZone(state, context, first, effect.to);
         frame.step = 0;
         context.did = true;
-        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) });
+        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}), ...(target.zone.zone === 'marker' ? { face: effect.face ?? ('DOWN' as const) } : {}) });
         return;
       }
       // …に戻すか…に置く: the player says which, when there is something to move.
@@ -752,6 +758,40 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
       const rest = (context.moved ?? []).filter((id) => !chosen.includes(id) && state.instances[id] && getInstance(state, id).location.zone === 'deck');
       moveCards(ctx, rest, { player: master, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
+
+    case 'REPLACE_ATTACK_DAMAGE': {
+      next();
+      // Only for this card's current attack (そのアタック中).
+      const attacking = state.attack && state.attack.attackerObjectId === context.sourceObjectId;
+      if (!attacking || !state.turn) return;
+      state.replacements = [...(state.replacements ?? []), { kind: 'ATTACK_DAMAGE', attackerObjectId: context.sourceObjectId, attackNumber: state.turn.attackCount, turn: state.turn.number, master, sourceInstance: context.source, effects: effect.effects }];
+      return;
+    }
+
+    case 'OPPONENT_SWAPS_FROM_WAITING_ROOM': {
+      const [target] = resolveTarget(state, context, { who: 'CHOSEN' });
+      const opponent = opponentOf(master);
+      const filter = { ...(effect.filter ?? {}), ...(effect.levelMaxX ? { levelMax: context.x ?? 0 } : {}) };
+      const pool = state.zones[opponent].waitingRoom.filter((id) => getDef(state, id).kind === 'CHARACTER' && matchesFilter(state, id, filter));
+      const where = target === undefined ? null : getInstance(state, target).location;
+      if (!where || where.zone !== 'stage' || where.player !== opponent || pool.length === 0) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: opponent, prompt: 'EFFECT_CHOOSE', cards: pool.map((id) => getInstance(state, id).objectId), min: 1, max: 1 });
+        return;
+      }
+      const picked = findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId;
+      next();
+      // Both move at once: the stage character to the waiting room, the chosen one to its slot.
+      moveBatch(ctx, [
+        { instanceId: target!, to: { player: opponent, zone: 'waitingRoom' }, opts: { reason: 'EFFECT' } },
+        { instanceId: picked, to: { player: opponent, zone: 'stage', slot: where.slot }, opts: { reason: 'EFFECT' } },
+      ]);
       return;
     }
 

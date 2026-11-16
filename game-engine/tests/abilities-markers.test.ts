@@ -83,7 +83,7 @@ describe('conditions and numbers about markers', () => {
     expect([power([none], []), power([none], [{ id: 5, face: 'UP' }])]).toEqual([2000, 1000]);
   });
 
-  it('このカードの下の異なるカード名のマーカーが2枚以上: face-up markers with different names; a face-down marker has no name (CR-3.7.2.3)', () => {
+  it('T-ZONE-051 / CR-3.7.2.3: このカードの下の異なるカード名のマーカーが2枚以上: face-up markers with different names; a face-down marker has no name (CR-3.7.2.3)', () => {
     const distinct = boost({ if: 'MARKERS', of: 'SELF', min: 2, distinctNames: true });
     expect(power([distinct], [{ id: 5, face: 'UP' }, { id: 6, face: 'UP' }])).toBe(2000);
     expect(power([distinct], [{ id: 5, face: 'UP' }, { id: 6, face: 'UP' }], { '0:6': { name: `Test character ${testCardId(0, 5)}` } })).toBe(1000);
@@ -144,7 +144,7 @@ describe('abilities that work from the marker zone', () => {
 describe('回想 (CR-10.20)', () => {
   const recollect: Ability = { type: 'CONT', recollection: true, apply: [] };
 
-  it('from memory: when a character of yours is put on the stage from elsewhere, it may go face up under it; a second one finds a marker there and stays', () => {
+  it('T-KW-022 / CR-10.20.2: from memory: when a character of yours is put on the stage from elsewhere, it may go face up under it; a second one finds a marker there and stays', () => {
     const start = scenario({ step: 'MAIN_START', defs: cards({ '0:5': { abilities: [recollect] }, '0:6': { abilities: [recollect] } }) }, (ctx) => {
       put(ctx, card(0, 0), { player: 0, zone: 'hand' });
       put(ctx, card(0, 5), { player: 0, zone: 'memory' });
@@ -202,7 +202,7 @@ describe('回想 (CR-10.20)', () => {
     expect(activate(toHand, card(0, 0)).state.zones[0].hand).toEqual([card(0, 5)]);
   });
 
-  it('［あなたの舞台の『回想』を持つキャラを1枚思い出にする］ and 『【リンク】 ７つのかくご』を持つ', () => {
+  it('T-KW-018 / CR-10.17: ［あなたの舞台の『回想』を持つキャラを1枚思い出にする］ and 『【リンク】 ７つのかくご』を持つ', () => {
     const cost: Cost[] = [{ pay: 'CHARACTERS_TO_WAITING_ROOM', count: 1, filter: { kind: 'CHARACTER', hasRecollection: true }, toMemory: true }];
     const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [act(DRAW_ONE, cost)] }, '0:1': { abilities: [recollect] } }) }, (ctx) => {
       put(ctx, card(0, 0), stageSlot(0, 'FC'));
@@ -226,7 +226,7 @@ describe('搭乗 (CR-10.21): ［このカードを表向きで他のあなたの
   const board = (name: string): Ability => ({ type: 'ACT', keywords: ['BOARDING'], timing: 'MAIN', cost: [{ pay: 'SELF_TO_MARKER', underName: name }], effect: DRAW_ONE });
   const tank = `Test character ${testCardId(0, 1)}`;
 
-  it('the card goes face up under the chosen character of that name; then the effect', () => {
+  it('T-KW-023 / CR-10.21: 搭乗: the card goes face up under the chosen character of that name; then the effect', () => {
     const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [board(tank)] } }) }, (ctx) => {
       put(ctx, card(0, 0), stageSlot(0, 'FC'));
       put(ctx, card(0, 1), stageSlot(0, 'FL'));

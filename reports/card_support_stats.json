@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 501,
+    "playable": 505,
     "handWritten": 128,
-    "fromPatterns": 373,
-    "unsupported": 108,
-    "abilitiesRun": 895
+    "fromPatterns": 377,
+    "unsupported": 104,
+    "abilitiesRun": 904
   },
   "sets": [
     {
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 78,
-      "unsupported": 19,
+      "fromPatterns": 79,
+      "unsupported": 18,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 74,
-      "unsupported": 36,
+      "fromPatterns": 77,
+      "unsupported": 33,
       "pending": 0,
       "withoutText": 0
     }

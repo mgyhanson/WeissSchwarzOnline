@@ -191,6 +191,8 @@ function oneConditionJa(c: Condition): string {
       if (!c.distinctNames && c.min === 1 && c.max === undefined) return 'このカードの下にマーカーがある';
       if (!c.distinctNames && c.max === 0 && c.min === undefined) return 'このカードの下にマーカーがない';
       return fail('condition', c);
+    case 'SELF_STAT':
+      return `このカードの${c.stat === 'SOUL' ? 'ソウル' : 'パワー'}が${c.max !== undefined ? `${c.max}以下` : `${c.min}以上`}`;
     case 'COUNT': {
       if (c.where === 'YOUR_FRONT_ROW' && c.other && c.max === 0 && !c.filter && c.min === undefined) return '他のあなたの前列のキャラがいない';
       const bound = c.min !== undefined && c.max === undefined ? (c.min === 1 && c.where !== 'YOUR_WAITING_ROOM' && c.where !== 'YOUR_HAND' && c.where !== 'YOUR_MEMORY' ? (c.where === 'YOUR_CLIMAX' ? 'がある' : 'がいる') : `が${c.min}枚以上`) : c.max !== undefined && c.min === undefined ? `が${c.max}枚以下` : fail('condition', c);
@@ -360,6 +362,12 @@ const X_MARK = 7777;
 function xCountJa(set: Extract<Effect, { do: 'SET_X' }>): string {
   const c = set.count;
   const f = c.filter ? Object.keys(c.filter).sort().join() : '';
+  if (c.of === 'SELF_SOUL' && !set.plus && !set.minus && !set.tiers) return 'Ｘはこのカードのソウルに等しい';
+  if (c.of === 'CHOSEN_LEVEL' && set.minus && !set.plus && !set.tiers) return `Ｘはあなたが選んだキャラのレベル－${set.minus}に等しい`;
+  if (c.of === 'MARKERS' && !c.distinctNames && !c.filter && set.tiers?.length === 3) {
+    const [a1, b1, c1] = set.tiers;
+    return `Ｘはこのカードの下のマーカーの枚数が${a1!.max}枚以下なら${a1!.x}、${b1!.min}枚か${b1!.max}枚なら${b1!.x}、${c1!.min}枚以上なら${c1!.x}に等しい`;
+  }
   if (c.of === 'MOVED' && f === 'kind' && c.filter!.kind === 'CLIMAX' && !set.plus && !set.minus && !set.tiers) return 'ＸはそれらのカードのCXの枚数に等しい';
   if (c.of === 'OPPONENT_WAITING_ROOM' && f === 'kind' && c.filter!.kind === 'CLIMAX' && set.minus && !set.plus && !set.tiers) return `Ｘは相手の控え室のCXの枚数－${set.minus}に等しい`;
   if (c.of === 'MARKERS' && c.distinctNames && !c.filter && set.plus && !set.tiers) return `Ｘはこのカードの下の異なるカード名のマーカーの枚数＋${set.plus}に等しい`;
@@ -376,6 +384,7 @@ function unmarkX(list: readonly Effect[]): Effect[] {
     if (e.do === 'CHOOSE' && e.maxX) return { ...e, max: X_MARK, maxX: undefined } as Effect;
     if (e.do === 'REORDER_TOP' && e.x) return { ...e, upTo: X_MARK, keep: X_MARK, x: undefined } as Effect;
     if (e.do === 'IF') return { ...e, then: unmarkX(e.then) } as Effect;
+    if (e.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM' && e.levelMaxX) return { ...e, filter: { ...(e.filter ?? {}), levelMax: X_MARK }, levelMaxX: undefined } as Effect;
     return e;
   });
 }
@@ -430,6 +439,20 @@ export function effectsJa(effects: readonly Effect[]): string[] {
         const rest = effectsJa(effects.slice(i + 3));
         sentences.push(`相手の控え室の${filterJa(e.filter, 'ZONE')}を${count(e)}選び、山札に戻し、相手はその山札をシャッフルし、${rest[0]}`, ...rest.slice(1));
         i = effects.length;
+        continue;
+      }
+      if (e.all && e.from === 'YOUR_MEMORY' && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string }).to === 'UNDER_SELF') {
+        const move = effects[i + 1] as Extract<Effect, { do: 'MOVE' }>;
+        if (move.face !== 'UP' || !move.inOrder || !e.filter?.name) fail('memory markers', e);
+        const rest = effectsJa(effects.slice(i + 2));
+        sentences.push(`自分の思い出置場の「${e.filter!.name}」すべてをこのカードの下にマーカーとして好きな順番で表向きに置き、${rest[0]}`, ...rest.slice(1));
+        i = effects.length;
+        continue;
+      }
+      if (e.from === 'OPPONENT_STAGE' && e.min === 0 && effects[i + 1]?.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM') {
+        const swap = effects[i + 1] as Extract<Effect, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM' }>;
+        sentences.push(`相手の${filterJa(e.filter, 'STAGE')}を${e.max}枚選んでよい`, `そうしたら、相手は自分の控え室の${filterJa({ kind: 'CHARACTER', ...(swap.filter ?? {}) }, 'ZONE')}を1枚選び、入れ替える`);
+        i += 2;
         continue;
       }
       const given = effects[i + 1];
@@ -666,6 +689,10 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     } else if (e.do === 'CLOCK_TOP' && e.fromBottom) sentences.push(e.count === undefined && !e.optional && !e.whose ? `自分のクロックの下から1枚を、${e.to === 'STOCK' ? 'ストック置場' : '控え室'}に置く` : fail('clock', e));
     else if (e.do === 'CLOCK_TOP' && (e.count ?? 1) > 1) sentences.push(e.optional && e.to === 'WAITING_ROOM' && !e.whose ? `自分のクロックの上から${e.count}枚までを、控え室に置く` : fail('clock', e));
     else if (e.do === 'EXTRA_TURN') sentences.push('追加の1ターンを得る');
+    else if (e.do === 'REPLACE_ATTACK_DAMAGE') {
+      const inner = effectsJa(e.effects);
+      sentences.push(`そのアタック中、このカードが相手にアタックのダメージを与える時、かわりに${inner[0]}`, ...inner.slice(1));
+    }
     else if (e.do === 'EXCHANGE_ZONES' && e.b === 'SELF') sentences.push(`自分の控え室の${filterJa(e.a.filter, 'ZONE')}を${e.count}枚とこのカードを選び、入れ替える`);
     else if (e.do === 'EXCHANGE_ZONES' && e.b !== 'SELF') sentences.push(`自分の控え室の${filterJa(e.a.filter, 'ZONE')}と思い出置場の${filterJa(e.b.filter, 'ZONE')}を${e.count}枚ずつ選び、入れ替える`);
     else if (e.do === 'DRAW' && e.upTo && effects[i]?.do === 'CHOOSE' && (effects[i] as { exactX?: boolean }).exactX && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string }).to === 'WAITING_ROOM') {
@@ -711,7 +738,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     else if (e.do === 'DECK_TOP') {
       const to = e.to === 'STOCK' ? 'ストック置場' : e.to === 'WAITING_ROOM' ? '控え室' : 'クロック置場';
       if (e.fromBottom) sentences.push(e.whose === 'OPPONENT' && !e.upTo ? `相手の山札の下から${e.count}枚を、${to}に置く` : fail('deck', e));
-      else sentences.push(`${e.whose === 'EITHER' ? '自分か相手の、' : e.whose === 'OPPONENT' ? '相手は自分の' : '自分の'}山札の上から${e.count}枚${e.upTo ? 'まで' : ''}を、${to}に置く`);
+      else sentences.push(`${e.whose === 'EITHER' ? '自分か相手の、' : e.whose === 'OPPONENT' ? (e.actor === 'YOU' ? '相手の' : '相手は自分の') : '自分の'}山札の上から${e.count}枚${e.upTo ? 'まで' : ''}を、${to}に置く`);
     } else if (e.do === 'WAITING_ROOM_TO_DECK' && effects[i]?.do === 'SHUFFLE') {
       sentences.push('自分の控え室のカードすべてを、山札に戻し、その山札をシャッフルする');
       i++;
@@ -739,15 +766,15 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       const level = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
       sentences.push('自分の山札の上から1枚を公開する', `そのカード${level}ならストック置場に置く`);
     } else if (e.do === 'REVEAL_TOP') {
-      const then = e.then ? effectsJa(e.then) : [];
-      const otherwise = e.else ? effectsJa(e.else) : [];
       // "…してよい。そうしたら、…" after the shown card: two sentences.
       if (e.then?.length === 2 && e.then[0]!.do === 'MAY' && e.then[1]!.do === 'IF' && (e.then[1] as { condition: Condition }).condition.if === 'DID' && !e.take && !e.else) {
         const which = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
         const after = effectsJa((e.then[1] as Extract<Effect, { do: 'IF' }>).then);
-        sentences.push(`自分の山札の上から1枚を公開${e.optional ? 'してよい' : 'する'}`, `そのカード${which}なら、${then[0]}`, `そうしたら、${after[0]}`, ...after.slice(1));
+        sentences.push(`自分の山札の上から1枚を公開${e.optional ? 'してよい' : 'する'}`, `そのカード${which}なら、${effectsJa([e.then[0]!])[0]}`, `そうしたら、${after[0]}`, ...after.slice(1));
         continue;
       }
+      const then = e.then ? effectsJa(e.then) : [];
+      const otherwise = e.else ? effectsJa(e.else) : [];
       if (then.length > 1 || otherwise.length > 1 || (!e.take && then.length === 0)) fail('reveal', e);
       const which = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
       sentences.push(`自分の山札の上から1枚を公開${e.optional ? 'してよい' : 'する'}`, `そのカード${which}なら${e.take ? (then.length > 0 ? `手札に加え、${then[0]}` : '手札に加える') : `、${otherwise.length ? then[0]!.replace(/戻す$/, '戻し').replace(/置く$/, '置き') : then[0]}`}${otherwise.length ? `、そうでないなら、${otherwise[0]}` : ''}`);
@@ -948,6 +975,7 @@ export function sameWords(text: string): string {
   return text
     .replace(/(【自】 アンコール ［[^］]*］) （[^（）]*）$/, '$1')
     .replace(/（ダメージキャンセルは発生する）$/, '')
+    .replace(/（このダメージは【自】の効果によるダメージではない。ダメージキャンセルは発生する）$/, '')
     // The reminder that the rule's encore is included restates what 『【自】 アンコール』を使えない means (CR-10.2.3, CR-2.12.3).
     .replace(/。?（ルールによる『【自】 アンコール ［\(3\)］』も使えない）$/, '')
     .replace(/（CXのレベルは0として扱う）$/, '')
@@ -970,6 +998,7 @@ export function sameWords(text: string): string {
     .replace(/置き、/g, '置く。')
     .replace(/戻し、/g, '戻す。')
     .replace(/シャッフルし、/g, 'シャッフルする。')
+    .replace(/思い出にし、/g, '思い出にする。')
     // "N枚を、クロック置場に置く" and "N枚をクロック置場に置く": a comma only.
     .replace(/枚を、/g, '枚を')
     .replace(/ダメージを与え、(?!あなたはコストを払ってよい|コストを払ってよい)/g, 'ダメージを与える。')

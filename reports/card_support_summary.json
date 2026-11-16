@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 501,
- "unsupported": 108,
+ "playable": 505,
+ "unsupported": 104,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 81,
+   "playable": 82,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 68
+     "playable": 69
     },
     "EVENT": {
      "total": 4,
@@ -161,7 +161,7 @@
    },
    "level3": {
     "total": 9,
-    "playable": 7
+    "playable": 8
    }
   },
   {
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 76,
+   "playable": 79,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 62
+     "playable": 65
     },
     "EVENT": {
      "total": 9,
@@ -207,19 +207,19 @@
    },
    "level3": {
     "total": 13,
-    "playable": 8
+    "playable": 11
    }
   }
  ],
  "level3": {
   "total": 63,
-  "playable": 53
+  "playable": 57
  },
  "classes": {
   "A": 33,
   "B": 1,
-  "C": 45,
-  "D": 29,
+  "C": 43,
+  "D": 27,
   "E": 0
  },
  "topParts": [
@@ -269,7 +269,7 @@
    "cards": 1
   },
   {
-   "part": "SHAPE: （…）: （このダメージは【自】の効果によるダメージではない。ダメージ",
+   "part": "SHAPE: （…）: （CXのレベルはNとして扱う。コストが必要なカードならコスト",
    "unlocks": 1,
    "cards": 1
   }

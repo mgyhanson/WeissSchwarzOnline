@@ -339,7 +339,7 @@
       "id": "CR-3.7.2.3",
       "section": "3. 區域",
       "description": "裏向的 Marker 視為沒有資訊的空白卡",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-ZONE-051"
       ]
@@ -1376,7 +1376,7 @@
       "id": "CR-8.10.1",
       "section": "8. Play、Cost、能力及效果",
       "description": "置換效果：原事件完全不發生",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-REPL-001"
       ]
@@ -1709,7 +1709,7 @@
       "id": "CR-10.17",
       "section": "10. 關鍵字",
       "description": "リンク",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-KW-018"
       ]
@@ -1745,7 +1745,7 @@
       "id": "CR-10.20",
       "section": "10. 關鍵字",
       "description": "回想",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-KW-022"
       ]
@@ -1754,7 +1754,7 @@
       "id": "CR-10.21",
       "section": "10. 關鍵字",
       "description": "搭乗（標籤）",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-KW-023"
       ]
@@ -1790,7 +1790,7 @@
       "id": "CR-11.2",
       "section": "11. 其他",
       "description": "額外回合",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-MISC-001"
       ]
@@ -1799,7 +1799,7 @@
       "id": "CR-11.3",
       "section": "11. 其他",
       "description": "リプレイ指示（含ゲーム1 圖示）",
-      "status": "未實作",
+      "status": "已測試",
       "tests": [
         "T-MISC-002"
       ]
@@ -1918,6 +1918,8 @@
   ],
   "explained": [
     "CR-1.3.2.1",
+    "CR-10.11.2",
+    "CR-10.17",
     "CR-10.19.4",
     "CR-10.8.3",
     "CR-11.1",
@@ -1959,8 +1961,8 @@
     "DR-008"
   ],
   "summary": {
-    "未實作": 47,
+    "未實作": 40,
     "部分": 26,
-    "已測試": 136
+    "已測試": 143
   }
 }

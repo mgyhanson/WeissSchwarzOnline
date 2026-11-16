@@ -317,6 +317,8 @@ export interface GameState {
   waiting: WaitingAuto[];
   nextWaitingId: number;
   shotWatchers: ShotWatcher[];
+  /** CR-8.10: replacement effects in force (REPLACE_ATTACK_DAMAGE: for the attack with that number this turn). */
+  replacements?: { kind: 'ATTACK_DAMAGE'; attackerObjectId: number; attackNumber: number; turn: number; master: PlayerId; sourceInstance: number; effects: Effect[] }[];
   /** CR-11.2: the players who have gained extra turns, the latest last. */
   extraTurns?: PlayerId[];
   /** CR-11.3.3.1: the 【ゲーム1】 replay actions each player has done this game. */
