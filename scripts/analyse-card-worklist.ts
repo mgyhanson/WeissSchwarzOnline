@@ -70,6 +70,15 @@ const work: OpenCard[] = open.map((card) => {
   };
 });
 
+/**
+ * Cards left unsupported on purpose: the rules and the official Q&A do not settle how the effect is carried out.
+ * They stay unsupported until an official source does.
+ */
+const DELIBERATE: Record<string, string> = {
+  'BDY/W135-074': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
+  'STS/W140-076': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
+};
+
 // Rank the unknown parts.
 interface PartRow {
   part: string;
@@ -90,6 +99,59 @@ const ranked = [...parts.values()].sort((a, b) => b.unlocks.length - a.unlocks.l
 const short = (cardId: string) => cardId.replace('/', '').replace(/^([A-Z0-9]+?)[WS]\d+-/, '$1-');
 const setIds = SETS.map((s) => s.id).filter((id) => work.some((w) => w.set === id));
 const count = <T>(list: T[], pred: (x: T) => boolean) => list.filter(pred).length;
+
+// --- parts that occur together -------------------------------------------
+// For every two and every three different unknown parts found together on at least one card: how many cards
+// have all of them (together), and how many cards would be complete with them (every unknown part of the
+// card is among them). Occurring together says nothing about one part needing the other.
+// Cards held back because the rules are unclear are no targets, and neither are cards held back for another reason.
+interface ComboRow {
+  parts: string[];
+  /** Cards that have every part of the combination. */
+  together: string[];
+  /** Cards all of whose unknown parts are in the combination. */
+  unlocks: string[];
+  /** Of those, the cards that need every part of it. */
+  needAll: string[];
+  /** Whether the parts are of one kind (all EFFECT, all TRIGGER, …): a hint at related work, nothing more. */
+  sameKind: boolean;
+}
+const targets = work.filter((w) => !DELIBERATE[w.cardId] && !w.unknown.some((u) => u.startsWith('HELD: ')));
+function combinations(size: 2 | 3): ComboRow[] {
+  const keys = new Map<string, string[]>();
+  for (const item of targets) {
+    const own = [...new Set(item.unknown)].sort();
+    const pick = (start: number, chosen: string[]): void => {
+      if (chosen.length === size) {
+        keys.set(JSON.stringify(chosen), chosen);
+        return;
+      }
+      for (let k = start; k < own.length; k++) pick(k + 1, [...chosen, own[k]!]);
+    };
+    pick(0, []);
+  }
+  const rows = [...keys.values()].map((combo): ComboRow => {
+    const has = (item: OpenCard) => combo.every((part) => item.unknown.includes(part));
+    const within = (item: OpenCard) => item.unknown.every((part) => combo.includes(part));
+    const unlocked = targets.filter(within);
+    return {
+      parts: combo,
+      together: targets.filter(has).map((w) => w.cardId),
+      unlocks: unlocked.map((w) => w.cardId),
+      needAll: unlocked.filter(has).map((w) => w.cardId),
+      sameKind: new Set(combo.map((part) => part.split(':')[0])).size === 1,
+    };
+  });
+  return rows.sort((a, b) => b.unlocks.length - a.unlocks.length || b.together.length - a.together.length || Number(b.sameKind) - Number(a.sameKind) || a.parts.join().localeCompare(b.parts.join()));
+}
+const pairs = combinations(2);
+const triples = combinations(3);
+const cut = (part: string, length: number) => part.replace(/\|/g, '／').slice(0, length);
+const comboTable = (rows: ComboRow[], top: number): string[] => [
+  `| # | 片段 | 可解鎖 | 其中全部都需要 | 共現 | 同類 | 可解鎖的卡 |`,
+  '|---:|---|---:|---:|---:|:---:|---|',
+  ...rows.slice(0, top).map((row, i) => `| ${i + 1} | ${row.parts.map((part, k) => `（${k + 1}）${cut(part, 90)}`).join('<br>')} | ${row.unlocks.length} | ${row.needAll.length} | ${row.together.length} | ${row.sameKind ? '是' : '否'} | ${row.unlocks.map(short).join(' ')} |`),
+];
 
 // --- reports/CARD_WORKLIST.md ---------------------------------------------
 const playable = (set: string) => cards.filter((c) => c.set === set && c.record.support === 'verified');
@@ -120,10 +182,31 @@ const md: string[] = [
   '|---:|---|---:|---:|---|',
   ...ranked.slice(0, 80).map((row, i) => `| ${i + 1} | ${row.part.replace(/\|/g, '／').slice(0, 110)} | ${row.unlocks.length} | ${row.cards.length} | ${row.unlocks.map(short).join(' ')} |`),
   '',
+  '## 兩個片段的組合（共現分析）',
+  '',
+  '所有在同一張卡上一同出現的兩個不同片段。「可解鎖」是完成這兩個片段後全部片段都已認識的卡（包括只需要其中一個的卡）；「其中全部都需要」是兩個都要用到的卡；「共現」是同時有這兩個片段的卡（可能還欠其他片段）。「同類」只表示兩個片段屬於同一種（例如都是效果句子），**一同出現不代表互相依賴**。因規則不明確而刻意不支援的卡不計算在內。',
+  '',
+  `共 ${pairs.length} 個組合；以下是首 25 個。`,
+  '',
+  ...comboTable(pairs, 25),
+  '',
+  '## 三個片段的組合（共現分析）',
+  '',
+  `計算方法同上。共 ${triples.length} 個組合；以下是首 15 個。`,
+  '',
+  ...comboTable(triples, 15),
+  '',
   '## 只差 1 個片段的卡（按系列）',
   '',
   ...setIds.flatMap((id) => {
     const own = work.filter((x) => x.set === id && x.unknown.length === 1);
+    return [`- **${id.replace('_', '/')}**（${own.length}）：${own.map((x) => `${x.cardId.split('-')[1]}${x.kind === 'CHARACTER' ? `·L${x.level}` : x.kind === 'EVENT' ? '·Ev' : '·CX'}`).join('、')}`];
+  }),
+  '',
+  '## 只差 2 個片段的卡（按系列）',
+  '',
+  ...setIds.flatMap((id) => {
+    const own = work.filter((x) => x.set === id && x.unknown.length === 2);
     return [`- **${id.replace('_', '/')}**（${own.length}）：${own.map((x) => `${x.cardId.split('-')[1]}${x.kind === 'CHARACTER' ? `·L${x.level}` : x.kind === 'EVENT' ? '·Ev' : '·CX'}`).join('、')}`];
   }),
   '',
@@ -397,16 +480,7 @@ const batch3: string[] = [
 ];
 writeFileSync(join(ROOT, 'reports/BATCH_3_PROGRESS.md'), `${batch3.join('\n')}\n`);
 
-// --- reports/BATCH_4_PROGRESS.md … BATCH_7_PROGRESS.md ------------------------
-/**
- * Cards left unsupported on purpose: the rules and the official Q&A do not settle how the effect is carried out.
- * They stay unsupported until an official source does.
- */
-const DELIBERATE: Record<string, string> = {
-  'BDY/W135-074': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
-  'STS/W140-076': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
-};
-
+// --- reports/BATCH_4_PROGRESS.md … BATCH_8_PROGRESS.md ------------------------
 /** The four states of the card pool, from the same data as the rest of this file. */
 function fourStates(): string[] {
   const short = (id: string) => `${id.split('/')[0]}-${id.split('-').pop()}`;
@@ -442,7 +516,9 @@ function fourStates(): string[] {
   ];
 }
 
-for (const n of [4, 5, 6, 7]) {
+/** The batch whose progress file carries the four states as they are now. */
+const LATEST_BATCH = 8;
+for (const n of [4, 5, 6, 7, 8]) {
   const rows = batches.filter((b) => b.title.startsWith(`B${n}`));
   writeFileSync(
     join(ROOT, `reports/BATCH_${n}_PROGRESS.md`),
@@ -455,7 +531,7 @@ for (const n of [4, 5, 6, 7]) {
       '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
       ...rows.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.bySet.GUP_W141} | ${b.bySet.BDY_W135} | ${b.bySet.STS_W140} | ${b.bySet.ANM_W138} | ${b.bySet.NIK_S135} | ${b.next} |`),
       '',
-      ...(n === 7 ? fourStates() : []),
+      ...(n === LATEST_BATCH ? fourStates() : n >= 7 ? [`四種狀態的現時卡號清單見 \`reports/BATCH_${LATEST_BATCH}_PROGRESS.md\`（由程式按現況計算）；本批完成時的數字記錄在 \`reports/RULES_IMPLEMENTATION_REPORT.md\` 的相應章節。`, ''] : []),
     ].join('\n')}\n`,
   );
 }
