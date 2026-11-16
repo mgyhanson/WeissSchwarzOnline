@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 505,
+    "playable": 512,
     "handWritten": 128,
-    "fromPatterns": 377,
-    "unsupported": 104,
-    "abilitiesRun": 904
+    "fromPatterns": 384,
+    "unsupported": 97,
+    "abilitiesRun": 918
   },
   "sets": [
     {
@@ -43,8 +43,8 @@
       "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
       "cards": 114,
       "handWritten": 21,
-      "fromPatterns": 80,
-      "unsupported": 13,
+      "fromPatterns": 81,
+      "unsupported": 12,
       "pending": 0,
       "withoutText": 0
     },
@@ -63,8 +63,8 @@
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
       "handWritten": 16,
-      "fromPatterns": 66,
-      "unsupported": 18,
+      "fromPatterns": 67,
+      "unsupported": 17,
       "pending": 0,
       "withoutText": 0
     },
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 79,
-      "unsupported": 18,
+      "fromPatterns": 80,
+      "unsupported": 17,
       "pending": 0,
       "withoutText": 0
     },
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 75,
-      "unsupported": 22,
+      "fromPatterns": 76,
+      "unsupported": 21,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 77,
-      "unsupported": 33,
+      "fromPatterns": 80,
+      "unsupported": 30,
       "pending": 0,
       "withoutText": 0
     }
@@ -103,7 +103,7 @@
     "CLIMAX_POWER_SOUL": 43,
     "CLIMAX_SOUL": 2,
     "ASSIST": 2,
-    "YOUR_TURN_POWER": 12,
+    "YOUR_TURN_POWER": 13,
     "OPPONENT_TURN_POWER": 0,
     "EXPERIENCE_POWER": 0,
     "ENCORE_DISCARD_CHARACTER": 2,

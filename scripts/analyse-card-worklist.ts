@@ -397,8 +397,52 @@ const batch3: string[] = [
 ];
 writeFileSync(join(ROOT, 'reports/BATCH_3_PROGRESS.md'), `${batch3.join('\n')}\n`);
 
-// --- reports/BATCH_4_PROGRESS.md, BATCH_5_PROGRESS.md -------------------------
-for (const n of [4, 5, 6]) {
+// --- reports/BATCH_4_PROGRESS.md … BATCH_7_PROGRESS.md ------------------------
+/**
+ * Cards left unsupported on purpose: the rules and the official Q&A do not settle how the effect is carried out.
+ * They stay unsupported until an official source does.
+ */
+const DELIBERATE: Record<string, string> = {
+  'BDY/W135-074': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
+  'STS/W140-076': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
+};
+
+/** The four states of the card pool, from the same data as the rest of this file. */
+function fourStates(): string[] {
+  const short = (id: string) => `${id.split('/')[0]}-${id.split('-').pop()}`;
+  const deliberate = work.filter((w) => DELIBERATE[w.cardId]);
+  const rest = work.filter((w) => !DELIBERATE[w.cardId]);
+  const partial = rest.filter((w) => w.lines.some((l) => l.known));
+  const none = rest.filter((w) => !w.lines.some((l) => l.known));
+  const playable = count(cards, (c) => c.record.support === 'verified');
+  if (playable + partial.length + none.length + deliberate.length !== cards.length) throw new Error('The four states do not add up to the card pool');
+  const list = (items: OpenCard[]) => items.map((w) => short(w.cardId)).join('、') || '—';
+  return [
+    '## 四種狀態（程式計算）',
+    '',
+    '每張卡只屬於其中一種；未達「已實作並通過測試」的卡一律標記為未支援，不會進入對戰。',
+    '',
+    '| 狀態 | 卡數 | 意思 |',
+    '|---|---:|---|',
+    `| 已實作並通過測試 | ${playable} | 整張卡的資料已寫成並通過測試：每一行都能由資料寫回官方日文原文，並在隨機對局中實際執行；本批新增的卡另有逐張的真實卡牌測試 |`,
+    `| 部分實作 | ${partial.length} | 卡上部分能力的文字已能讀取，其餘未能讀取；整張卡仍然不開放 |`,
+    `| 尚未實作 | ${none.length} | 卡上沒有一行能力能讀取（Event 必須整張讀取） |`,
+    `| 因規則或 Q&A 不明確而刻意不支援 | ${deliberate.length} | 文字能讀取，但規則及官方 Q&A 沒有說明如何執行；找到官方依據前不支援 |`,
+    '',
+    `**部分實作（${partial.length}）**：${list(partial)}`,
+    '',
+    `**尚未實作（${none.length}）**：${list(none)}`,
+    '',
+    `**刻意不支援（${deliberate.length}）**：`,
+    '',
+    ...deliberate.map((w) => `- ${short(w.cardId)}：${DELIBERATE[w.cardId]}`),
+    '',
+    '每張未支援卡欠缺的部分見 `reports/CARD_WORKLIST.md`。',
+    '',
+  ];
+}
+
+for (const n of [4, 5, 6, 7]) {
   const rows = batches.filter((b) => b.title.startsWith(`B${n}`));
   writeFileSync(
     join(ROOT, `reports/BATCH_${n}_PROGRESS.md`),
@@ -411,6 +455,7 @@ for (const n of [4, 5, 6]) {
       '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
       ...rows.map((b) => `| ${b.date} | ${b.title} | ${b.done} | ${b.playable} | ${b.level3Playable} | ${b.unsupported} | ${b.bySet.GUP_W141} | ${b.bySet.BDY_W135} | ${b.bySet.STS_W140} | ${b.bySet.ANM_W138} | ${b.bySet.NIK_S135} | ${b.next} |`),
       '',
+      ...(n === 7 ? fourStates() : []),
     ].join('\n')}\n`,
   );
 }
