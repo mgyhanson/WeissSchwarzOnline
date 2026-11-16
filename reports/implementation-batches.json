@@ -439,5 +439,26 @@
    "ANM_W138": 74,
    "NIK_S135": 72
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B5-2 額外回合、Replay、Level 3",
+  "done": "額外回合（CR-11.2，持續時間順延）、Replay（CR-11.3，【ゲーム1】每局一次）、Level 置場選卡、條件式得到能力、公開後可以…這樣做了的話、Clock 頂最多 N 張、⑩ Stock Cost、前列兩個指定卡名、巢狀引號的選擇、顏色篩選",
+  "next": "Level 3 餘下：置換效果、對手選擇、思い出互換等",
+  "playable": 488,
+  "unsupported": 121,
+  "level3Playable": 53,
+  "level3Open": 10,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 97,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 79,
+   "STS_W140": 79,
+   "ANM_W138": 75,
+   "NIK_S135": 75
+  }
  }
 ]

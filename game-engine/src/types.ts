@@ -317,6 +317,10 @@ export interface GameState {
   waiting: WaitingAuto[];
   nextWaitingId: number;
   shotWatchers: ShotWatcher[];
+  /** CR-11.2: the players who have gained extra turns, the latest last. */
+  extraTurns?: PlayerId[];
+  /** CR-11.3.3.1: the 【ゲーム1】 replay actions each player has done this game. */
+  replaysDone?: { player: PlayerId; name: string }[];
   /** Delayed abilities created by effects, waiting for their time (DELAYED). */
   delayed?: { id: number; master: PlayerId; instanceId: number; objectId: number; at: DelayedTime; effects: Effect[]; carried: { chosen: number[]; lastMoved: number[]; placed: number[] } }[];
   /**

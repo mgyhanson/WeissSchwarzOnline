@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 485,
- "unsupported": 124,
+ "playable": 488,
+ "unsupported": 121,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 78,
+   "playable": 79,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 66
+     "playable": 67
     },
     "EVENT": {
      "total": 3,
@@ -138,17 +138,17 @@
    },
    "level3": {
     "total": 16,
-    "playable": 14
+    "playable": 15
    }
   },
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 78,
+   "playable": 79,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 65
+     "playable": 66
     },
     "EVENT": {
      "total": 4,
@@ -161,17 +161,17 @@
    },
    "level3": {
     "total": 9,
-    "playable": 6
+    "playable": 7
    }
   },
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 74,
+   "playable": 75,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 58
+     "playable": 59
     },
     "EVENT": {
      "total": 7,
@@ -184,7 +184,7 @@
    },
    "level3": {
     "total": 13,
-    "playable": 10
+    "playable": 11
    }
   },
   {
@@ -213,13 +213,13 @@
  ],
  "level3": {
   "total": 63,
-  "playable": 50
+  "playable": 53
  },
  "classes": {
   "A": 36,
   "B": 1,
-  "C": 51,
-  "D": 36,
+  "C": 50,
+  "D": 34,
   "E": 0
  },
  "topParts": [

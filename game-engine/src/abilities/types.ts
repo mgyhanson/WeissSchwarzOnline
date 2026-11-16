@@ -203,6 +203,8 @@ export type ChooseFrom =
   | 'YOUR_WAITING_ROOM'
   | 'YOUR_HAND'
   | 'YOUR_CLOCK'
+  /** 自分のレベル置場のカード */
+  | 'YOUR_LEVEL'
   /** 自分の山札を見て…: a hidden zone, so choosing fewer is always allowed (CR-8.6.3.1.4). */
   | 'YOUR_DECK'
   /** あなたがマスターであるフロントアタックされたキャラ (backup, CR-10.5.2) */
@@ -309,6 +311,10 @@ export type Effect =
   | { do: 'MOVE_TO_SLOT'; target: Target; row: 'FRONT' | 'BACK' | 'ANY' }
   /** 自分のクロックの上から1枚を、控え室に置く; `whose: 'OPPONENT'`: 相手のクロックの上から1枚を… */
   | { do: 'CLOCK_TOP'; to: 'WAITING_ROOM' | 'STOCK'; whose?: 'OPPONENT'; /** 1枚までを: the player may leave it (with `count`, may stop before each). */ optional?: boolean; /** クロックの下から */ fromBottom?: boolean; /** N枚: one at a time (default 1) */ count?: number }
+  /** あなたは追加の1ターンを得る (CR-11.2) */
+  | { do: 'EXTRA_TURN' }
+  /** （リプレイ行動）を発動する (CR-11.3.2): this card's replay instruction with that name is done instead. */
+  | { do: 'REPLAY'; name: string }
   /** すべてのプレイヤーは自分のクロックすべてを、控え室に置く */
   | { do: 'CLOCK_ALL_TO_WAITING_ROOM'; everyone: true }
   /**
@@ -489,6 +495,8 @@ export interface ContinuousAbility {
   noStand?: boolean;
   /** このカードはプレイヤーにダメージを与えることができない */
   noDamageToPlayers?: boolean;
+  /** 【リプレイ】(【ゲーム1】) name effects (CR-11.3.1): not an ability; done only by a REPLAY effect of this card. */
+  replay?: { name: string; oncePerGame?: boolean; effects: Effect[] };
   /** このカードのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
   triggerChecks?: number;
   /** …すべてに、『【永】 …』を与える: continuous abilities given to those characters while this one is in force. */

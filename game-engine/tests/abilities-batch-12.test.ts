@@ -160,3 +160,73 @@ describe('zones and triggers', () => {
     expect(run(false)).toBe(0);
   });
 });
+
+describe('batch 5 part 2: extra turns and replay', () => {
+  /** Answers every decision with "nothing" until the given player's next main phase. */
+  function toNextMain(state: ReturnType<typeof scenario>['state'], limit = 200) {
+    let s = state;
+    for (let k = 0; k < limit; k++) {
+      const d = s.pending!;
+      if (d.kind === 'MAIN' && k > 0) return s;
+      const choice =
+        d.kind === 'MAIN' ? { kind: 'MAIN' as const, action: { type: 'PASS' as const } }
+        : d.kind === 'CLIMAX' ? { kind: 'CLIMAX' as const, card: null }
+        : d.kind === 'ATTACK' ? { kind: 'ATTACK' as const, attack: null }
+        : d.kind === 'CLOCK' ? { kind: 'CLOCK' as const, card: null }
+        : d.kind === 'CONFIRM' ? { kind: 'CONFIRM' as const, accept: false }
+        : d.kind === 'HAND_LIMIT' ? { kind: 'HAND_LIMIT' as const, discard: d.cards.slice(0, d.count) }
+        : d.kind === 'CHOOSE_ABILITY' ? { kind: 'CHOOSE_ABILITY' as const, id: d.abilities[0]!.id }
+        : null;
+      if (!choice) throw new Error(`unexpected ${d.kind}`);
+      s = answer(s, choice as never).state;
+    }
+    throw new Error('no main phase');
+  }
+
+  it('あなたは追加の1ターンを得る (CR-11.2.1): the same player takes the next turn; a 次の相手のターンの終わりまで lasts through the opponent’s turn after it', () => {
+    const extra = act([{ do: 'EXTRA_TURN' }, { do: 'MODIFY', target: { who: 'SELF' }, stat: 'POWER', amount: 1000, until: 'NEXT_OPPONENT_TURN' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [extra] } }) }, (ctx) => put(ctx, card(0, 0), stageSlot(0, 'FC'))).state;
+    let state = activate(start, card(0, 0)).state;
+    const turn = state.turn!.number;
+    state = toNextMain(state);
+    expect(state.turn).toMatchObject({ number: turn + 1, player: 0 });
+    expect(getPower(state, card(0, 0))).toBe(2000);
+    state = toNextMain(state);
+    expect(state.turn).toMatchObject({ number: turn + 2, player: 1 });
+    expect(getPower(state, card(0, 0))).toBe(2000);
+    state = toNextMain(state);
+    expect(state.turn).toMatchObject({ number: turn + 3, player: 0 });
+    expect(getPower(state, card(0, 0))).toBe(1000);
+  });
+
+  it('…を発動する (CR-11.3.2) with 【ゲーム1】 (CR-11.3.3.1): the replay effect is done once a game by each player', () => {
+    const replay: Ability = { type: 'CONT', apply: [], replay: { name: '夢', oncePerGame: true, effects: [{ do: 'CHOOSE', from: 'YOUR_LEVEL', min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'WAITING_ROOM' }, { do: 'DAMAGE', amount: 1 }] } };
+    const fire = act([{ do: 'REPLAY', name: '夢' }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [fire, replay] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      put(ctx, card(0, 30), { player: 0, zone: 'level' });
+      put(ctx, card(0, 31), { player: 0, zone: 'level' });
+      noClimaxes(ctx, 1);
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 30))] }).state;
+    expect(state.zones[0].level).toEqual([card(0, 31)]);
+    expect(state.zones[1].clock).toHaveLength(1);
+    // The second time this game: nothing.
+    const again = activate(state, card(0, 0));
+    expect(again.state.zones[0].level).toEqual([card(0, 31)]);
+    expect(damages(again.events)).toBe(0);
+  });
+
+  it('自分のクロックの上から2枚までを、控え室に置く: may stop before each', () => {
+    const clean = act([{ do: 'CLOCK_TOP', to: 'WAITING_ROOM', count: 2, optional: true }]);
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [clean] } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      for (const k of [5, 6, 7]) put(ctx, card(0, k), { player: 0, zone: 'clock' });
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    state = answer(state, { kind: 'CONFIRM', accept: true }).state;
+    state = answer(state, { kind: 'CONFIRM', accept: false }).state;
+    expect(state.zones[0].clock).toEqual([card(0, 5), card(0, 6)]);
+  });
+});

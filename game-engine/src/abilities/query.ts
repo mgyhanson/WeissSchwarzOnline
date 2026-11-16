@@ -726,6 +726,9 @@ export function chooseCandidates(
     case 'YOUR_CLOCK':
       pool = [...zones.clock];
       break;
+    case 'YOUR_LEVEL':
+      pool = [...zones.level];
+      break;
     case 'YOUR_DECK':
       pool = [...zones.deck];
       break;

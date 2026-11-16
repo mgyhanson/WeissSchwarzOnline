@@ -660,6 +660,24 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'EXTRA_TURN':
+      next();
+      state.extraTurns = [...(state.extraTurns ?? []), master];
+      return;
+
+    case 'REPLAY': {
+      next();
+      const replay = (getDef(state, context.source).abilities ?? []).find((a) => a.type === 'CONT' && a.replay?.name === effect.name);
+      if (!replay || replay.type !== 'CONT' || !replay.replay) return;
+      // CR-11.3.3.1: a 【ゲーム1】 replay effect is done once per game by each player.
+      if (replay.replay.oncePerGame) {
+        if ((state.replaysDone ?? []).some((r) => r.player === master && r.name === effect.name)) return;
+        state.replaysDone = [...(state.replaysDone ?? []), { player: master, name: effect.name }];
+      }
+      pushEffects(ctx, replay.replay.effects, context);
+      return;
+    }
+
     case 'CLOCK_ALL_TO_WAITING_ROOM': {
       next();
       const first = state.turn?.player ?? master;
