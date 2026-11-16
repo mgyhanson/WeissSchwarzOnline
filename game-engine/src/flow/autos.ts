@@ -108,11 +108,11 @@ function battleOpponentOf(state: GameState, card: CardInstance): CardInstance | 
 }
 
 /** Abilities of the cards in force whose trigger is met, for triggers of the "when something happens" kind. */
-function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger: Trigger, sourceMaster: PlayerId) => boolean): void {
+function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger: Trigger, sourceMaster: PlayerId, sourceId: number) => boolean): void {
   for (const source of activeSources(state)) {
     if (master !== 'ANY' && source.master !== master) continue;
     const sourceCard = state.instances[source.instanceId] as CardInstance;
-    for (const found of autosOf(state, sourceCard, (t) => match(t, source.master))) {
+    for (const found of autosOf(state, sourceCard, (t) => match(t, source.master, source.instanceId))) {
       if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null);
     }
   }
@@ -121,6 +121,12 @@ function sourcesWith(state: GameState, master: PlayerId | 'ANY', match: (trigger
 /** そのターン中、そのキャラは『【自】 アンコール』を使えない: given to the character as it was on the stage (rule encore included). */
 function barredFromEncore(state: GameState, objectId: number): boolean {
   return state.grants.some((grant) => grant.objectId === objectId && grant.ability.type === 'CONT' && grant.ability.noEncore === true);
+}
+
+/** このカードが手札から舞台に置かれたターン中 */
+function placedFromHandThisTurn(state: GameState, instanceId: number): boolean {
+  const inst = state.instances[instanceId] as CardInstance;
+  return inst.placedFromHandTurn !== undefined && inst.placedFromHandTurn === state.turn?.number;
 }
 
 /** Delayed abilities whose time has come trigger (once) and are gone. */
@@ -240,7 +246,11 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       const card = state.instances[event.instanceId] as CardInstance;
       const played = state.defs[card.cardId]?.abilities?.[event.ability];
       // あなたが【起】を使った時
-      if (played?.type === 'ACT') sourcesWith(state, event.player, (t) => t.on === 'YOU_PLAYED_ACT');
+      if (played?.type === 'ACT') {
+        sourcesWith(state, event.player, (t) => t.on === 'YOU_PLAYED_ACT');
+        // 相手が【起】を使った時
+        sourcesWith(state, opponentOf(event.player), (t) => t.on === 'OPPONENT_PLAYED_ACT');
+      }
       if (!played || played.type !== 'ACT' || !(played.keywords ?? []).includes('BACKUP')) return;
       for (const found of autosOf(state, card, (t) => t.on === 'USED_BACKUP', [])) wait(state, event.player, card, found, null);
       return;
@@ -251,7 +261,7 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       if (!attacker || attacker.objectId !== event.attackerObjectId) return;
       const defender = defenderInstance(state);
       const placedNow = attacker.placedFromHandTurn !== undefined && attacker.placedFromHandTurn === state.turn?.number;
-      for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS' && (!t.placedThisTurn || placedNow))) {
+      for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS' && (!t.placedThisTurn || placedNow) && (!t.attackType || t.attackType === event.attackType))) {
         wait(state, event.player, attacker, found, defender ? defender.objectId : null);
       }
       // 他のあなたの…のキャラがフロントアタックされた時: the defending player's other cards in force; the ability is about the defender.
@@ -306,9 +316,9 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
     case 'PHASE_STARTED':
       fireDelayed(state, (at, master) => at.phase === event.phase && at.step === undefined && (at.whose === 'ANY' || (at.whose === 'YOURS') === (master === event.player)));
       // (あなたの/相手の)…フェイズの始めに
-      sourcesWith(state, 'ANY', (t, master) => {
+      sourcesWith(state, 'ANY', (t, master, sourceId) => {
         const whose = master === event.player ? 'YOURS' : 'OPPONENT';
-        return t.on === 'PHASE_START' && t.phase === event.phase && (t.turn === 'ANY' || t.turn === whose);
+        return t.on === 'PHASE_START' && t.phase === event.phase && (t.turn === 'ANY' || t.turn === whose) && (!t.placedThisTurn || placedFromHandThisTurn(state, sourceId));
       });
       return;
     case 'STEP_STARTED':

@@ -16,7 +16,7 @@ import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
-import { cannotBeReversed, cannotMove, chooseCandidates, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
+import { cannotBeReversed, cannotMove, chooseCandidates, countForX, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
 import type { Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -431,7 +431,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         // CR-8.6.3.1: as many as possible up to the number required
         // (CR-8.6.3.1.2). From a hidden zone the player may always choose
         // fewer (CR-8.6.3.1.4).
-        const max = Math.min(effect.max, candidates.length);
+        const max = Math.min(effect.maxX ? Math.max(0, context.x ?? 0) : effect.max, candidates.length);
         const min = hidden ? 0 : Math.min(effect.min, candidates.length);
         frame.step = 1;
         // CR-4.8.1: 山札を見て — the player looks at the whole deck, not only
@@ -586,7 +586,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     case 'DAMAGE':
       next();
       // CR-4.13.2.2: the card whose effect deals the damage is its source.
-      pushDamage(ctx, opponentOf(master), effect.amount, context.sourceObjectId ?? null);
+      pushDamage(ctx, opponentOf(master), effect.amountX ? (context.x ?? 0) : effect.amount, context.sourceObjectId ?? null);
       return;
 
     case 'DECK_TOP': {
@@ -606,8 +606,9 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       if (done === 0) context.moved = [];
       // 山札の下からN枚を: from the bottom instead.
       const top = effect.fromBottom ? state.zones[whose].deck[0] : topOf(state.zones[whose].deck);
+      const count = effect.countX ? (context.x ?? 0) : effect.count;
       // 上からN枚までを: the player may stop before each card.
-      if (effect.upTo && done < effect.count && top !== undefined) {
+      if (effect.upTo && done < count && top !== undefined) {
         if (frame.step !== 3) {
           frame.step = 3;
           ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'DECK_TOP_NEXT' });
@@ -619,7 +620,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           return;
         }
       }
-      if (done >= effect.count || top === undefined) {
+      if (done >= count || top === undefined) {
         // Ｘはそれらのカードのレベルの合計: printed levels; a climax has none and counts as 0 (CR-2.19.1).
         if (effect.setX === 'LEVEL_TOTAL') context.x = (context.moved ?? []).reduce((sum, id) => sum + (getDef(state, id).level ?? 0), 0);
         next();
@@ -632,10 +633,39 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
-    case 'SHUFFLE':
+    case 'SHUFFLE': {
       next();
-      shuffleDeck(ctx, master);
+      const whose = effect.whose === 'OPPONENT' ? opponentOf(master) : master;
+      // Cards shown on the deck are put back as they were and are no longer shown.
+      for (const id of state.zones[whose].deck) getInstance(state, id).revealed = false;
+      shuffleDeck(ctx, whose);
       return;
+    }
+
+    case 'SET_X': {
+      next();
+      let x = countForX(state, context, effect.count) + (effect.plus ?? 0) - (effect.minus ?? 0);
+      if (effect.tiers) x = effect.tiers.find((t) => x >= (t.min ?? -Infinity) && x <= (t.max ?? Infinity))?.x ?? 0;
+      context.x = Math.max(0, x);
+      return;
+    }
+
+    case 'REVEAL_DECK_TOP': {
+      next();
+      const whose = effect.whose === 'OPPONENT' ? opponentOf(master) : master;
+      const deck = state.zones[whose].deck;
+      const shown = deck.slice(Math.max(0, deck.length - effect.count)).reverse();
+      for (const id of shown) revealCard(ctx, id);
+      context.moved = shown;
+      return;
+    }
+
+    case 'CLOCK_ALL_TO_WAITING_ROOM': {
+      next();
+      const first = state.turn?.player ?? master;
+      for (const player of [first, opponentOf(first)]) moveCards(ctx, [...state.zones[player].clock], { player, zone: 'waitingRoom' }, { reason: 'EFFECT' });
+      return;
+    }
 
     case 'WAITING_ROOM_TO_DECK':
       next();
@@ -866,7 +896,33 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'CLOCK_TOP': {
-      const top = topOf(state.zones[effect.whose === 'OPPONENT' ? opponentOf(master) : master].clock);
+      const clock = state.zones[effect.whose === 'OPPONENT' ? opponentOf(master) : master].clock;
+      // N枚(まで)を: one card at a time.
+      if ((effect.count ?? 1) > 1) {
+        const done = frame.scratch[0] ?? 0;
+        const card = effect.fromBottom ? clock[0] : topOf(clock);
+        if (done >= effect.count! || card === undefined) {
+          next();
+          return;
+        }
+        if (effect.optional && frame.step === 0) {
+          frame.step = 1;
+          ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'USE_ABILITY' });
+          return;
+        }
+        if (effect.optional) {
+          frame.step = 0;
+          if (!takeAnswer(ctx, 'CONFIRM').accept) {
+            next();
+            return;
+          }
+        }
+        frame.scratch[0] = done + 1;
+        context.did = true;
+        moveCard(ctx, card, { player: getInstance(state, card).owner, zone: effect.to === 'STOCK' ? 'stock' : 'waitingRoom' }, { reason: 'EFFECT' });
+        return;
+      }
+      const top = effect.fromBottom ? clock[0] : topOf(clock);
       // 1枚までを: the player may leave the card where it is.
       if (effect.optional && top !== undefined && frame.step === 0) {
         frame.step = 1;
@@ -898,7 +954,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     case 'REPEAT':
       next();
       // The repetitions in a row: one list of effects, so each runs after the one before has finished.
-      pushEffects(ctx, Array.from({ length: effect.times }, () => effect.effects).flat(), context);
+      pushEffects(ctx, Array.from({ length: effect.timesX ? Math.max(0, context.x ?? 0) : effect.times }, () => effect.effects).flat(), context);
       return;
 
     case 'TRIGGER_CHECKS':
@@ -940,7 +996,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'REORDER_TOP':
-      stepReorderTop(ctx, frame, effect, next);
+      // 上からＸ枚まで見て、カードをＸ枚まで選び: X of this resolution.
+      stepReorderTop(ctx, frame, effect.x ? { ...effect, upTo: context.x ?? 0, keep: context.x ?? 0 } : effect, next);
       return;
 
     case 'STOCK_BOTTOM_TO_WAITING_ROOM': {

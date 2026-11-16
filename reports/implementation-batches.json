@@ -418,5 +418,26 @@
    "ANM_W138": 73,
    "NIK_S135": 71
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B5-1 Ｘ 計算、Level 3",
+  "done": "空白 EFFECT 修正（只得到【起】的【永】）、條件內卡名含「時」、Ｘ＝公開／移動的卡、對手控え室、思い出、不同卡名 Marker（加減及分段）、公開山札頂後洗牌、Clock 底放 Stock、所有玩家 Clock 放控え室、攻擊時 2 次 Trigger Check、正面角色、對手使用【起】時、直接攻擊時、放到舞台的回合 CX 階段開始時",
+  "next": "Level 3 餘下：額外回合、置換效果、リプレイ、對手選擇",
+  "playable": 481,
+  "unsupported": 128,
+  "level3Playable": 46,
+  "level3Open": 17,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 97,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 78,
+   "STS_W140": 77,
+   "ANM_W138": 74,
+   "NIK_S135": 72
+  }
  }
 ]

@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 473,
- "unsupported": 136,
+ "playable": 481,
+ "unsupported": 128,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 94,
+   "playable": 97,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 78
+     "playable": 81
     },
     "EVENT": {
      "total": 4,
@@ -92,7 +92,7 @@
    },
    "level3": {
     "total": 12,
-    "playable": 9
+    "playable": 12
    }
   },
   {
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 76,
+   "playable": 78,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 64
+     "playable": 66
     },
     "EVENT": {
      "total": 3,
@@ -138,17 +138,17 @@
    },
    "level3": {
     "total": 16,
-    "playable": 12
+    "playable": 14
    }
   },
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 76,
+   "playable": 77,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 63
+     "playable": 64
     },
     "EVENT": {
      "total": 4,
@@ -161,17 +161,17 @@
    },
    "level3": {
     "total": 9,
-    "playable": 4
+    "playable": 5
    }
   },
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 73,
+   "playable": 74,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 57
+     "playable": 58
     },
     "EVENT": {
      "total": 7,
@@ -184,17 +184,17 @@
    },
    "level3": {
     "total": 13,
-    "playable": 9
+    "playable": 10
    }
   },
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 71,
+   "playable": 72,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 57
+     "playable": 58
     },
     "EVENT": {
      "total": 9,
@@ -207,19 +207,19 @@
    },
    "level3": {
     "total": 13,
-    "playable": 4
+    "playable": 5
    }
   }
  ],
  "level3": {
   "total": 63,
-  "playable": 38
+  "playable": 46
  },
  "classes": {
-  "A": 39,
+  "A": 37,
   "B": 1,
-  "C": 54,
-  "D": 42,
+  "C": 52,
+  "D": 38,
   "E": 0
  },
  "topParts": [
