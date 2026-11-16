@@ -430,6 +430,12 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           next();
           return;
         }
+        // …すべて: every one of them, without asking.
+        if (effect.all) {
+          context.chosen = candidates.map((id) => getInstance(state, id).objectId);
+          next();
+          return;
+        }
         const hidden = effect.from === 'YOUR_DECK';
         // CR-8.6.3.1: as many as possible up to the number required
         // (CR-8.6.3.1.2). From a hidden zone the player may always choose
@@ -521,7 +527,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         const target = destinationZone(state, context, first, effect.to);
         frame.step = 0;
         context.did = true;
-        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}) });
+        if (target) moveCard(ctx, first, target.zone, { reason: 'EFFECT', ...(target.bottom ? { position: 'BOTTOM' as const } : {}), ...(target.zone.zone === 'marker' ? { face: effect.face ?? ('DOWN' as const) } : {}) });
         return;
       }
       // …に戻すか…に置く: the player says which, when there is something to move.

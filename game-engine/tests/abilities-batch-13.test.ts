@@ -51,3 +51,33 @@ describe('replacement effects', () => {
     expect(evalCondition(state, 0, card(0, 1), { if: 'SELF_STAT', stat: 'SOUL', max: 4 })).toBe(false);
   });
 });
+
+describe('markers from memory', () => {
+  it('思い出置場の「…」すべてをこのカードの下にマーカーとして好きな順番で表向きに置き、相手に2ダメージをＸ回与える (X by marker tiers)', () => {
+    const pile: Ability = {
+      type: 'ACT',
+      timing: 'MAIN',
+      cost: [],
+      effect: [
+        { do: 'CHOOSE', from: 'YOUR_MEMORY', filter: { name: 'N' }, min: 0, max: 99, all: true },
+        { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'UNDER_SELF', face: 'UP', inOrder: true },
+        { do: 'SET_X', count: { of: 'MARKERS' }, tiers: [{ max: 3, x: 1 }, { min: 4, max: 5, x: 2 }, { min: 6, x: 3 }] },
+        { do: 'REPEAT', times: 1, timesX: true, effects: [{ do: 'DAMAGE', amount: 2 }] },
+      ],
+    };
+    const start = scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [pile] }, '0:5': { name: 'N' }, '0:6': { name: 'N' }, '0:7': { name: 'Other' } }) }, (ctx) => {
+      put(ctx, card(0, 0), stageSlot(0, 'FC'));
+      for (const k of [5, 6, 7]) put(ctx, card(0, k), { player: 0, zone: 'memory' });
+      for (const k of [8, 9]) put(ctx, card(0, k), { player: 0, zone: 'marker', slot: 'FC' });
+      noClimaxes(ctx, 1);
+    }).state;
+    let state = activate(start, card(0, 0)).state;
+    // Two named cards: the order is asked.
+    state = answer(state, { kind: 'SELECT_CARDS', cards: [oid(state, card(0, 6))] }).state;
+    expect(state.zones[0].memory).toEqual([card(0, 7)]);
+    expect(state.zones[0].marker.FC).toEqual([card(0, 8), card(0, 9), card(0, 6), card(0, 5)]);
+    expect(state.instances[card(0, 5)]!.face).toBe('UP');
+    // Four markers: X = 2, two damages of 2.
+    expect(state.zones[1].clock).toHaveLength(4);
+  });
+});

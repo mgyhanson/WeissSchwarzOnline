@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 503,
- "unsupported": 106,
+ "playable": 504,
+ "unsupported": 105,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 77,
+   "playable": 78,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 63
+     "playable": 64
     },
     "EVENT": {
      "total": 9,
@@ -207,19 +207,19 @@
    },
    "level3": {
     "total": 13,
-    "playable": 9
+    "playable": 10
    }
   }
  ],
  "level3": {
   "total": 63,
-  "playable": 55
+  "playable": 56
  },
  "classes": {
   "A": 33,
   "B": 1,
   "C": 44,
-  "D": 28,
+  "D": 27,
   "E": 0
  },
  "topParts": [

@@ -273,7 +273,7 @@ export type Effect =
    * …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1).
    * `add`: …をN枚までと…をN枚まで選び — these are chosen in addition to the cards of the previous CHOOSE.
    */
-  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; /** Ｘ枚まで: the most is X of this resolution */ maxX?: boolean; /** 同じ枚数: exactly X */ exactX?: boolean; /** その手札に戻したキャラと同じカード名の: only cards with the name of a card the most recent MOVE moved */ sameNameAsMoved?: boolean; add?: boolean }
+  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; /** Ｘ枚まで: the most is X of this resolution */ maxX?: boolean; /** …すべて: every candidate, nothing asked */ all?: boolean; /** 同じ枚数: exactly X */ exactX?: boolean; /** その手札に戻したキャラと同じカード名の: only cards with the name of a card the most recent MOVE moved */ sameNameAsMoved?: boolean; add?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
   | { do: 'MOVE'; target: Target; to: Destination; /** …に好きな順番で置く: the player chooses the order the cards go there in. */ inOrder?: boolean; reveal?: boolean; rested?: boolean; /** for UNDER_SELF / UNDER_THAT: 表向き or 裏向き */ face?: 'UP' | 'DOWN'; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**

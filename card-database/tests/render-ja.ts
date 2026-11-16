@@ -363,6 +363,10 @@ function xCountJa(set: Extract<Effect, { do: 'SET_X' }>): string {
   const c = set.count;
   const f = c.filter ? Object.keys(c.filter).sort().join() : '';
   if (c.of === 'SELF_SOUL' && !set.plus && !set.minus && !set.tiers) return 'Ｘはこのカードのソウルに等しい';
+  if (c.of === 'MARKERS' && !c.distinctNames && !c.filter && set.tiers?.length === 3) {
+    const [a1, b1, c1] = set.tiers;
+    return `Ｘはこのカードの下のマーカーの枚数が${a1!.max}枚以下なら${a1!.x}、${b1!.min}枚か${b1!.max}枚なら${b1!.x}、${c1!.min}枚以上なら${c1!.x}に等しい`;
+  }
   if (c.of === 'MOVED' && f === 'kind' && c.filter!.kind === 'CLIMAX' && !set.plus && !set.minus && !set.tiers) return 'ＸはそれらのカードのCXの枚数に等しい';
   if (c.of === 'OPPONENT_WAITING_ROOM' && f === 'kind' && c.filter!.kind === 'CLIMAX' && set.minus && !set.plus && !set.tiers) return `Ｘは相手の控え室のCXの枚数－${set.minus}に等しい`;
   if (c.of === 'MARKERS' && c.distinctNames && !c.filter && set.plus && !set.tiers) return `Ｘはこのカードの下の異なるカード名のマーカーの枚数＋${set.plus}に等しい`;
@@ -432,6 +436,14 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       if (e.from === 'OPPONENT_WAITING_ROOM' && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string }).to === 'DECK' && effects[i + 2]?.do === 'SHUFFLE' && (effects[i + 2] as { whose?: string }).whose === 'OPPONENT') {
         const rest = effectsJa(effects.slice(i + 3));
         sentences.push(`相手の控え室の${filterJa(e.filter, 'ZONE')}を${count(e)}選び、山札に戻し、相手はその山札をシャッフルし、${rest[0]}`, ...rest.slice(1));
+        i = effects.length;
+        continue;
+      }
+      if (e.all && e.from === 'YOUR_MEMORY' && effects[i + 1]?.do === 'MOVE' && (effects[i + 1] as { to: string }).to === 'UNDER_SELF') {
+        const move = effects[i + 1] as Extract<Effect, { do: 'MOVE' }>;
+        if (move.face !== 'UP' || !move.inOrder || !e.filter?.name) fail('memory markers', e);
+        const rest = effectsJa(effects.slice(i + 2));
+        sentences.push(`自分の思い出置場の「${e.filter!.name}」すべてをこのカードの下にマーカーとして好きな順番で表向きに置き、${rest[0]}`, ...rest.slice(1));
         i = effects.length;
         continue;
       }
@@ -978,6 +990,7 @@ export function sameWords(text: string): string {
     .replace(/置き、/g, '置く。')
     .replace(/戻し、/g, '戻す。')
     .replace(/シャッフルし、/g, 'シャッフルする。')
+    .replace(/思い出にし、/g, '思い出にする。')
     // "N枚を、クロック置場に置く" and "N枚をクロック置場に置く": a comma only.
     .replace(/枚を、/g, '枚を')
     .replace(/ダメージを与え、(?!あなたはコストを払ってよい|コストを払ってよい)/g, 'ダメージを与える。')

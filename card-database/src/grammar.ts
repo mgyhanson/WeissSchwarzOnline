@@ -832,6 +832,10 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     }
   }
   if (text === 'その山札をシャッフルする') return out([{ do: 'SHUFFLE' }], '洗山札');
+  if ((m = /^自分の思い出置場の「([^」]+)」すべてをこのカードの下にマーカーとして好きな順番で表向きに置き、(.+)$/.exec(text))) {
+    const rest = parseEffects([m[2]!], battle);
+    if (rest) return out([{ do: 'CHOOSE', from: 'YOUR_MEMORY', filter: { name: m[1]! }, min: 0, max: 99, all: true }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'UNDER_SELF', face: 'UP', inOrder: true }, ...rest.data], `把自己思い出中所有「${m[1]}」按喜歡的次序以表向放到這張卡下面作為 Marker，然後${rest.zh}`);
+  }
   if ((m = /^そのアタック中、このカードが相手にアタックのダメージを与える時、かわりに(.+)$/.exec(text))) {
     const instead = parseEffects([m[1]!], battle);
     if (instead) return out([{ do: 'REPLACE_ATTACK_DAMAGE', effects: instead.data }], `這次攻擊中，這張卡對對手造成攻擊傷害時，改為${instead.zh}（置換效果）`);
@@ -1014,6 +1018,7 @@ function splitJoined(sentence: string, battle: boolean): Out<Effect[]> {
   const joints: [RegExp, string][] = [
     [/置き、/g, '置く'],
     [/与え、/g, '与える'],
+    [/思い出にし、/g, '思い出にする'],
     [/戻し、/g, '戻す'],
     [/シャッフルし、/g, 'シャッフルする'],
   ];
@@ -1036,6 +1041,9 @@ const X_MARK = 7777;
 /** "Ｘは…に等しい": the counts X can be (SET_X). */
 function readXCount(sentence: string): { set: Extract<Effect, { do: 'SET_X' }>; zh: string } | null {
   let m: RegExpExecArray | null;
+  if ((m = /^Ｘはこのカードの下のマーカーの枚数が(\d+)枚以下なら(\d+)、(\d+)枚か(\d+)枚なら(\d+)、(\d+)枚以上なら(\d+)に等しい$/.exec(sentence))) {
+    return { set: { do: 'SET_X', count: { of: 'MARKERS' }, tiers: [{ max: n(m[1]), x: n(m[2]) }, { min: n(m[3]), max: n(m[4]), x: n(m[5]) }, { min: n(m[6]), x: n(m[7]) }] }, zh: `Ｘ＝這張卡下面 Marker ${m[1]} 張或以下時 ${m[2]}、${m[3]} 或 ${m[4]} 張時 ${m[5]}、${m[6]} 張或以上時 ${m[7]}` };
+  }
   if (sentence === 'Ｘはこのカードのソウルに等しい') return { set: { do: 'SET_X', count: { of: 'SELF_SOUL' } }, zh: 'Ｘ＝這張卡的 Soul' };
   if (sentence === 'ＸはそれらのカードのCXの枚数に等しい') return { set: { do: 'SET_X', count: { of: 'MOVED', filter: { kind: 'CLIMAX' } } }, zh: 'Ｘ＝這些卡中 Climax 的張數' };
   if ((m = /^Ｘは相手の控え室のCXの枚数－(\d+)に等しい$/.exec(sentence))) return { set: { do: 'SET_X', count: { of: 'OPPONENT_WAITING_ROOM', filter: { kind: 'CLIMAX' } }, minus: n(m[1]) }, zh: `Ｘ＝對手控え室 Climax 張數 －${m[1]}` };
