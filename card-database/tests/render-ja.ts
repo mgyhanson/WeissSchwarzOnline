@@ -101,6 +101,8 @@ export function triggerJa(trigger: Trigger): string {
       return trigger.phase === 'CLIMAX' ? 'あなたのCXフェイズの始めに' : trigger.phase === 'ATTACK' ? 'あなたのアタックフェイズの始めに' : fail('trigger', trigger);
     case 'STEP_START':
       return trigger.step === 'ENCORE' && trigger.turn === 'YOURS' ? 'あなたのアンコールステップの始めに' : fail('trigger', trigger);
+    case 'THIS_FRONT_ATTACKED':
+      return 'このカードがフロントアタックされた時';
     case 'OTHER_FRONT_ATTACKED':
       if (trigger.slots) return trigger.slots.join() === 'FC' ? `他のあなたの前列の中央の枠の${filterJa(trigger.filter, 'STAGE')}がフロントアタックされた時` : fail('trigger', trigger);
       return `他のあなたの${filterJa(trigger.filter, 'STAGE')}がフロントアタックされた時`;
@@ -402,13 +404,15 @@ export function effectsJa(effects: readonly Effect[]): string[] {
   const maker = effects[0];
   if (maker && ((maker.do === 'DECK_TOP' && maker.setX) || maker.do === 'SHOW_TOP')) {
     // Trailing "(…があり、)Ｘが…なら、…" sentences.
-    const isXIf = (e: Effect | undefined) => e?.do === 'IF' && JSON.stringify(e.condition).includes('"if":"X"');
+    const isAmong = (e: Effect | undefined): e is Extract<Effect, { do: 'IF' }> => e?.do === 'IF' && e.condition.if === 'LAST_MOVED' && e.condition.said === 'THIS_EFFECT' && e.condition.min === 1 && maker.do === 'DECK_TOP' && maker.said === 'THIS_EFFECT';
+    const isXIf = (e: Effect | undefined) => (e?.do === 'IF' && JSON.stringify(e.condition).includes('"if":"X"')) || isAmong(e);
     const allRest = effects.slice(1);
     const firstIf = allRest.findIndex(isXIf);
     const rest = firstIf < 0 ? allRest : allRest.slice(0, firstIf);
     const xIfs = firstIf < 0 ? [] : allRest.slice(firstIf);
     if (xIfs.some((e) => !isXIf(e))) fail('x', effects);
     const xIfText = (e: Extract<Effect, { do: 'IF' }>): string => {
+      if (isAmong(e) && e.condition.if === 'LAST_MOVED') return `この効果で控え室に置かれたカードに${filterJa(e.condition.filter, 'ZONE')}があるなら、${effectsJa(e.then).join('。')}`;
       const parts = e.condition.if === 'ALL' ? e.condition.of : [e.condition];
       const x = parts.find((c) => c.if === 'X') as Extract<Condition, { if: 'X' }>;
       const others = parts.filter((c) => c.if !== 'X');
@@ -428,7 +432,7 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       usesText = plain[0]!.replace(/(控え室の)(、?)/, '$1レベルＸ以下の$2');
     } else return fail('x', effects);
     const made = maker.do === 'DECK_TOP' ? `自分の山札の上から${maker.count}枚を、控え室に置き、` : '自分の山札の上から1枚を公開し、';
-    const xIs = maker.do === 'DECK_TOP' ? 'それらのカードのレベルの合計' : '公開されたカードのレベル';
+    const xIs = maker.do !== 'DECK_TOP' ? '公開されたカードのレベル' : maker.setX === 'SOUL_ICONS' ? 'それらのカードのトリガーアイコンの[[soul.gif]]の合計' : maker.said === 'THIS_EFFECT' ? 'この効果で控え室に置かれたカードのレベルの合計' : 'それらのカードのレベルの合計';
     return [`${made}${usesText}`, ...xIfs.map((e) => xIfText(e as Extract<Effect, { do: 'IF' }>)), `Ｘは${xIs}${times > 1 ? `×${times}` : ''}に等しい`];
   }
   const sentences: string[] = [];
@@ -793,7 +797,9 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     }
     else if (e.do === 'DECK_TOP') {
       const to = e.to === 'STOCK' ? 'ストック置場' : e.to === 'WAITING_ROOM' ? '控え室' : 'クロック置場';
-      if (e.fromBottom) sentences.push(e.whose === 'OPPONENT' && !e.upTo ? `相手の山札の下から${e.count}枚を、${to}に置く` : fail('deck', e));
+      if (e.whose === 'EVERYONE') sentences.push(e.to === 'WAITING_ROOM' && !e.upTo && !e.fromBottom ? `すべてのプレイヤーは自分の山札の上から${e.count}枚を、控え室に置く` : fail('deck', e));
+      else if (e.may) sentences.push(e.upTo && e.count === 1 && !e.whose && !e.fromBottom ? `自分の山札の上から1枚を、${to}に置いてよい` : fail('deck', e));
+      else if (e.fromBottom) sentences.push(e.whose === 'OPPONENT' && !e.upTo ? `相手の山札の下から${e.count}枚を、${to}に置く` : fail('deck', e));
       else sentences.push(`${e.whose === 'EITHER' ? '自分か相手の、' : e.whose === 'OPPONENT' ? (e.actor === 'YOU' ? '相手の' : '相手は自分の') : '自分の'}山札の上から${e.count}枚${e.upTo ? 'まで' : ''}を、${to}に置く`);
     } else if (e.do === 'WAITING_ROOM_TO_DECK' && effects[i]?.do === 'SHUFFLE') {
       sentences.push('自分の控え室のカードすべてを、山札に戻し、その山札をシャッフルする');
@@ -802,6 +808,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       sentences.push('自分の山札を上からＸ枚まで見て、カードを1枚まで選び、手札に加え、残りのカードを控え室に置く', `Ｘは${e.per.other ? '他の' : ''}あなたの${filterJa(e.per.filter, 'STAGE')}の枚数に等しい`);
     } else if (e.do === 'LOOK_TOP' && e.toStock && !e.per && !e.pick && !e.reveal) {
       sentences.push(`自分の山札を上から${e.upTo}枚まで見て、カードを${e.picks ?? 1}枚まで選び、手札に加え、カードを${e.toStock}枚まで選び、ストック置場に置き、残りのカードを控え室に置く`);
+    } else if (e.do === 'LOOK_TOP' && e.toStage) {
+      sentences.push(e.pick && !e.per && !e.reveal && !e.picks && !e.toStock ? `自分の山札を上から${e.upTo}枚まで見て、${filterJa(e.pick, 'ZONE')}を1枚まで選び、舞台の好きな枠に置き、残りのカードを控え室に置く` : fail('look', e));
     } else if (e.do === 'LOOK_TOP' && !e.per) {
       sentences.push(
         e.pick && e.reveal
@@ -843,7 +851,27 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     } else if (e.do === 'IF' && !e.else && e.condition.if === 'DID' && effects[i - 2]?.do === 'DRAW' && (effects[i - 2] as Extract<Effect, { do: 'DRAW' }>).optional) {
       const inner = effectsJa(e.then);
       sentences.push(`${(effects[i - 2] as Extract<Effect, { do: 'DRAW' }>).count}枚引いたなら、${inner[0]}`, ...inner.slice(1));
-    } else if (e.do === 'IF' && !e.else && e.condition.if === 'LAST_MOVED' && e.condition.min === 1 && effects[i - 2]?.do === 'DECK_TOP') {
+    } else if (e.do === 'IF' && !e.else && e.condition.if === 'LAST_MOVED' && e.condition.said === 'THAT_CARD') {
+      const before = effects[i - 2];
+      if (e.condition.min !== 1 || before?.do !== 'DECK_TOP' || !before.may) fail('effect', e);
+      const inner = effectsJa(e.then);
+      sentences.push(`そのカードが${filterJa(e.condition.filter, 'ZONE')}なら、${inner[0]}`, ...inner.slice(1));
+    } else if (e.do === 'IF' && !e.else && e.condition.if === 'MOVED_LEVEL_HIGHER') {
+      const before = effects[i - 2];
+      if (before?.do !== 'DECK_TOP' || before.whose !== 'EVERYONE' || before.count !== 1) fail('effect', e);
+      const inner = effectsJa(e.then);
+      sentences.push(`あなたのこの効果で控え室に置かれたカードのレベルが相手のこの効果で控え室に置かれたカードのレベルより高いなら、${inner[0]}`, ...inner.slice(1));
+    } else if (e.do === 'IF' && !e.else && e.condition.if === 'MOVED_CARD') {
+      const keys = Object.keys(e.condition.filter).join();
+      if (keys !== 'levelMin' || effects[i - 2]?.do !== 'MOVE') fail('effect', e);
+      const inner = effectsJa(e.then);
+      sentences.push(`選んだキャラのレベルが${e.condition.filter.levelMin}以上なら、${inner[0]}`, ...inner.slice(1));
+    } else if (e.do === 'IF' && !e.else && e.joined) {
+      // …し、…なら、…: one sentence with the action before.
+      const before = sentences.pop() ?? fail('effect', e);
+      const inner = effectsJa(e.then);
+      sentences.push(`${before.endsWith('戻す') ? before.slice(0, -1) : before}し、${conditionJa(e.condition)}${inner[0]}`, ...inner.slice(1));
+    } else if (e.do === 'IF' && !e.else && e.condition.if === 'LAST_MOVED' && e.condition.min === 1 && !e.condition.said && effects[i - 2]?.do === 'DECK_TOP') {
       const inner = effectsJa(e.then);
       sentences.push(`それらのカードに${filterJa(e.condition.filter, 'ZONE')}があるなら、${inner[0]}`, ...inner.slice(1));
     } else if (e.do === 'IF' && !e.else && e.condition.if !== 'DID' && e.condition.if !== 'LAST_MOVED') {

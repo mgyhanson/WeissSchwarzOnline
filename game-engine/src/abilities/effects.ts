@@ -650,12 +650,14 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         frame.step = 2;
         frame.scratch[1] = takeAnswer(ctx, 'SELECT_OPTION').option === 'OPPONENT' ? 1 : 0;
       }
-      const whose = frame.scratch[1] === 1 || effect.whose === 'OPPONENT' ? opponentOf(master) : master;
       const done = frame.scratch[0] ?? 0;
+      // すべてのプレイヤーは自分の山札の…: every player from their own deck, the turn player first.
+      const everyone = effect.whose === 'EVERYONE' ? [state.turn?.player ?? master, opponentOf(state.turn?.player ?? master)] : null;
+      const whose = everyone ? everyone[done < effect.count ? 0 : 1]! : frame.scratch[1] === 1 || effect.whose === 'OPPONENT' ? opponentOf(master) : master;
       if (done === 0) context.moved = [];
       // 山札の下からN枚を: from the bottom instead.
       const top = effect.fromBottom ? state.zones[whose].deck[0] : topOf(state.zones[whose].deck);
-      const count = effect.countX ? (context.x ?? 0) : effect.count;
+      const count = everyone ? effect.count * 2 : effect.countX ? (context.x ?? 0) : effect.count;
       // 上からN枚までを: the player may stop before each card.
       if (effect.upTo && done < count && top !== undefined) {
         if (frame.step !== 3) {
@@ -672,6 +674,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       if (done >= count || top === undefined) {
         // Ｘはそれらのカードのレベルの合計: printed levels; a climax has none and counts as 0 (CR-2.19.1).
         if (effect.setX === 'LEVEL_TOTAL') context.x = (context.moved ?? []).reduce((sum, id) => sum + (getDef(state, id).level ?? 0), 0);
+        // Ｘはそれらのカードのトリガーアイコンの soul の合計: every soul icon counts, two on one card are two.
+        if (effect.setX === 'SOUL_ICONS') context.x = (context.moved ?? []).reduce((sum, id) => sum + getDef(state, id).triggers.filter((icon) => icon === 'SOUL').length, 0);
         next();
         return;
       }
@@ -910,6 +914,14 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const xHolds = (c: typeof condition): boolean =>
         c.if === 'X' ? (context.x ?? 0) >= (c.min ?? -Infinity) && (context.x ?? 0) <= (c.max ?? Infinity) : c.if === 'ALL' ? c.of.every(xHolds) : evalCondition(state, master, context.source, c, context.battleOpponent, context.about ?? null);
       const usesX = JSON.stringify(condition).includes('"if":"X"');
+      // 選んだキャラ, after it was moved: the cards of the MOVE just before, where they are now.
+      const movedCards = () => resolveTarget(state, context, { who: 'MOVED' });
+      // The card each player's deck gave up to this effect; without one of the two there is nothing to compare.
+      const movedLevelHigher = (): boolean => {
+        const level = (player: PlayerId) => (context.moved ?? []).filter((id) => getInstance(state, id).owner === player).map((id) => getDef(state, id).level ?? 0);
+        const [mine, theirs] = [level(master), level(opponentOf(master))];
+        return mine.length === 1 && theirs.length === 1 && mine[0]! > theirs[0]!;
+      };
       const holds =
         usesX
           ? xHolds(condition)
@@ -917,6 +929,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
           ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
           : condition.if === 'DID'
             ? context.did === true
+          : condition.if === 'MOVED_CARD'
+            ? movedCards().length > 0 && movedCards().every((id) => matchesFilter(state, id, condition.filter))
+          : condition.if === 'MOVED_LEVEL_HIGHER'
+            ? movedLevelHigher()
           : evalCondition(state, master, context.source, condition, context.battleOpponent, context.about ?? null);
       next();
       pushEffects(ctx, holds ? effect.then : (effect.else ?? []), context);
@@ -1515,6 +1531,12 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
   // 手札に加えたなら: whether a card was taken.
   context.did = chosen.length > 0;
   next();
+  // 舞台の好きな枠に置き、残りのカードを控え室に置く: the card taken to a slot the player chooses, then the others looked at to the waiting room.
+  if (effect.toStage) {
+    context.moved = [...looked];
+    pushEffects(ctx, [{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'CHOSEN_SLOT' }, { do: 'MOVE_REST', to: 'WAITING_ROOM' }], context);
+    return;
+  }
   if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
   moveBatch(
     ctx,

@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 518,
+    "playable": 528,
     "handWritten": 128,
-    "fromPatterns": 390,
-    "unsupported": 91,
-    "abilitiesRun": 931
+    "fromPatterns": 400,
+    "unsupported": 81,
+    "abilitiesRun": 950
   },
   "sets": [
     {
@@ -43,8 +43,8 @@
       "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
       "cards": 114,
       "handWritten": 21,
-      "fromPatterns": 81,
-      "unsupported": 12,
+      "fromPatterns": 82,
+      "unsupported": 11,
       "pending": 0,
       "withoutText": 0
     },
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 83,
-      "unsupported": 14,
+      "fromPatterns": 86,
+      "unsupported": 11,
       "pending": 0,
       "withoutText": 0
     },
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 76,
-      "unsupported": 21,
+      "fromPatterns": 81,
+      "unsupported": 16,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 80,
-      "unsupported": 30,
+      "fromPatterns": 81,
+      "unsupported": 29,
       "pending": 0,
       "withoutText": 0
     }
@@ -108,7 +108,7 @@
     "EXPERIENCE_POWER": 0,
     "ENCORE_DISCARD_CHARACTER": 2,
     "BACKUP": 22,
-    "POWER_WITH_OTHER_TRAIT": 12,
+    "POWER_WITH_OTHER_TRAIT": 13,
     "POWER_ALL_TRAIT": 8,
     "POWER_PER_OTHER_TRAIT": 4,
     "YOUR_TURN_OTHERS_TRAIT_POWER": 3,

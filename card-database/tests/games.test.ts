@@ -33,7 +33,8 @@ describe('complete games with the real test decks', () => {
     expect([...used].filter((u) => u.startsWith('BDY/W135-')).length).toBeGreaterThan(12);
     // The STS, ANM and NIK decks, most of whose cards were read by the sentence grammar.
     for (const prefix of ['STS/W140-', 'ANM/W138-', 'NIK/S135-']) expect([...used].filter((u) => u.startsWith(prefix)).length, prefix).toBeGreaterThan(8);
-  });
+    // About 4 seconds alone; the default limit of 5 seconds is too close when the whole suite runs in parallel.
+  }, 30_000);
 
   it('a deck built with newly imported cards (GUP climaxes compiled from sentence patterns) is legal and plays whole games', () => {
     const imported = allCards().filter((c) => c.set === 'GUP_W141' && c.record.origin === 'PATTERN' && c.def.kind === 'CLIMAX');

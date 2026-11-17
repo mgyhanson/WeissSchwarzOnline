@@ -264,6 +264,10 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       for (const found of autosOf(state, attacker, (t) => t.on === 'ATTACKS' && (!t.placedThisTurn || placedNow) && (!t.attackType || t.attackType === event.attackType))) {
         wait(state, event.player, attacker, found, defender ? defender.objectId : null);
       }
+      // このカードがフロントアタックされた時: the defending character's own abilities; its battle opponent is the attacker.
+      if (defender && event.attackType === 'FRONT') {
+        for (const found of autosOf(state, defender, (t) => t.on === 'THIS_FRONT_ATTACKED')) wait(state, opponentOf(event.player), defender, found, attacker.objectId);
+      }
       // 他のあなたの…のキャラがフロントアタックされた時: the defending player's other cards in force; the ability is about the defender.
       if (defender && event.attackType === 'FRONT') {
         for (const source of activeSources(state)) {
