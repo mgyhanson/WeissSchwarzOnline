@@ -102,13 +102,14 @@ export const GUP_TEST_DECK: TestDeck = {
     // Level 0 (16)
     gup('001', 4), gup('038', 4), gup('084', 4), gup('010', 2), gup('044', 2),
     // Level 1 (12)
-    gup('039', 4), gup('048', 3), gup('099', 2), gup('096', 2), gup('022', 1),
+    // 089 (batch 9): its CX combo names 冬ごもりの準備 (112)
+    gup('039', 4), gup('048', 2), gup('089', 1), gup('099', 2), gup('096', 2), gup('022', 1),
     // Level 2 (8)
     gup('041', 3), gup('091', 3), gup('040', 2),
     // Level 3 (6), updated 2026-11-15 when these became playable
     gup('004', 1), gup('003', 1), gup('036', 1), gup('031', 1), gup('092', 1), gup('101', 1),
     // Climaxes
-    gup('025', 2), gup('054', 2), gup('111', 2), gup('113', 2),
+    gup('025', 2), gup('054', 2), gup('112', 2), gup('113', 2),
   ],
 };
 
@@ -159,7 +160,8 @@ export const STS_TEST_DECK: TestDeck = {
   entries: entriesOf('STS/W140', {
     // Level 0 (18)
     // 008 and 014 (batch 8): the attacking character's soul, moving the opponent's characters
-    '025': 4, '045': 2, '008': 2, '054': 2, '014': 2, '073': 2, '086': 1, '087': 1,
+    // 016, 040 and 077 (batch 9): the cards put into the waiting room from the deck, front-attacked, memory
+    '025': 4, '045': 2, '008': 2, '054': 2, '014': 2, '073': 1, '016': 1, '040': 1, '077': 1,
     // Level 1 (14)
     '011': 3, '027': 2, '041': 3, '043': 3, '048': 3,
     // Level 2 (8)
@@ -175,18 +177,20 @@ export const ANM_TEST_DECK: TestDeck = {
   id: 'test-anm',
   name: 'anemoi 四色測試卡組',
   title: 'ANM',
-  note: 'Made by this project from the ANM/W138 cards the engine supports: supported characters of the booster of every level, Level 3 included, one supported event and two climaxes; not an official or tournament list.',
+  note: 'Made by this project from the ANM/W138 cards the engine supports: supported characters of the booster of every level, Level 3 included, two supported events and three climaxes; not an official or tournament list.',
   entries: entriesOf('ANM/W138', {
     // Level 0 (16)
-    '004': 4, '016': 4, '028': 2, '027': 2, '062': 4,
+    // 080 and 090 (batch 9)
+    '004': 4, '016': 4, '028': 2, '027': 2, '062': 2, '080': 1, '090': 1,
     // Level 1 (13)
-    '020': 3, '041': 3, '057': 3, '068': 4,
+    // 029, 030 and the event 046 (batch 9): 030 looks for 029, whose CX combo names 嘘つきなさよなら (048)
+    '020': 3, '041': 3, '057': 2, '068': 1, '029': 2, '030': 1, '046': 1,
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
     // Level 3 (6): five characters and the event
     '003': 2, '014': 1, '058': 1, '002': 1, '074': 1,
-    // Climaxes: 見つけた、大切な場所 (yellow), 好きの数だけ金平糖 (red)
-    '024': 4, '075': 4,
+    // Climaxes: 見つけた、大切な人 (yellow), 好きの数だけ金平糖 (red), 嘘つきなさよなら (green)
+    '024': 4, '075': 2, '048': 2,
   }),
 };
 
@@ -198,7 +202,8 @@ export const NIK_TEST_DECK: TestDeck = {
   entries: entriesOf('NIK/S135', {
     // Level 0 (18)
     // 012 is the card NIK/S135-104 lets Choice (the climax 024) take back
-    '011': 3, '029': 3, '031': 3, '012': 2, '059': 2, '083': 2, '087': 2, '093': 1,
+    // 099 (batch 9): one card from each deck, the levels compared
+    '011': 3, '029': 3, '031': 2, '099': 1, '012': 2, '059': 2, '083': 2, '087': 2, '093': 1,
     // Level 1 (12)
     '008': 4, '072': 2, '104': 2, '073': 2, '074': 2,
     // Level 2 (8)
