@@ -137,12 +137,14 @@ export const BDY_TEST_DECK: TestDeck = {
   note: 'Made by this project from the BDY/W135 cards the engine supports (yellow, red and blue): characters of every level, Level 3 included (hand-written and read by the sentence grammar), and four of the booster\'s climaxes; not an official or tournament list.',
   entries: [
     // Level 0
-    bdy('013', 4), bdy('035', 4), bdy('047', 2), bdy('001', 2), bdy('070', 4),
+    // 085 (batch 10): the opponent swaps a character for one of lower level from their waiting room
+    bdy('013', 4), bdy('035', 4), bdy('047', 2), bdy('001', 2), bdy('070', 2), bdy('085', 2),
     // Level 1 (12)
     // 025 is the event 夢限大みゅーたいぷ (batch 8)
     bdy('087', 4), bdy('006', 3), bdy('019', 2), bdy('036', 2), bdy('025', 1),
     // Level 2 (8)
-    bdy('020', 3), bdy('051', 2), bdy('089', 1), bdy('039', 1), bdy('021', 1),
+    // 061 (batch 10) is the event アメアメいざない大さくせん
+    bdy('020', 3), bdy('051', 1), bdy('061', 1), bdy('089', 1), bdy('039', 1), bdy('021', 1),
     // Level 3 (6)
     bdy('041', 1), bdy('094', 1), bdy('003', 1), bdy('023', 1), bdy('024', 1), bdy('080', 1),
     // Climaxes: 愛は衝動 and TearJerker (named by 013 and by the 集中 of 036), ✞animaるパーティ✞開催中✞, 臨兵闘ｼｬ！皆陣烈在ぜ～ん
@@ -163,7 +165,8 @@ export const STS_TEST_DECK: TestDeck = {
     // 016, 040 and 077 (batch 9): the cards put into the waiting room from the deck, front-attacked, memory
     '025': 4, '045': 2, '008': 2, '054': 2, '014': 2, '073': 1, '016': 1, '040': 1, '077': 1,
     // Level 1 (14)
-    '011': 3, '027': 2, '041': 3, '043': 3, '048': 3,
+    // 063 (batch 10) is the counter event 星ノ塔スタッフ ベアトリス
+    '011': 3, '027': 2, '041': 3, '043': 2, '063': 1, '048': 3,
     // Level 2 (8)
     '022': 2, '023': 2, '052': 3, '093': 1,
     // Level 3 (4)
@@ -203,7 +206,8 @@ export const NIK_TEST_DECK: TestDeck = {
     // Level 0 (18)
     // 012 is the card NIK/S135-104 lets Choice (the climax 024) take back
     // 099 (batch 9): one card from each deck, the levels compared
-    '011': 3, '029': 3, '031': 2, '099': 1, '012': 2, '059': 2, '083': 2, '087': 2, '093': 1,
+    // 016 and 017 (batch 10): 絆 with two names, the waiting room at the start of the first turn
+    '011': 3, '029': 3, '031': 2, '099': 1, '012': 2, '059': 1, '016': 1, '083': 2, '087': 1, '017': 1, '093': 1,
     // Level 1 (12)
     '008': 4, '072': 2, '104': 2, '073': 2, '074': 2,
     // Level 2 (8)
