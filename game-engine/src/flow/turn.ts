@@ -39,13 +39,18 @@ export function stepTurn(ctx: Ctx, frame: Extract<Frame, { kind: 'TURN' }>): voi
 
   switch (frame.step) {
     // ----- Stand phase (CR-6.2) -------------------------------------------
-    case 'STAND_START':
+    case 'STAND_START': {
+      // あなたの第Nターン: counted per player, so an extra turn counts as one of that player's turns.
+      const taken: [number, number] = [...(state.turnsTaken ?? [0, 0])];
+      taken[player] += 1;
+      state.turnsTaken = taken;
       emit(ctx, { type: 'TURN_STARTED', turn: turn.number, player });
       beginPhase(ctx, 'STAND');
       // CR-6.2.1.1: "beginning of turn / stand phase" triggers (STEP 4d), then a check timing.
       frame.step = 'STAND_ACTION';
       pushCheckTiming(ctx);
       return;
+    }
 
     case 'STAND_ACTION':
       // CR-6.2.1.2: the turn player stands all characters on their stage.

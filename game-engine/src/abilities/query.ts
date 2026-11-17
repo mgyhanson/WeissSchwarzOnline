@@ -25,6 +25,8 @@ export interface ActiveSource {
   marker?: boolean;
   /** True for a face-up memory card: only its abilities that work in memory are in force. */
   memory?: boolean;
+  /** True for a card in the waiting room: only its abilities that work there are in force. */
+  waitingRoom?: boolean;
 }
 
 /**
@@ -58,6 +60,11 @@ export function activeSources(state: GameState): ActiveSource[] {
       if (getInstance(state, instanceId).face !== 'UP') continue;
       const def = getDef(state, instanceId);
       if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'MEMORY')) sources.push({ instanceId, master, def, clockTop: false, memory: true });
+    }
+    // CR-2.12.2.3: abilities that work in the waiting room (控え室にこのカードがあるなら); waiting-room cards are face up.
+    for (const instanceId of zones.waitingRoom) {
+      const def = getDef(state, instanceId);
+      if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'WAITING_ROOM')) sources.push({ instanceId, master, def, clockTop: false, waitingRoom: true });
     }
     // CR-10.1 / CR-2.12.2.3: アラーム abilities of the card on top of the clock.
     const top = zones.clock[zones.clock.length - 1];
@@ -343,8 +350,8 @@ function continuousInForce(state: GameState): { source: ActiveSource; ability: C
   for (const source of activeSources(state)) {
     for (const ability of source.def.abilities ?? []) {
       if (ability.type !== 'CONT' || ability.inHand) continue;
-      // A marker ability works from the marker zone and only from there.
-      if ((ability.zone === 'MARKER') !== Boolean(source.marker) || (ability.zone === 'MEMORY') !== Boolean(source.memory)) continue;
+      // A marker ability works from the marker zone and only from there; no continuous ability works from the waiting room.
+      if ((ability.zone === 'MARKER') !== Boolean(source.marker) || (ability.zone === 'MEMORY') !== Boolean(source.memory) || source.waitingRoom) continue;
       // An アラーム ability works from the top of the clock and only from there.
       if (Boolean(ability.alarm) !== source.clockTop) continue;
       if (ability.assist) {
