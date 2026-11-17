@@ -646,6 +646,8 @@ function plainForm(sentence: string): string | null {
 
 /** Set while reading an ability whose trigger names a character (他の…がフロントアタックされた時): "そのキャラ" is that character. */
 let aboutThat = false;
+/** Set while reading an ability that works in memory (思い出置場にこのカードがあるなら): "このカード" is in memory. */
+let selfInMemory = false;
 
 /** One effect sentence (without "あなたは" and without a final よい). `battle`: "そのキャラ" is the battle opponent here. */
 function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
@@ -755,6 +757,21 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
       [{ do: 'CHOOSE', from: 'OPPONENT_STAGE', ...range(m[1], m[2]) }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'MEMORY' }, m[3] ? { do: 'DELAYED', at: { step: 'ENCORE', whose: 'ANY' }, effects: [back] } : back],
       `選對手${countZh(m[1], m[2])}角色放到思い出，${m[3] ? '這回合的 Encore 步驟開始時，' : ''}對手把該角色從思い出放到自己舞台上自己選的枠`,
     );
+  }
+  // 自分の思い出置場の…を1枚とこのカードを選び、入れ替える (this card on the stage) / 自分の…キャラを1枚とこのカードを選び、入れ替える
+  // (this card in memory): a character of the stage and one of memory change places.
+  if ((m = /^自分の思い出置場の(.+?)を1枚とこのカードを選び、入れ替える$/.exec(text)) && !selfInMemory) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    if (filter?.data && (filter.data.kind === 'CHARACTER' || (filter.data.name && Object.keys(filter.data).length === 1))) {
+      return out([{ do: 'SWAP_STAGE_MEMORY', stage: 'SELF', memory: { filter: filter.data } }], `選自己思い出置場 1 張${filter.zh}與這張卡互換（它放到這張卡的枠，這張卡放到思い出）`);
+    }
+  }
+  if ((m = /^自分の(.+?キャラ)を1枚とこのカードを選び、入れ替える$/.exec(text)) && selfInMemory && !m[1]!.startsWith('思い出置場の')) {
+    const filter = parseFilter(m[1]!, 'STAGE');
+    // Only characters are on the stage: a filter that says キャラ, or none.
+    if (filter && (!filter.data || filter.data.kind === 'CHARACTER' || filter.data.nameIncludes || filter.data.nameIncludesAny || filter.data.name)) {
+      return out([{ do: 'SWAP_STAGE_MEMORY', stage: { filter: filter.data ?? {} }, memory: 'SELF' }], `選我方舞台 1 張${filter.zh}與思い出中的這張卡互換（這張卡放到它的枠，它放到思い出）`);
+    }
   }
   // 相手の…を1枚選び、相手は自分の控え室の…を1枚選び、入れ替える: the opponent chooses the one that comes in (CR-8.6.5: the text names them).
   if ((m = /^相手の(.+?)を1枚選び、相手は自分の控え室の(.+?)を1枚選び、入れ替える$/.exec(text))) {
@@ -958,6 +975,12 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
     return out([{ do: 'REORDER_TOP', upTo: n(m[1]), keep: 1, keepExact: true }], `查看自己山札頂最多 ${m[1]} 張，選 1 張放回山札頂，其餘放到控え室`);
   }
   if ((m = /^相手のストックの下から(\d+)枚を、控え室に置く$/.exec(text))) return out([{ do: 'STOCK_BOTTOM_TO_WAITING_ROOM', count: n(m[1]), whose: 'OPPONENT' }], `把對手 Stock 最下面 ${m[1]} 張放到控え室`);
+  if ((m = /^(自分|相手)の山札を上から(\d+)枚まで見て、カードを(\d+)枚まで選び、山札の下に置き、残りのカードを山札の上に好きな順番で置く$/.exec(text))) {
+    return out(
+      [{ do: 'REORDER_TOP', upTo: n(m[2]), ...(m[1] === '相手' ? { whose: 'OPPONENT' as const } : {}), toBottom: n(m[3]) }],
+      `查看${m[1] === '相手' ? '對手' : '自己'}山札頂最多 ${m[2]} 張，選最多 ${m[3]} 張放到山札底，其餘按自己喜歡的次序放回山札頂`,
+    );
+  }
   if ((m = /^(自分|相手)の山札を上から(\d+)枚まで見て、(?:カードを(\d+)枚まで選び、)?山札の上に好きな順番で置(?:く|き、残りのカードを控え室に置く)$/.exec(text))) {
     const keep = m[3] !== undefined;
     if (keep !== text.endsWith('残りのカードを控え室に置く')) return null;
@@ -1275,6 +1298,11 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
     const joined = /^(.+置)き、(次の行動を(?:\d+回)?行う)$/.exec(sentences[k]!);
     if (joined) sentences.splice(k, 1, `${joined[1]}く`, joined[2]!);
   }
+  // "…入れ替え、アンコールステップの始めに、それらのキャラを入れ替える": the exchange, then the one back later (two sentences).
+  for (let k = 0; k < sentences.length; k++) {
+    const joined = /^(.+を選び、入れ替え)、(アンコールステップの始めに、それらのキャラを入れ替える)$/.exec(sentences[k]!);
+    if (joined) sentences.splice(k, 1, `${joined[1]}る`, joined[2]!);
+  }
   // "…を－Nし、自分の山札の上から1枚を公開する": the change of a number, then the card is shown (two actions).
   for (let k = 0; k < sentences.length; k++) {
     const joined = /^(.+を[＋－]\d+)し、自分の山札の上から1枚を公開する$/.exec(sentences[k]!);
@@ -1389,7 +1417,10 @@ function parseEffects(all: string[], battle: boolean): Out<Effect[]> {
         アンコールステップの始めに: { step: 'ENCORE', whose: 'ANY' },
         ターンの終わりに: { phase: 'END', whose: 'ANY' },
       };
-      const then = parseEffects([later[2]!], battle);
+      // それらのキャラを入れ替える: the two cards of the exchange of a stage and a memory card just before, back again.
+      const before = effects[effects.length - 1];
+      const back = later[2] === 'それらのキャラを入れ替える' && before?.do === 'SWAP_STAGE_MEMORY' && before.stage !== 'MOVED';
+      const then = back ? out<Effect[]>([{ do: 'SWAP_STAGE_MEMORY', stage: 'MOVED', memory: 'MOVED' }], '把這兩張角色再互換') : parseEffects([later[2]!], battle);
       if (!then) return null;
       effects.push({ do: 'DELAYED', at: times[later[1]!]!, effects: then.data });
       zh.push(`${later[1]!.replace('次のあなたのターンの始めに', '我方下一個回合開始時').replace('次のあなたのドローフェイズの始めに', '我方下一個抽牌階段開始時').replace('アンコールステップの始めに', '這回合的 Encore 步驟開始時').replace('ターンの終わりに', '這回合結束時')}，${then.zh}`);
@@ -1612,6 +1643,7 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
   // "思い出置場にこのカードがあ(る|り、…)なら、…した時": the ability works from memory (CR-2.12.2.3).
   const memoryZone = /^思い出置場にこのカードがあ(?:る|り、(.+?))なら、(.+)$/.exec(parts.trigger ?? '');
   if (memoryZone) parts = { ...parts, trigger: memoryZone[2]!, conditions: [...(memoryZone[1] ? [memoryZone[1]] : []), ...parts.conditions] };
+  selfInMemory = Boolean(memoryZone);
   // "控え室にこのカードがあるなら、…": the ability works in the waiting room (CR-2.12.2.3); other conditions are not read with it.
   const waitingZone = memoryZone ? null : /^控え室にこのカードがあるなら、(.+)$/.exec(parts.trigger ?? '');
   if (waitingZone && parts.conditions.length > 0) unknown.push({ part: 'CONDITION', text: parts.conditions.join('、') });
@@ -2130,6 +2162,7 @@ function withoutReminders(line: string): string {
 export function readLine(raw: string): { line: GrammarLine | null; unknown: Unknown[] } {
   let line = raw;
   aboutThat = false;
+  selfInMemory = false;
   const unknown: Unknown[] = [];
   // 絆／「A」(「B」) ［cost］ (CR-10.4.2, 10.4.2.1), with the reminder that says exactly that.
   const bonded = /^【自】 絆／((?:「[^」]+」)+) ［([^］]+)］ （このカードが、手札から舞台またはプレイされて舞台に置かれた時、あなたはコストを払ってよい。そうしたら、あなたは自分の控え室の、?(.+?)を1枚選び、手札に戻す）$/.exec(line);

@@ -724,7 +724,15 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       if (e.keep !== 1 || e.whose) fail('reorder', e);
       sentences.push(`自分の山札を上から${e.upTo}枚まで見て、カードを1枚選び、山札の上に置き、残りのカードを控え室に置く`);
     } else if (e.do === 'STOCK_BOTTOM_TO_WAITING_ROOM') sentences.push(`相手のストックの下から${e.count}枚を、控え室に置く`);
-    else if (e.do === 'REORDER_TOP') {
+    else if (e.do === 'REORDER_TOP' && e.toBottom !== undefined) {
+      if (e.keep !== undefined || e.x) fail('reorder', e);
+      sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}の山札を上から${e.upTo}枚まで見て、カードを${e.toBottom}枚まで選び、山札の下に置き、残りのカードを山札の上に好きな順番で置く`);
+    } else if (e.do === 'SWAP_STAGE_MEMORY') {
+      if (e.stage === 'SELF' && typeof e.memory === 'object') sentences.push(`自分の思い出置場の${filterJa(e.memory.filter, 'ZONE')}を1枚とこのカードを選び、入れ替える`);
+      else if (typeof e.stage === 'object' && e.memory === 'SELF') sentences.push(`自分の${filterJa(e.stage.filter, 'STAGE')}を1枚とこのカードを選び、入れ替える`);
+      else if (e.stage === 'MOVED' && e.memory === 'MOVED') sentences.push('それらのキャラを入れ替える');
+      else fail('swap', e);
+    } else if (e.do === 'REORDER_TOP') {
       sentences.push(`${e.whose === 'OPPONENT' ? '相手' : '自分'}の山札を上から${e.upTo}枚まで見て、${e.keep !== undefined ? `カードを${e.keep}枚まで選び、山札の上に好きな順番で置き、残りのカードを控え室に置く` : '山札の上に好きな順番で置く'}`);
     } else if (e.do === 'OPPONENT_STOCK_RESET') {
       sentences.push(e.via === 'WAITING_ROOM' ? '相手は自分のストックすべてを、控え室に置き、自分の山札の上から同じ枚数をストック置場に置く' : '相手は自分のストックすべてを、山札に戻し、その山札をシャッフルし、自分の山札の上から同じ枚数をストック置場に置く');
@@ -1113,6 +1121,7 @@ export function sameWords(text: string): string {
     .replace(/戻し、/g, '戻す。')
     .replace(/シャッフルし、/g, 'シャッフルする。')
     .replace(/思い出にし、/g, '思い出にする。')
+    .replace(/入れ替え、/g, '入れ替える。')
     // "N枚を、クロック置場に置く" and "N枚をクロック置場に置く": a comma only.
     .replace(/枚を、/g, '枚を')
     .replace(/ダメージを与え、(?!あなたはコストを払ってよい|コストを払ってよい)/g, 'ダメージを与える。')

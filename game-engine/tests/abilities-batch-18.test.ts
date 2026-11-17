@@ -65,7 +65,9 @@ describe('自分の思い出置場の「…」を1枚とこのカードを選び
   });
 
   it('at the start of the encore step they change back: the partner to memory, the card to the slot (standing)', () => {
-    const swapped = go(paid(field()), pick(paid(field()), card(0, 1))).state;
+    // Another character (5) in the left slot: only the two cards of the exchange change back.
+    const withOther = field((ctx) => put(ctx, card(0, 5), stageSlot(0, 'FL')));
+    const swapped = go(paid(withOther), pick(paid(withOther), card(0, 1))).state;
     const attacked = go(swapped, { kind: 'ATTACK', attack: { attacker: oid(swapped, card(0, 1)), type: 'FRONT' } }, { kind: 'COUNTER', card: null });
     // The opponent's card (500) was reversed; the turn goes on to the encore step, where the exchange back happens.
     let state = attacked.state;
@@ -77,6 +79,7 @@ describe('自分の思い出置場の「…」を1枚とこのカードを選び
     expect(getInstance(state, card(0, 0)).orientation).toBe('STAND');
     expect(zoneOf(state, card(0, 1))).toBe('memory');
     expect(zoneOf(state, card(0, 2))).toBe('memory');
+    expect(state.zones[0].stage.FL).toEqual([card(0, 5)]);
   });
 
   it('the partner has left the stage before the encore step: nothing changes back (the card stays in memory)', () => {
@@ -95,17 +98,20 @@ describe('自分の思い出置場の「…」を1枚とこのカードを選び
   it('no such card in memory, or only face down: nothing is exchanged and the card stays (rested)', () => {
     const none = paid(field(() => {}, { '0:1': { name: 'Other' }, '0:2': { name: 'Other' } }));
     expect(none.zones[0].stage.FC).toEqual([card(0, 0)]);
+    expect(none.pending?.kind).not.toBe('SELECT_CARDS');
     expect(getInstance(none, card(0, 0)).orientation).toBe('REST');
     const facedown = paid(field((ctx) => {
       getInstance(ctx.state, card(0, 1)).face = 'DOWN';
       getInstance(ctx.state, card(0, 2)).face = 'DOWN';
     }));
     expect(facedown.zones[0].stage.FC).toEqual([card(0, 0)]);
+    expect(facedown.pending?.kind).not.toBe('SELECT_CARDS');
   });
 
   it('an event of that name in memory is not a character and cannot be put on the stage', () => {
     const start = paid(field(() => {}, { '0:1': { name: NAME, kind: 'EVENT', level: 0, cost: 0, power: null, soul: null }, '0:2': { name: 'Other' } }));
     expect(start.zones[0].stage.FC).toEqual([card(0, 0)]);
+    expect(start.pending?.kind).not.toBe('SELECT_CARDS');
   });
 });
 
