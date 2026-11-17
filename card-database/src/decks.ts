@@ -187,11 +187,13 @@ export const ANM_TEST_DECK: TestDeck = {
     '004': 4, '016': 4, '028': 2, '027': 2, '062': 2, '080': 1, '090': 1,
     // Level 1 (13)
     // 029, 030 and the event 046 (batch 9): 030 looks for 029, whose CX combo names 嘘つきなさよなら (048)
-    '020': 3, '041': 3, '057': 2, '068': 1, '029': 2, '030': 1, '046': 1,
+    // 087 and 084 (batch 11): 087 changes places with 084 from memory during the attack phase
+    '020': 2, '041': 2, '057': 2, '029': 2, '030': 1, '046': 1, '087': 2, '084': 1,
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
     // Level 3 (6): five characters and the event
-    '003': 2, '014': 1, '058': 1, '002': 1, '074': 1,
+    // 079 (batch 11): from memory it changes places with a character named 愛乃
+    '003': 1, '079': 1, '014': 1, '058': 1, '002': 1, '074': 1,
     // Climaxes: 見つけた、大切な人 (yellow), 好きの数だけ金平糖 (red), 嘘つきなさよなら (green)
     '024': 4, '075': 2, '048': 2,
   }),
