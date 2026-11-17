@@ -194,6 +194,8 @@ export function evalCondition(
       return count >= (condition.min ?? 0) && count <= (condition.max ?? Infinity);
     }
     case 'LAST_MOVED':
+    case 'MOVED_CARD':
+    case 'MOVED_LEVEL_HIGHER':
     case 'DID':
     case 'X':
       // Only meaningful while resolving (effects.ts evaluates it with the resolution's moved cards).

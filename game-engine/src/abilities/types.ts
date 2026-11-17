@@ -86,7 +86,15 @@ export type Condition =
   /** このカードの正面のキャラの…が…なら: there is a character facing this card and it matches. */
   | { if: 'FACING'; filter: CardFilter }
   /** それらのカードに…があるなら: the cards moved by the most recent DECK_TOP of this resolution (inside IF only). */
-  | { if: 'LAST_MOVED'; min: number; filter?: CardFilter }
+  | { if: 'LAST_MOVED'; min: number; filter?: CardFilter; /** text only: この効果で控え室に置かれたカードに…があるなら / そのカードが…なら (one card, moved with 置いてよい) */ said?: 'THIS_EFFECT' | 'THAT_CARD' }
+  /** 選んだキャラの…が…なら: the card the MOVE just before moved matches (inside IF only). Nothing moved: no. */
+  | { if: 'MOVED_CARD'; filter: CardFilter }
+  /**
+   * あなたのこの効果で控え室に置かれたカードのレベルが相手のこの効果で控え室に置かれたカードのレベルより高いなら:
+   * of the cards the most recent DECK_TOP of everyone moved, yours has a higher level than the opponent's
+   * (inside IF only; a climax has no level and counts as 0, CR-2.19.1).
+   */
+  | { if: 'MOVED_LEVEL_HIGHER' }
   /** …してよい。そうしたら、… / 手札に加えたなら: the instruction just before (a MOVE, CLOCK_TOP or LOOK_TOP of this resolution) moved at least one card (inside IF only). */
   | { if: 'DID' }
   /**
@@ -293,7 +301,7 @@ export type Effect =
    * 自分の山札の上からN枚を…に置く.
    * `whose: 'EITHER'`: 自分か相手の、山札の上からN枚を… — the player first chooses whose deck.
    */
-  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT'; /** 上からN枚までを: the player may stop before each card. */ upTo?: boolean; /** Ｘ枚 */ countX?: boolean; /** 山札の下からN枚を */ fromBottom?: boolean; /** text only: あなたは相手の山札の… (rather than 相手は自分の山札の…) */ actor?: 'YOU'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0) */ setX?: 'LEVEL_TOTAL' }
+  | { do: 'DECK_TOP'; count: number; to: 'STOCK' | 'WAITING_ROOM' | 'CLOCK'; whose?: 'EITHER' | 'OPPONENT' | /** すべてのプレイヤーは自分の山札の…: each player from their own deck, the turn player first */ 'EVERYONE'; /** 上からN枚までを: the player may stop before each card. */ upTo?: boolean; /** text only, with upTo: N枚を、控え室に置いてよい */ may?: boolean; /** Ｘ枚 */ countX?: boolean; /** 山札の下からN枚を */ fromBottom?: boolean; /** text only: あなたは相手の山札の… (rather than 相手は自分の山札の…) */ actor?: 'YOU'; /** Ｘはそれらのカードのレベルの合計に等しい (a climax counts as 0); SOUL_ICONS: Ｘはそれらのカードのトリガーアイコンの[[soul.gif]]の合計に等しい */ setX?: 'LEVEL_TOTAL' | 'SOUL_ICONS'; /** text only: Ｘはこの効果で控え室に置かれたカードの… */ said?: 'THIS_EFFECT' }
   /** その山札をシャッフルする */
   | { do: 'SHUFFLE'; /** 相手はその山札をシャッフルし */ whose?: 'OPPONENT' }
   /** 自分の控え室のカードすべてを、山札に戻す (followed by SHUFFLE) */
@@ -306,7 +314,7 @@ export type Effect =
    */
   | { do: 'BRAINSTORM'; count: number; per: CardFilter; each: Effect[]; setX?: boolean; /** text only: the actions are said in one sentence (…置き、…) */ joined?: boolean }
   /** …なら、… (a condition checked while resolving) */
-  | { do: 'IF'; condition: Condition; then: Effect[]; else?: Effect[] }
+  | { do: 'IF'; condition: Condition; then: Effect[]; else?: Effect[]; /** text only: one sentence with the action before (…し、…なら、…) */ joined?: boolean }
   /**
    * Choose a slot of your own: 舞台の好きな枠 (ANY) or 後列のキャラのいない枠
    * (EMPTY_BACK). Skipped when the previous CHOOSE chose nothing.
@@ -354,7 +362,7 @@ export type Effect =
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
-  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number; /** カードをN枚まで選び、ストック置場に置き: of the rest, up to N to the stock (the others to the waiting room) */ toStock?: number }
+  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number; /** カードをN枚まで選び、ストック置場に置き: of the rest, up to N to the stock (the others to the waiting room) */ toStock?: number; /** 舞台の好きな枠に置き、残りのカードを控え室に置く: the card taken goes to a slot of the stage the player chooses, then the rest to the waiting room. */ toStage?: boolean }
   /**
    * 自分の山札の上から1枚を公開する。そのカードが…なら(手札に加え、)…。 The top card of your deck is shown to
    * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
@@ -462,6 +470,8 @@ export type Trigger =
   | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY'; /** このカードが手札から舞台に置かれたターン中、… */ placedThisTurn?: boolean }
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
   | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean; /** あなたのCXフェイズ中、… */ duringClimaxPhase?: boolean }
+  /** このカードがフロントアタックされた時 */
+  | { on: 'THIS_FRONT_ATTACKED' }
   /** 他のあなたの…のキャラがフロントアタックされた時: the ability is about that character (THAT). */
   | { on: 'OTHER_FRONT_ATTACKED'; filter?: CardFilter; /** 前列の中央の枠の…: only a character in these slots */ slots?: SlotId[] }
   /** このカードが舞台から控え室に置かれた時 (the trigger of encore, CR-10.2.1) */
