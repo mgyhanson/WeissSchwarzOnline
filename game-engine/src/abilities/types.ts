@@ -55,6 +55,8 @@ export interface CardFilter {
 export type Condition =
   /** あなたのターン中 */
   | { if: 'YOUR_TURN' }
+  /** Ｘが N以上／以下: X of this resolution (only while an effect resolves). */
+  | { if: 'X'; min?: number; max?: number }
   /** このカードのソウルがN以下 */
   | { if: 'SELF_STAT'; stat: 'SOUL' | 'POWER'; max?: number; min?: number }
   /** 先攻プレイヤーの第Nターン: the first player's Nth turn (game turn 2N-1). */
@@ -149,6 +151,8 @@ export type Cost =
   | { pay: 'SELF_TO_DECK_BOTTOM'; standing?: boolean }
   /** このカードをストック置場の下に置く */
   | { pay: 'SELF_TO_STOCK_BOTTOM' }
+  /** ［AかB］: either list of costs, as the player chooses among those that can be paid now (never both). */
+  | { pay: 'EITHER'; options: Cost[][] }
   /** あなたのCX置場の「…」をN枚控え室に置く */
   | { pay: 'CLIMAX_TO_WAITING_ROOM'; count: number; filter?: CardFilter }
   /** このカードの下のマーカーをN枚控え室に置く: from the top of the marker zone (CR-3.7.2). */
@@ -273,7 +277,7 @@ export type Effect =
    * …をN枚(まで)選び: `min` equal to `max` is "choose N", `min: 0` is "choose up to N" (CR-8.6.3.1).
    * `add`: …をN枚までと…をN枚まで選び — these are chosen in addition to the cards of the previous CHOOSE.
    */
-  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; /** Ｘ枚まで: the most is X of this resolution */ maxX?: boolean; /** …すべて: every candidate, nothing asked */ all?: boolean; /** 同じ枚数: exactly X */ exactX?: boolean; /** その手札に戻したキャラと同じカード名の: only cards with the name of a card the most recent MOVE moved */ sameNameAsMoved?: boolean; add?: boolean }
+  | { do: 'CHOOSE'; from: ChooseFrom; min: number; max: number; filter?: CardFilter; other?: boolean; levelMaxX?: boolean; /** Ｘ枚まで: the most is X of this resolution */ maxX?: boolean; /** …すべて: every candidate, nothing asked */ all?: boolean; /** 同じ枚数: exactly X */ exactX?: boolean; /** その手札に戻したキャラと同じカード名の: only cards with the name of a card the most recent MOVE moved */ sameNameAsMoved?: boolean; add?: boolean; /** 他の…を1枚選び (with add): not a card already chosen in this resolution */ otherThanChosen?: boolean }
   /** …を手札に戻す / 控え室に置く / ストック置場に置く ... `reveal`: 相手に見せ; `rested`: 【レスト】して置く */
   | { do: 'MOVE'; target: Target; to: Destination; /** …に好きな順番で置く: the player chooses the order the cards go there in. */ inOrder?: boolean; reveal?: boolean; rested?: boolean; /** for UNDER_SELF / UNDER_THAT: 表向き or 裏向き */ face?: 'UP' | 'DOWN'; /** …に戻すか…に置く: the player chooses between `to` and this. */ orTo?: Destination }
   /**
@@ -361,7 +365,7 @@ export type Effect =
    * The cards just chosen are split: up to `take` of them (exactly, with `exact`, as many as there are) go to `to`
    * (in the order the player chooses, with `inOrder`), the rest to `rest`. 1枚手札に加え、残りのカードを…
    */
-  | { do: 'SPLIT_CHOSEN'; take: number; exact?: boolean; to: Destination; inOrder?: boolean; rest: Destination; reveal?: boolean }
+  | { do: 'SPLIT_CHOSEN'; take: number; exact?: boolean; to: Destination; inOrder?: boolean; rest: Destination; reveal?: boolean; /** 相手はそれらの…をN枚選び: the opponent chooses, among the cards shown (reveal), which ones go to `to`. */ by?: 'OPPONENT' }
   /**
    * A delayed ability (CR-8.? 遅延): 次のあなたのターンの始めに／次のあなたのドローフェイズの始めに／アンコールステップの始めに／
    * ターンの終わりに, …. It triggers once, the next time that phase or step begins (`whose` turn), with this
@@ -388,6 +392,8 @@ export type Effect =
   | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number; /** 上からＸ枚まで見て、カードをＸ枚まで選び */ x?: boolean; /** カードを1枚選び、山札の上に置き: exactly `keep` (as many as were looked at, if fewer) go back. */ keepExact?: boolean }
   /** 相手のストックの下からN枚を、控え室に置く */
   | { do: 'STOCK_BOTTOM_TO_WAITING_ROOM'; count: number; whose: 'OPPONENT' }
+  /** 自分のストックの上からN枚を、控え室に置く */
+  | { do: 'STOCK_TOP_TO_WAITING_ROOM'; count: number }
   /**
    * 相手は自分のストックすべてを、控え室に置き(山札に戻し、その山札をシャッフルし)、自分の山札の上から同じ枚数を
    * ストック置場に置く.
@@ -400,9 +406,17 @@ export type Effect =
   /** このカードの下のマーカーをN枚…に置く: the top N markers of this card's slot (CR-3.7.2). */
   | { do: 'MARKERS_TOP'; count: number; to: 'HAND' | 'STOCK' | 'WAITING_ROOM' }
   /** そのアタック中、あなたはトリガーステップにトリガーチェックをN回行う */
-  | { do: 'TRIGGER_CHECKS'; count: number }
+  | {
+      do: 'TRIGGER_CHECKS';
+      count: number;
+      /**
+       * N回行ったら、…: done as the rest of this effect once the attack's trigger step has completed that many trigger
+       * checks (CR-7.3.1.2.3: a check ends when the card is put into the stock), and only then.
+       */
+      then?: Effect[];
+    }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
-  | { do: 'CHOOSE_ONE'; options: Effect[][]; /** How the card says it: 'OR' for "Aするか、B" in one sentence, 'OR_JOINED' without the comma (text only). */ said?: 'OR' | 'OR_JOINED' }
+  | { do: 'CHOOSE_ONE'; options: Effect[][]; /** How the card says it: 'OR' for "Aするか、B" in one sentence, 'OR_JOINED' without the comma (text only). */ said?: 'OR' | 'OR_JOINED'; /** …を1枚選び、AするかBする: what is done with the card just chosen; nothing is asked when nothing was chosen (CR-8.6.3.1.3). */ afterChoice?: boolean }
   /** ［cost］ あなたはコストを払ってよい。そうしたら、… inside an effect: an optional payment, then what it buys. */
   | { do: 'MAY_PAY'; cost: Cost[]; then: Effect[]; /** text only: the cost stands in the 【自】［…］ head and "…し、あなたはコストを払ってよい" comes after an effect ('THEN': そうしたら、 / 'IF_PAID': コストを払ったなら、) */ said?: 'THEN' | 'IF_PAID' }
   /** そのターン中 (or 次の相手のターンの終わりまで)、…に次の能力を与える。『…』 */
@@ -515,6 +529,8 @@ export interface ContinuousAbility {
   playOnlyIf?: Condition;
   /** このカードはあなたのスタンドフェイズに【スタンド】しない (also given: そのキャラは次の相手のスタンドフェイズに【スタンド】しない) */
   noStand?: boolean;
+  /** あなたは[[choice]]か[[gate]]の効果で自分の控え室の「…」を選んでよい: those icons' effects (CR-4.14.2.9, 4.14.2.11) may also choose matching cards in the master's waiting room. */
+  triggerAlsoChooses?: { icons: TriggerIcon[]; filter: CardFilter };
   /** このカードはプレイヤーにダメージを与えることができない */
   noDamageToPlayers?: boolean;
   /** 【リプレイ】(【ゲーム1】) name effects (CR-11.3.1): not an ability; done only by a REPLAY effect of this card. */

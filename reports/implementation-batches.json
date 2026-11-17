@@ -565,5 +565,89 @@
    "ANM_W138": 78,
    "NIK_S135": 79
   }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B7-1 共用引擎：N回行ったら、二選一 Cost、Choice／Gate 指定卡、公開卡 Level＝Ｘ",
+  "done": "「トリガーチェックを2回行う。2回行ったら…」的獨立完成計數（NIK 047／074）、二選一 Cost（GUP 056）、Choice／Gate 可選指定卡名（NIK 104）、公開卡 Level＝Ｘ 的「Ｘが…なら」及 CX 當作 Level 0（STS 069、ANM 027）、集中按指定卡名計算（BDY 036）；引擎情境測試 25 個（其後 B7-3 加入玩家視圖測試，合共 26 個）、真實卡牌測試 42 個",
+  "next": "其餘未支援卡：見 CARD_WORKLIST.md",
+  "playable": 512,
+  "unsupported": 97,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 102,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 83,
+   "STS_W140": 83,
+   "ANM_W138": 79,
+   "NIK_S135": 82
+  }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B7-2 測試卡組、報告及 QA",
+  "done": "BDY 036、ANM 027、NIK 074／104／012 加入測試卡組；玩家視圖不再包含等待中的後續效果；規則登記表新增 CR-7.3.1.2.3；完整 QA（check 1181／8／0、soak 4000、validate 609/609、qa:ui 25/25、qa:online 41/41、build 成功）",
+  "next": "其餘 97 張：見 CARD_WORKLIST.md 及 BATCH_7_PROGRESS.md 的四種狀態",
+  "playable": 512,
+  "unsupported": 97,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 102,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 83,
+   "STS_W140": 83,
+   "ANM_W138": 79,
+   "NIK_S135": 82
+  }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B8-1 攻擊角色效果、對手角色移動及互換、對手分配的搜尋",
+  "done": "其他卡對攻擊中的角色修改 Soul／Power（STS 008／027）、公開山札頂後放進 Stock 或留在原處、選對手角色後移動或互換（BDY 021）、移動後給予不能移到其他枠（STS 014）、搜尋後由對手選卡放到控え室其餘加入手牌（Event BDY 025、BDY 001）；引擎情境測試 33 個、真實卡牌測試 36 個、變異測試 15／15；工作清單加入兩個及三個片段的共現分析",
+  "next": "完整 QA、報告、PR",
+  "playable": 518,
+  "unsupported": 91,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 102,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 86,
+   "STS_W140": 86,
+   "ANM_W138": 79,
+   "NIK_S135": 82
+  }
+ },
+ {
+  "date": "2026-11-16",
+  "title": "B8-2 測試卡組、規則登記表、報告及 QA",
+  "done": "STS 008／014／027 及 BDY 001／021／025 加入測試卡組；規則登記表新增 CR-8.6.3.1.3，CR-1.3.2、CR-1.3.3 由未實作改為部分；修正 Batch 7 報告的不一致及 README、規則報告的過時內容；完整 QA（check 1256／8／0、soak 4000、validate 609/609、qa:ui 25/25、qa:online 41/41、build 成功）",
+  "next": "下一批：見 RULES_IMPLEMENTATION_REPORT.md 的 Batch 8 章節及 CARD_WORKLIST.md 的共現分析",
+  "playable": 518,
+  "unsupported": 91,
+  "level3Playable": 57,
+  "level3Open": 6,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 102,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 86,
+   "STS_W140": 86,
+   "ANM_W138": 79,
+   "NIK_S135": 82
+  }
  }
 ]
