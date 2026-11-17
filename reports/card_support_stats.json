@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 534,
+    "playable": 536,
     "handWritten": 128,
-    "fromPatterns": 406,
-    "unsupported": 75,
-    "abilitiesRun": 960
+    "fromPatterns": 408,
+    "unsupported": 73,
+    "abilitiesRun": 965
   },
   "sets": [
     {
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 81,
-      "unsupported": 16,
+      "fromPatterns": 83,
+      "unsupported": 14,
       "pending": 0,
       "withoutText": 0
     },

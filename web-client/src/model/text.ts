@@ -132,6 +132,7 @@ export const PROMPT_ZH: Record<PromptId, string> = {
   EFFECT_ORDER: '請按次序選擇放回山札頂的卡：先選的放在最上面。',
   EFFECT_TOP_OR_BOTTOM: '請選擇把查看的卡放回山札頂或山札底。',
   EFFECT_KEEP: '請選擇要放回山札頂的卡，其餘放到控え室。',
+  EFFECT_DECK_BOTTOM: '請選擇要放到山札底的卡，其餘按你選的次序放回山札頂。',
   LOOK_NEXT: '要再查看山札頂的下一張卡嗎？',
   DRAW_NEXT: '要再抽 1 張嗎？',
   DECK_TOP_NEXT: '要再把山札頂 1 張放過去嗎？',

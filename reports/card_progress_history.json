@@ -62,11 +62,11 @@
  {
   "date": "2026-11-17",
   "cards": 609,
-  "playable": 534,
+  "playable": 536,
   "handWritten": 128,
   "wholeSentencePatterns": 54,
-  "grammar": 352,
-  "unsupported": 75,
+  "grammar": 354,
+  "unsupported": 73,
   "bySet": {
    "SY_W08_TD": 17,
    "5HY_W83_TD_ICHIKA": 18,
@@ -75,7 +75,7 @@
    "SAO_OTHERS": 18,
    "BDY_W135": 88,
    "STS_W140": 90,
-   "ANM_W138": 84,
+   "ANM_W138": 86,
    "NIK_S135": 85
   }
  }

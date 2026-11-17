@@ -386,6 +386,13 @@ export type Effect =
   | { do: 'PLACE_IN_EMPTY_SLOT'; target: Target }
   /** それぞれを【スタンド】して入れ替える: the two chosen characters (or the chosen one and this card) stand and change slots. */
   | { do: 'SWAP_CHOSEN'; withSelf?: boolean }
+  /**
+   * 自分の思い出置場の…を1枚とこのカードを選び、入れ替える / 自分の…キャラを1枚とこのカードを選び、入れ替える (this card in memory):
+   * a character of the player's stage and a face-up character of their memory change places; the one from memory
+   * takes the slot. SELF is this card; MOVED is one of the two cards the exchange before moved (それらのキャラ);
+   * a filter is a card the player chooses. Without a card on either side nothing is exchanged (as CR-10.8.3).
+   */
+  | { do: 'SWAP_STAGE_MEMORY'; stage: 'SELF' | 'MOVED' | { filter: CardFilter }; memory: 'SELF' | 'MOVED' | { filter: CardFilter } }
   /** 自分のレベル置場のカードと控え室のカードをN枚ずつ選び、入れ替える */
   | { do: 'EXCHANGE_LEVEL_WAITING_ROOM'; count: number }
   /** 山札を見て…を1枚まで選んで公開し、自分の手札の…を1枚まで選んで公開し、それらを入れ替え: only when one of each is chosen. */
@@ -397,7 +404,7 @@ export type Effect =
    * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to
    * put back (the rest go to the waiting room); then puts them back on top in the order they choose.
    */
-  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number; /** 上からＸ枚まで見て、カードをＸ枚まで選び */ x?: boolean; /** カードを1枚選び、山札の上に置き: exactly `keep` (as many as were looked at, if fewer) go back. */ keepExact?: boolean }
+  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number; /** 上からＸ枚まで見て、カードをＸ枚まで選び */ x?: boolean; /** カードを1枚選び、山札の上に置き: exactly `keep` (as many as were looked at, if fewer) go back. */ keepExact?: boolean; /** カードをN枚まで選び、山札の下に置き、残りのカードを山札の上に好きな順番で置く */ toBottom?: number }
   /** 相手のストックの下からN枚を、控え室に置く */
   | { do: 'STOCK_BOTTOM_TO_WAITING_ROOM'; count: number; whose: 'OPPONENT' }
   /** 自分のストックの上からN枚を、控え室に置く */
