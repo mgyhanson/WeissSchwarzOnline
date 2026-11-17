@@ -254,6 +254,9 @@ describe('山札の上から1枚を、控え室に置いてよい。そのカー
   it('a side attack is not a front attack: nothing is asked', () => {
     const milled = go(field(character(1)), YES).state;
     const attacked = attack(milled, card(1, 0), 'SIDE');
+    // The player of the card is not asked anything: the attack goes on to its damage.
+    expect(attacked.state.pending?.kind === 'CONFIRM' && attacked.state.pending.prompt === 'USE_ABILITY').toBe(false);
+    expect(attacked.events.some((e) => e.type === 'DAMAGE_DEALT')).toBe(true);
     expect(zoneOf(attacked.state, card(0, 0))).toBe('stage');
     expect(attacked.events.some((e) => e.type === 'ABILITY_PLAYED' && e.instanceId === card(0, 0))).toBe(false);
   });
