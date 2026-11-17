@@ -733,5 +733,47 @@
    "ANM_W138": 84,
    "NIK_S135": 85
   }
+ },
+ {
+  "date": "2026-11-17",
+  "title": "B11-1 思い出與舞台的角色互換、查看山札頂後放一張到底",
+  "done": "「自分の思い出置場の…を1枚とこのカードを選び、入れ替え、アンコールステップの始めに、それらのキャラを入れ替える」（ANM 087）、在思い出生效的「自分の…キャラを1枚とこのカードを選び、入れ替える」及查看對手山札頂後放一張到底（ANM 079，Level 3）；引擎情境測試 10 個、真實卡牌測試 11 個、變異測試 12／12",
+  "next": "完整 QA、報告、PR",
+  "playable": 536,
+  "unsupported": 73,
+  "level3Playable": 58,
+  "level3Open": 5,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 104,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 88,
+   "STS_W140": 90,
+   "ANM_W138": 86,
+   "NIK_S135": 85
+  }
+ },
+ {
+  "date": "2026-11-17",
+  "title": "B11-2 測試卡組、規則登記表、報告及 QA",
+  "done": "ANM 087×2／084／079 加入測試卡組；規則登記表第 14 節加入 Batch 11 說明（狀態不變）；完整 QA 一次通過（check 1440／8／0；soak 4000；validate 609/609；qa:ui 25/25；qa:online 40 項全部通過；build 成功）",
+  "next": "下一批：見 RULES_IMPLEMENTATION_REPORT.md 的 Batch 11 章節及 CARD_WORKLIST.md",
+  "playable": 536,
+  "unsupported": 73,
+  "level3Playable": 58,
+  "level3Open": 5,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 104,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 88,
+   "STS_W140": 90,
+   "ANM_W138": 86,
+   "NIK_S135": 85
+  }
  }
 ]

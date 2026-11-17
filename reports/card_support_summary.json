@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 534,
- "unsupported": 75,
+ "playable": 536,
+ "unsupported": 73,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 84,
+   "playable": 86,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 67
+     "playable": 69
     },
     "EVENT": {
      "total": 7,
@@ -184,7 +184,7 @@
    },
    "level3": {
     "total": 13,
-    "playable": 11
+    "playable": 12
    }
   },
   {
@@ -213,12 +213,12 @@
  ],
  "level3": {
   "total": 63,
-  "playable": 57
+  "playable": 58
  },
  "classes": {
   "A": 24,
   "B": 0,
-  "C": 28,
+  "C": 26,
   "D": 23,
   "E": 0
  },
@@ -230,11 +230,6 @@
   },
   {
    "part": "EFFECT: あなたはN枚まで引き、自分の控え室の《…》のキャラをN枚まで選び、ストック置場に置き、自分の手札の「…」をN枚まで選び、このカードがいた枠に置き、そのターン中、そのキャラに次の能力を与える。『【自】【ターンN】 このカードのアタックの終わりに、あなたはこのカードを【スタンド】し、舞台のキャラのいない他の枠に動かす。』",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "EFFECT: あなたは自分の思い出置場の「…」をN枚とこのカードを選び、入れ替え、アンコールステップの始めに、それらのキャラを入れ替える",
    "unlocks": 1,
    "cards": 1
   },
@@ -270,6 +265,11 @@
   },
   {
    "part": "EFFECT: あなたは自分の山札の上からN枚を、控え室に置いてよい",
+   "unlocks": 0,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは次の行動を行ってよい",
    "unlocks": 0,
    "cards": 2
   }
