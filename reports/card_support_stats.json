@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 528,
+    "playable": 534,
     "handWritten": 128,
-    "fromPatterns": 400,
-    "unsupported": 81,
-    "abilitiesRun": 950
+    "fromPatterns": 406,
+    "unsupported": 75,
+    "abilitiesRun": 960
   },
   "sets": [
     {
@@ -43,8 +43,8 @@
       "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
       "cards": 114,
       "handWritten": 21,
-      "fromPatterns": 82,
-      "unsupported": 11,
+      "fromPatterns": 83,
+      "unsupported": 10,
       "pending": 0,
       "withoutText": 0
     },
@@ -63,8 +63,8 @@
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
       "handWritten": 16,
-      "fromPatterns": 70,
-      "unsupported": 14,
+      "fromPatterns": 72,
+      "unsupported": 12,
       "pending": 0,
       "withoutText": 0
     },
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 86,
-      "unsupported": 11,
+      "fromPatterns": 87,
+      "unsupported": 10,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 81,
-      "unsupported": 29,
+      "fromPatterns": 83,
+      "unsupported": 27,
       "pending": 0,
       "withoutText": 0
     }
@@ -113,7 +113,7 @@
     "POWER_PER_OTHER_TRAIT": 4,
     "YOUR_TURN_OTHERS_TRAIT_POWER": 3,
     "CX_PHASE_TRAIT_BOOST": 4,
-    "PLACED_SELF_POWER": 4,
+    "PLACED_SELF_POWER": 5,
     "ATTACK_SELF_POWER_WITH_OTHER_TRAIT": 2,
     "PLACED_TRAIT_COUNT_TO_STOCK": 3,
     "CX_DRAW_UP_TO_ONE_CHOOSE_SOUL": 3,

@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 528,
- "unsupported": 81,
+ "playable": 534,
+ "unsupported": 75,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 103,
+   "playable": 104,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 86
+     "playable": 87
     },
     "EVENT": {
      "total": 4,
@@ -121,15 +121,15 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 86,
+   "playable": 88,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 73
+     "playable": 74
     },
     "EVENT": {
      "total": 3,
-     "playable": 1
+     "playable": 2
     },
     "CLIMAX": {
      "total": 12,
@@ -144,7 +144,7 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 89,
+   "playable": 90,
    "byKind": {
     "CHARACTER": {
      "total": 84,
@@ -152,7 +152,7 @@
     },
     "EVENT": {
      "total": 4,
-     "playable": 1
+     "playable": 2
     },
     "CLIMAX": {
      "total": 12,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 83,
+   "playable": 85,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 69
+     "playable": 71
     },
     "EVENT": {
      "total": 9,
@@ -216,9 +216,9 @@
   "playable": 57
  },
  "classes": {
-  "A": 26,
+  "A": 24,
   "B": 0,
-  "C": 32,
+  "C": 28,
   "D": 23,
   "E": 0
  },
@@ -235,16 +235,6 @@
   },
   {
    "part": "EFFECT: あなたは自分の思い出置場の「…」をN枚とこのカードを選び、入れ替え、アンコールステップの始めに、それらのキャラを入れ替える",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "SHAPE: （…）: （このカードが、手札から舞台またはプレイされて舞台に置かれた",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "TRIGGER: 控え室にこのカードがあるなら、あなたの第Nターンの始めに",
    "unlocks": 1,
    "cards": 1
   },
@@ -270,6 +260,16 @@
   },
   {
    "part": "EVENT: あなたは自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、自分の手札をN枚選び、控え室に置き、その山札をシャッフルする。",
+   "unlocks": 0,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: 次のNつの効果をN回ずつ行う",
+   "unlocks": 0,
+   "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは自分の山札の上からN枚を、控え室に置いてよい",
    "unlocks": 0,
    "cards": 2
   }
