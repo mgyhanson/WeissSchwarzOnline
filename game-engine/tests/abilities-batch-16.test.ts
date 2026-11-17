@@ -404,7 +404,7 @@ describe('山札を上からN枚まで見て、「…」を1枚まで選び、�
     expect(topOf(state, 0)).toBe(card(0, 37));
   });
 
-  it('a slot with a character: that character goes to the waiting room (CR-4.4.2)', () => {
+  it('a slot with a character: that character goes to the waiting room (CR-9.6.2)', () => {
     const chosen = lookAt(field(41), 4);
     const { state } = go(chosen, pick(chosen, card(0, 41)), { kind: 'SELECT_SLOT', slot: 'FL' });
     expect(at(state, 0, 'FL')).toBe(card(0, 41));
