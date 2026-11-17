@@ -68,6 +68,8 @@ export type PromptId =
   | 'EFFECT_PLACE_ORDER'
   /** Choose which of the chosen cards go to the first place (the rest go to the other). */
   | 'EFFECT_SPLIT'
+  /** 相手はそれらのカードをN枚選び、控え室に置き…: choose among the cards the opponent has shown you. */
+  | 'EFFECT_SPLIT_BY_OPPONENT'
   /** 山札の上か下（か控え室）に置く: put the card looked at on the top or the bottom of the deck (options DECK_TOP, DECK_BOTTOM or WAITING_ROOM). */
   | 'EFFECT_TOP_OR_BOTTOM'
   /** Choose the cards looked at to put back on top of the deck; the rest go to the waiting room. */

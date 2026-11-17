@@ -464,6 +464,34 @@ export function effectsJa(effects: readonly Effect[]): string[] {
         i = effects.length;
         continue;
       }
+      // 相手のキャラを1枚選び、…他の枠に動かす: moved to a free slot of the opponent's stage; or exchanged with another.
+      if (e.from === 'OPPONENT_STAGE' && !e.filter && e.min === 1 && e.max === 1 && !e.add) {
+        const a = effects[i + 1];
+        const b = effects[i + 2];
+        const ofChosen = (x: Effect | undefined): boolean => !!x && 'target' in x && (x.target as Target).who === 'CHOSEN';
+        if (a?.do === 'CHOOSE_ONE' && a.afterChoice) {
+          const [move, swap] = a.options;
+          const again = swap?.[0];
+          const shape =
+            a.options.length === 2 &&
+            move!.length === 2 && move![0]!.do === 'ORIENT' && move![0]!.to === 'STAND' && ofChosen(move![0]) && move![1]!.do === 'MOVE_TO_SLOT' && move![1]!.row === 'ANY' && ofChosen(move![1]) &&
+            swap!.length === 2 && again?.do === 'CHOOSE' && again.from === 'OPPONENT_STAGE' && again.min === 1 && again.max === 1 && again.add === true && again.otherThanChosen === true && !again.filter && swap![1]!.do === 'SWAP_CHOSEN' && !swap![1]!.withSelf;
+          if (!shape) fail('move or exchange', a);
+          sentences.push('相手のキャラを1枚選び、【スタンド】して相手の舞台のキャラのいない他の枠に動かすか、他の相手のキャラを1枚選び、それぞれを【スタンド】して入れ替える');
+          i += 2;
+          continue;
+        }
+        if (a?.do === 'MOVE_TO_SLOT' && a.row === 'ANY' && ofChosen(a)) {
+          if (b?.do === 'GRANT' && ofChosen(b) && b.until === 'NEXT_OPPONENT_TURN') {
+            sentences.push('相手のキャラを1枚選び、相手の舞台のキャラのいない他の枠に動かし、次の相手のターンの終わりまで、そのキャラに次の能力を与える', `『${abilityJa(b.ability)}』`);
+            i += 3;
+          } else {
+            sentences.push('相手のキャラを1枚選び、相手の舞台のキャラのいない他の枠に動かす');
+            i += 2;
+          }
+          continue;
+        }
+      }
       if (e.from === 'OPPONENT_STAGE' && e.min === 0 && effects[i + 1]?.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM') {
         const swap = effects[i + 1] as Extract<Effect, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM' }>;
         sentences.push(`相手の${filterJa(e.filter, 'STAGE')}を${e.max}枚選んでよい`, `そうしたら、相手は自分の控え室の${filterJa({ kind: 'CHARACTER', ...(swap.filter ?? {}) }, 'ZONE')}を1枚選び、入れ替える`);
@@ -528,7 +556,13 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       const split = effects[i + 1];
       if (split?.do === 'SPLIT_CHOSEN') {
         const restPlace: Record<string, string> = { STOCK_BOTTOM: 'ストック置場の下に置く', STOCK: 'ストック置場に置く', WAITING_ROOM: '控え室に置く', MEMORY: '思い出にする' };
-        const rest = restPlace[split.rest] ?? fail('split', split);
+        const rest = split.by === 'OPPONENT' ? '' : (restPlace[split.rest] ?? fail('split', split));
+        if (split.by === 'OPPONENT') {
+          if (!(e.from === 'YOUR_DECK' && e.min === 0 && split.reveal && split.exact && split.to === 'WAITING_ROOM' && split.rest === 'HAND' && !split.inOrder && effects[i + 2]?.do === 'SHUFFLE')) fail('split by the opponent', split);
+          sentences.push(`自分の山札を見て${filterJa(e.filter, 'ZONE')}を${e.max}枚まで選んで相手に見せる`, `その後、相手はそれらの${e.filter?.kind === 'CHARACTER' ? 'キャラ' : 'カード'}を${split.take}枚選び、控え室に置き、残りのカードをあなたの手札に加え、その山札をシャッフルする`);
+          i += 3;
+          continue;
+        }
         if (e.from === 'YOUR_DECK' && split.reveal && split.exact && split.to === 'HAND' && !split.inOrder && effects[i + 2]?.do === 'SHUFFLE') {
           sentences.push(`自分の山札を見て${filterJa(e.filter, 'ZONE')}を${count(e)}選び、公開し、${split.take}枚手札に加え、残りのカードを${rest}`, 'その山札をシャッフルする');
           i += 3;
@@ -786,6 +820,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
     } else if (e.do === 'REVEAL_TOP' && e.toStock) {
       if (e.take || e.then) fail('reveal', e);
       const level = Object.keys(e.filter).join() === 'levelMin' ? `のレベルが${e.filter.levelMin}以上` : `が${filterJa(e.filter, 'ZONE')}`;
+      // "…を－1し、自分の山札の上から1枚を公開する": said in one sentence after a change of a number.
+      if (effects[i - 2]?.do === 'MODIFY' && /を[＋－]\d+$/.test(sentences[sentences.length - 1] ?? '')) sentences.push(`${sentences.pop()}し、\u0000`);
       sentences.push('自分の山札の上から1枚を公開する', `そのカード${level}ならストック置場に置く`);
     } else if (e.do === 'REVEAL_TOP') {
       // "…してよい。そうしたら、…" after the shown card: two sentences.
@@ -815,6 +851,8 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       sentences.push(conditionJa(e.condition) + inner[0], ...inner.slice(1));
     } else fail('effect', e);
   }
+  // A sentence that runs on into the next one (…し、…).
+  for (let k = sentences.length - 2; k >= 0; k--) if (sentences[k]!.endsWith('\u0000')) sentences.splice(k, 2, sentences[k]!.slice(0, -1) + sentences[k + 1]!);
   return sentences;
 }
 
@@ -832,7 +870,9 @@ function quotedJa(option: readonly Effect[]): string {
 
 /** "…する" as "…してよい". */
 const may = (sentence: string): string =>
-  sentence.endsWith('置く')
+  /を[＋－]\d+$/.test(sentence)
+    ? `${sentence}してよい`
+    : sentence.endsWith('置く')
     ? `${sentence.slice(0, -1)}いてよい`
     : sentence.endsWith('入れ替える')
       ? `${sentence.slice(0, -1)}てよい`
