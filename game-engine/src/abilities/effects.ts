@@ -13,7 +13,7 @@ import type { BatchMove, Ctx } from '../moves';
 import { moveBatch, moveCard, moveCards, revealCard, setOrientation, shuffleDeck, swapSlots } from '../moves';
 import { getDef, getInstance } from '../state';
 import { addModifier, nextOpponentTurn } from '../stats';
-import type { GameState, PlayerId, ZoneRef } from '../types';
+import type { GameState, PlayerId, SlotId, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
 import { cannotBeReversed, cannotMove, chooseCandidates, countForX, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
@@ -988,6 +988,57 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'SWAP_STAGE_MEMORY': {
+      const zones = state.zones[master];
+      const self = sourceIfUnchanged(state, context);
+      const moved = resolveTarget(state, context, { who: 'MOVED' });
+      const onStage = (id: number) => { const at = getInstance(state, id).location; return at.zone === 'stage' && at.player === master && getDef(state, id).kind === 'CHARACTER'; };
+      // Only a character can go to the stage; a face-down memory card has no information (CR-3.12.2.2.1).
+      const inMemory = (id: number) => { const inst = getInstance(state, id); return inst.location.zone === 'memory' && inst.location.player === master && inst.face === 'UP' && getDef(state, id).kind === 'CHARACTER'; };
+      const stagePool =
+        effect.stage === 'SELF' ? (self && onStage(self.instanceId) ? [self.instanceId] : [])
+          : effect.stage === 'MOVED' ? moved.filter(onStage)
+          : SLOTS.flatMap((slot) => zones.stage[slot]).filter((id) => onStage(id) && matchesFilter(state, id, (effect.stage as { filter: CardFilter }).filter));
+      const memoryPool =
+        effect.memory === 'SELF' ? (self && inMemory(self.instanceId) ? [self.instanceId] : [])
+          : effect.memory === 'MOVED' ? moved.filter(inMemory)
+          : zones.memory.filter((id) => inMemory(id) && matchesFilter(state, id, (effect.memory as { filter: CardFilter }).filter));
+      // Both cards are needed (as for チェンジ, CR-10.8.3); otherwise nothing is exchanged.
+      if (stagePool.length === 0 || memoryPool.length === 0) {
+        if (frame.step === 0) context.lastMoved = [];
+        next();
+        return;
+      }
+      // The player chooses where the text says to choose: the character of the stage, then the card of memory.
+      const choosesStage = typeof effect.stage === 'object' && stagePool.length > 0;
+      const choosesMemory = typeof effect.memory === 'object';
+      if (frame.step === 0 && choosesStage) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: stagePool.map((id) => getInstance(state, id).objectId), min: 1, max: 1 });
+        return;
+      }
+      if (frame.step === 1) frame.scratch = [findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId];
+      if (frame.step <= 1 && choosesMemory) {
+        if (!choosesStage) frame.scratch = [stagePool[0]!];
+        frame.step = 2;
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_CHOOSE', cards: memoryPool.map((id) => getInstance(state, id).objectId), min: 1, max: 1 });
+        return;
+      }
+      const fromStage = frame.scratch[0] ?? stagePool[0]!;
+      const fromMemory = frame.step === 2 ? findObject(state, takeAnswer(ctx, 'SELECT_CARDS').cards[0]!).instanceId : memoryPool[0]!;
+      const slot = (getInstance(state, fromStage).location as { slot: SlotId }).slot;
+      next();
+      // Both move at once: the stage character to memory (face up, CR-3.12.2.1), the memory card to its slot (standing, CR-3.6.3).
+      moveBatch(ctx, [
+        { instanceId: fromStage, to: { player: master, zone: 'memory' }, opts: { reason: 'EFFECT' } },
+        { instanceId: fromMemory, to: { player: master, zone: 'stage', slot }, opts: { reason: 'EFFECT' } },
+      ]);
+      // それらのキャラ: the two cards as they are now, for an exchange later in this ability (DELAYED carries them).
+      context.lastMoved = [getInstance(state, fromStage).objectId, getInstance(state, fromMemory).objectId];
+      context.placed = [...(context.placed ?? []), getInstance(state, fromMemory).objectId];
+      return;
+    }
+
     case 'SWAP_CHOSEN': {
       next();
       const chosen = resolveTarget(state, context, { who: 'CHOSEN' });
@@ -1416,6 +1467,11 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
     return;
   }
   if (frame.step === 2) {
+    if (effect.toBottom !== undefined && looked.length > 0) {
+      frame.step = 3;
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_DECK_BOTTOM', cards: objects(looked), min: 0, max: Math.min(effect.toBottom, looked.length), look: lookMap(state, looked) });
+      return;
+    }
     if (effect.keep !== undefined && looked.length > 0) {
       frame.step = 3;
       ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_KEEP', cards: objects(looked), min: effect.keepExact ? Math.min(effect.keep, looked.length) : 0, max: Math.min(effect.keep, looked.length), look: lookMap(state, looked) });
@@ -1426,7 +1482,9 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
     return;
   }
   if (frame.step === 3) {
-    const kept = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+    const answered = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+    // With toBottom the answer is the cards for the bottom; the others are the ones to order on top.
+    const kept = effect.toBottom !== undefined ? looked.filter((id) => !answered.includes(id)) : answered;
     // The cards not kept stay in the list before the marker; the kept ones wait to be ordered.
     frame.scratch = [...looked, -1];
     frame.context.chosen = objects(kept);
@@ -1434,7 +1492,7 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
     return;
   }
   // The cards still to be ordered: all looked at, or the kept ones.
-  const pool = (effect.keep !== undefined ? frame.context.chosen.map((objectId) => findObject(state, objectId).instanceId) : looked).filter((id) => !ordered.includes(id));
+  const pool = (effect.keep !== undefined || effect.toBottom !== undefined ? frame.context.chosen.map((objectId) => findObject(state, objectId).instanceId) : looked).filter((id) => !ordered.includes(id));
   if (frame.step === 4 && pool.length > 1) {
     frame.step = 5;
     ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_ORDER', cards: objects(pool), min: 1, max: 1, look: lookMap(state, [...looked]) });
@@ -1450,6 +1508,12 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
   const finalOrder = [...ordered, ...pool];
   const rest = looked.filter((id) => !finalOrder.includes(id));
   next();
+  // 山札の下に置き: they stay in the deck, at its bottom (the first chosen lowest is not said; their order is kept).
+  if (effect.toBottom !== undefined) {
+    const middle = deck.filter((id) => !finalOrder.includes(id) && !rest.includes(id));
+    deck.splice(0, deck.length, ...rest, ...middle, ...[...finalOrder].reverse());
+    return;
+  }
   if (rest.length > 0) moveCards(ctx, rest, { player: whose, zone: 'waitingRoom' }, { reason: 'EFFECT' });
   // They stay in the deck: only their order changes (first chosen on the very top). Hidden from both players
   // except as looked at, so no event; the cards keep their object ids (they do not change zone, CR-3.1.4).

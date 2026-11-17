@@ -74,6 +74,8 @@ export type PromptId =
   | 'EFFECT_TOP_OR_BOTTOM'
   /** Choose the cards looked at to put back on top of the deck; the rest go to the waiting room. */
   | 'EFFECT_KEEP'
+  /** Choose the cards looked at to put on the bottom of the deck; the rest go back on top in an order chosen next. */
+  | 'EFFECT_DECK_BOTTOM'
   /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
