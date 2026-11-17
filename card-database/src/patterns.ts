@@ -302,7 +302,9 @@ export function compileText(card: OfficialCard): Compiled | null {
     const restricted = /^(このカードは、[^。]+?なら、手札からプレイできない)。(.+)$/.exec(whole);
     const restriction = restricted ? readPlayRestriction(restricted[1]!) : null;
     if (restricted && !restriction) return null;
-    const event = restricted ? readEvent(restricted[2]!) : lines.length === 1 ? readEvent(lines[0]!) : null;
+    // The quoted effects of "次のNつの効果のうちあなたが選んだ1つを行う" stand on lines of their own.
+    const quotedAfter = lines.length > 1 && lines.slice(1).every((l) => /^『[^『』]*』$/.test(l));
+    const event = restricted ? readEvent(restricted[2]!) : lines.length === 1 || quotedAfter ? readEvent(lines.join('')) : null;
     if (!event) return null;
     return {
       ...(restriction ? { abilities: [{ type: 'CONT', inHand: true, playOnlyIf: restriction.condition, apply: [] }] } : {}),

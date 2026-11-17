@@ -20,7 +20,7 @@
  */
 
 import type { Ability, ActivatedAbility, AutoAbility, CardFilter, Condition, ContinuousAbility, Cost, DelayedTime, Effect, SlotId, Target, Trigger } from '@wso/game-engine';
-import { encore } from '@wso/game-engine';
+import { bond, encore } from '@wso/game-engine';
 import { type LineParts, outsideNames, splitCost, splitLine } from './fragments';
 import { TRIGGER_ICONS } from './official';
 
@@ -137,6 +137,7 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
   [/^あなたのCXフェイズ中、CX置場に「([^」]+)」が置かれた時$/, (m) => out({ on: 'CLIMAX_PLACED', filter: { name: m[1]! }, duringClimaxPhase: true }, `我方 Climax 階段中，Climax 置場放置了「${m[1]}」時`)],
   [/^相手のアタックフェイズの始めに$/, () => out({ on: 'PHASE_START', phase: 'ATTACK', turn: 'OPPONENT' }, '對手攻擊階段開始時')],
   [/^このカードがフロントアタックされた時$/, () => out({ on: 'THIS_FRONT_ATTACKED' }, '這張卡被正面攻擊時')],
+  [/^あなたの第(\d+)ターンの始めに$/, (m) => out({ on: 'PHASE_START', phase: 'STAND', turn: 'YOURS', turnOfPlayer: n(m[1]) }, `我方第 ${m[1]} 個回合開始時`)],
   [/^このカードが手札からCX置場に置かれた時$/, () => out({ on: 'THIS_CLIMAX_PLACED' }, '這張卡由手牌放到 Climax 置場時')],
   [
     /^他のあなたの前列の中央の枠の(.+?)がフロントアタックされた時$/,
@@ -755,6 +756,19 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
       `選對手${countZh(m[1], m[2])}角色放到思い出，${m[3] ? '這回合的 Encore 步驟開始時，' : ''}對手把該角色從思い出放到自己舞台上自己選的枠`,
     );
   }
+  // 相手の…を1枚選び、相手は自分の控え室の…を1枚選び、入れ替える: the opponent chooses the one that comes in (CR-8.6.5: the text names them).
+  if ((m = /^相手の(.+?)を1枚選び、相手は自分の控え室の(.+?)を1枚選び、入れ替える$/.exec(text))) {
+    const mine = parseFilter(m[1]!, 'STAGE');
+    const theirs = parseFilter(m[2]!, 'ZONE');
+    if (mine?.data?.kind === 'CHARACTER' && theirs?.data?.kind === 'CHARACTER') {
+      const { kind: _kind, ...theirFilter } = theirs.data;
+      void _kind;
+      return out(
+        [{ do: 'CHOOSE', from: 'OPPONENT_STAGE', filter: mine.data, min: 1, max: 1 }, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM', ...(Object.keys(theirFilter).length ? { filter: theirFilter } : {}) }],
+        `選對手 1 張${mine.zh}，對手從自己控え室選 1 張${theirs.zh}與它互換`,
+      );
+    }
+  }
   // 相手のキャラを1枚選び、【スタンド】して…他の枠に動かすか、他の相手のキャラを1枚選び、それぞれを【スタンド】して入れ替える:
   // one of the opponent's characters; it is moved, or exchanged with another one chosen then.
   if (text === '相手のキャラを1枚選び、【スタンド】して相手の舞台のキャラのいない他の枠に動かすか、他の相手のキャラを1枚選び、それぞれを【スタンド】して入れ替える') {
@@ -1128,7 +1142,9 @@ function markX(effects: Effect[], set?: Extract<Effect, { do: 'SET_X' }>): Effec
       if (e.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM' && e.filter?.levelMax === X_MARK) {
         const { levelMax: _drop, ...rest } = e.filter;
         void _drop;
-        return { ...e, filter: rest, levelMaxX: true };
+        const { filter: _old, ...bare } = e;
+        void _old;
+        return { ...bare, ...(Object.keys(rest).length ? { filter: rest } : {}), levelMaxX: true };
       }
       if (JSON.stringify(e).includes(String(X_MARK))) ok = false;
       return e;
@@ -1596,6 +1612,10 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
   // "思い出置場にこのカードがあ(る|り、…)なら、…した時": the ability works from memory (CR-2.12.2.3).
   const memoryZone = /^思い出置場にこのカードがあ(?:る|り、(.+?))なら、(.+)$/.exec(parts.trigger ?? '');
   if (memoryZone) parts = { ...parts, trigger: memoryZone[2]!, conditions: [...(memoryZone[1] ? [memoryZone[1]] : []), ...parts.conditions] };
+  // "控え室にこのカードがあるなら、…": the ability works in the waiting room (CR-2.12.2.3); other conditions are not read with it.
+  const waitingZone = memoryZone ? null : /^控え室にこのカードがあるなら、(.+)$/.exec(parts.trigger ?? '');
+  if (waitingZone && parts.conditions.length > 0) unknown.push({ part: 'CONDITION', text: parts.conditions.join('、') });
+  if (waitingZone) parts = { ...parts, trigger: waitingZone[1]! };
   // "あなたのターン中、…した時": the trigger with a condition on whose turn it is.
   const inTurn = /^(あなたのターン中|相手のターン中)、(.+)$/.exec(parts.trigger ?? '');
   const trigger = parts.trigger ? parseTrigger(inTurn ? inTurn[2]! : parts.trigger) : null;
@@ -1679,7 +1699,7 @@ function automatic(input: LineParts, unknown: Unknown[]): GrammarLine | null {
   const ability: AutoAbility = {
     type: 'AUTO',
     ...(combo || words.length > 0 ? { keywords: [...(combo ? ['CX_COMBO' as const] : []), ...words] } : {}),
-    ...(trigger.data.on === 'HOLDER_ATTACKS' ? { zone: 'MARKER' as const } : memoryZone ? { zone: 'MEMORY' as const } : {}),
+    ...(trigger.data.on === 'HOLDER_ATTACKS' ? { zone: 'MARKER' as const } : memoryZone ? { zone: 'MEMORY' as const } : waitingZone ? { zone: 'WAITING_ROOM' as const } : {}),
     trigger: trigger.data,
     ...(condition.data ? { condition: condition.data } : {}),
     ...(parts.cost && !midPay ? { cost: cost.data } : {}),
@@ -2111,6 +2131,16 @@ export function readLine(raw: string): { line: GrammarLine | null; unknown: Unkn
   let line = raw;
   aboutThat = false;
   const unknown: Unknown[] = [];
+  // 絆／「A」(「B」) ［cost］ (CR-10.4.2, 10.4.2.1), with the reminder that says exactly that.
+  const bonded = /^【自】 絆／((?:「[^」]+」)+) ［([^］]+)］ （このカードが、手札から舞台またはプレイされて舞台に置かれた時、あなたはコストを払ってよい。そうしたら、あなたは自分の控え室の、?(.+?)を1枚選び、手札に戻す）$/.exec(line);
+  if (bonded) {
+    const names = [...bonded[1]!.matchAll(/「([^」]+)」/g)].map((x) => x[1]!);
+    const cost = parseCost(splitCost(bonded[2]!));
+    if (cost && bonded[3] === names.map((x) => `「${x}」`).join('か')) {
+      return { line: { ability: bond(names, cost.data), zh: `【自】絆／${names.map((x) => `「${x}」`).join('')} [${cost.zh}]：這張卡由手牌放到舞台或打出放到舞台時，可以支付費用；支付後選自己控え室 1 張${names.map((x) => `「${x}」`).join('或')}加入手牌。` }, unknown };
+    }
+    return { line: null, unknown: [{ part: 'SHAPE', text: line.slice(0, 40) }] };
+  }
   line = withoutReminders(line);
   if (outsideNames(line).includes('（') && !/^【自】 アンコール ［[^］]*］ （[^（）]*）$/.test(line)) return { line: null, unknown: [{ part: 'SHAPE', text: `（…）: ${/（[^（）]*）/.exec(line)?.[0].slice(0, 30) ?? ''}` }] };
   // 【リプレイ】(【ゲーム1】) (name) (effects) (CR-11.3.1.2): done only through this card's "(name)を発動する".
@@ -2147,9 +2177,10 @@ export function readPlayRestriction(text: string): { condition: Condition; zh: s
 }
 
 export function readEvent(text: string): { effect: Effect[]; zh: string } | null {
-  const line = withoutReminders(text.trim());
-  // Quotes only for the actions of 次の行動を(N回)行う / 次の効果を行ってよい.
-  const quotesOk = !line.includes('『') || /次の(?:行動|効果)を(?:\d+回)?(?:行う|行ってよい)。『/.test(line);
+  // 【カウンター】: the counter icon (CR-2.8.2), part of the card's information (CardDef.counter), not of its effect.
+  const line = withoutReminders(text.trim()).replace(/^【カウンター】 ?/, '');
+  // Quotes only for the actions of 次の行動を(N回)行う / 次の効果を行ってよい / 次のNつの効果のうちあなたが選んだ1つを行う.
+  const quotesOk = !line.includes('『') || /(?:次の(?:行動|効果)を(?:\d+回)?(?:行う|行ってよい)|次の\dつの効果のうちあなたが選んだ1つを行う)。『/.test(line);
   // 【…】 marks an ability or a keyword (not read here); 【スタンド】, 【レスト】 and 【リバース】 are states of a character.
   const marked = /【(?!スタンド】|レスト】|リバース】)/.test(line);
   if (outsideNames(line).includes('（') || marked || !quotesOk) return null;
@@ -2161,6 +2192,10 @@ export function readEvent(text: string): { effect: Effect[]; zh: string } | null
     const conditions = allOf(parts.conditions.map(parseCondition));
     if (!cost || !conditions || parts.effects[0] !== 'あなたはコストを払ってよい' || !parts.effects[1]?.startsWith('そうしたら、')) return null;
     const rest = [parts.effects[1].slice('そうしたら、'.length), ...parts.effects.slice(2)];
+    // A later sentence that stands on its own ("このカードを思い出にする" and the like): the text does not say whether it
+    // happens only when the cost was paid (CR-8.6.4 speaks of one action B). Sentences that go on from the paid part
+    // (その後、…, それらの…, Ｘは…, the quoted effects of a choice) belong to it.
+    if (rest.slice(1).some((s) => !/^(?:『|その|それら|Ｘは)/.test(s))) return null;
     if (anyLeftOptional(rest)) return null;
     const bought = parseEffects(rest, false);
     if (!bought) return null;

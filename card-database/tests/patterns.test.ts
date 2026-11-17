@@ -451,10 +451,16 @@ describe('sentence patterns', () => {
       expect(card.def.effect, card.record.cardId).toBeUndefined();
       expect(card.record.patterns!.length, card.record.cardId).toBe(card.def.abilities?.length ?? 0);
     }
-    // An event with a sentence the grammar does not know, a counter event and an event with a cost are not compiled.
+    // An event with a sentence the grammar does not know is not compiled.
     const event = allCards().find((c) => c.def.kind === 'EVENT')!.official;
     expect(compileText({ ...event, text: 'あなたは2枚引く。あなたは踊る。' })).toBeNull();
-    expect(compileText({ ...event, text: '【カウンター】 あなたは2枚引く。' })).toBeNull();
+    // A counter event (batch 10): 【カウンター】 is the counter icon, read as the card's information (CardDef.counter); the effect is
+    // read as any other. A 【…】 mark anywhere else still keeps the event out.
+    expect(compileText({ ...event, text: '【カウンター】 あなたは2枚引く。' })?.effect).toEqual([{ do: 'DRAW', count: 2 }]);
+    expect(compileText({ ...event, text: 'あなたは2枚引く。【カウンター】' })).toBeNull();
+    expect(compileText({ ...event, text: '【カウンター】 【自】 あなたは2枚引く。' })).toBeNull();
+    // After the paid part, a sentence of its own: whether it depends on the payment is not said, so not compiled.
+    expect(compileText({ ...event, text: '［(1)］ あなたはコストを払ってよい。そうしたら、あなたは2枚引く。このカードを思い出にする。' })).toBeNull();
     // An event with a cost: the payment is optional and buys the effect (MAY_PAY), as the text says.
     expect(compileText({ ...event, text: '［(1)］ あなたはコストを払ってよい。そうしたら、あなたは2枚引く。' })?.effect).toEqual([{ do: 'MAY_PAY', cost: [{ pay: 'STOCK', count: 1 }], then: [{ do: 'DRAW', count: 2 }] }]);
     // …but not when the payment is not offered in the usual words.

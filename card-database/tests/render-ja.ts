@@ -96,6 +96,7 @@ export function triggerJa(trigger: Trigger): string {
       return trigger.duringClimaxPhase ? `あなたのCXフェイズ中、CX置場に「${trigger.filter.name}」が置かれた時` : `あなたのCX置場に「${trigger.filter.name}」が置かれた時`;
     case 'PHASE_START':
       if (trigger.placedThisTurn) return trigger.turn === 'YOURS' && trigger.phase === 'CLIMAX' ? 'このカードが手札から舞台に置かれたターン中、あなたのCXフェイズの始めに' : fail('trigger', trigger);
+      if (trigger.turnOfPlayer !== undefined) return trigger.turn === 'YOURS' && trigger.phase === 'STAND' ? `あなたの第${trigger.turnOfPlayer}ターンの始めに` : fail('trigger', trigger);
       if (trigger.turn === 'OPPONENT' && trigger.phase === 'ATTACK') return '相手のアタックフェイズの始めに';
       if (trigger.turn !== 'YOURS') return fail('trigger', trigger);
       return trigger.phase === 'CLIMAX' ? 'あなたのCXフェイズの始めに' : trigger.phase === 'ATTACK' ? 'あなたのアタックフェイズの始めに' : fail('trigger', trigger);
@@ -495,6 +496,12 @@ export function effectsJa(effects: readonly Effect[]): string[] {
           }
           continue;
         }
+      }
+      if (e.from === 'OPPONENT_STAGE' && e.min === 1 && e.max === 1 && effects[i + 1]?.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM') {
+        const swap = effects[i + 1] as Extract<Effect, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM' }>;
+        sentences.push(`相手の${filterJa(e.filter, 'STAGE')}を1枚選び、相手は自分の控え室の${filterJa({ kind: 'CHARACTER', ...(swap.filter ?? {}) }, 'ZONE')}を1枚選び、入れ替える`);
+        i += 2;
+        continue;
       }
       if (e.from === 'OPPONENT_STAGE' && e.min === 0 && effects[i + 1]?.do === 'OPPONENT_SWAPS_FROM_WAITING_ROOM') {
         const swap = effects[i + 1] as Extract<Effect, { do: 'OPPONENT_SWAPS_FROM_WAITING_ROOM' }>;
@@ -1025,6 +1032,13 @@ export function abilityJa(ability: Ability): string {
 
 function autoJa(ability: AutoAbility): string {
   const keywords = ability.keywords ?? [];
+  if (keywords.includes('BOND')) {
+    const chosen = ability.effect[0];
+    if (chosen?.do !== 'CHOOSE' || keywords.length !== 1 || !ability.cost || ability.effect.length !== 2) return fail('bond', ability);
+    const names = chosen.filter?.names ?? (chosen.filter?.name ? [chosen.filter.name] : fail('bond', ability));
+    const quoted = names.map((x) => `「${x}」`);
+    return `【自】 絆／${quoted.join('')} ［${costsJa(ability.cost)}］ （このカードが、手札から舞台またはプレイされて舞台に置かれた時、あなたはコストを払ってよい。そうしたら、あなたは自分の控え室の、${quoted.join('か')}を1枚選び、手札に戻す）`;
+  }
   if (keywords.includes('ENCORE')) {
     const move = ability.effect[0];
     const isEncore = ability.trigger.on === 'STAGE_TO_WAITING_ROOM' && ability.cost && ability.effect.length === 1 && move?.do === 'MOVE' && move.to === 'SOURCE_SLOT' && move.rested === true;
@@ -1037,7 +1051,16 @@ function autoJa(ability: AutoAbility): string {
   const rest = turn ? conditions.slice(1) : conditions;
   const after: Condition | undefined = rest.length === 0 ? undefined : rest.length === 1 ? rest[0] : { if: 'ALL', of: rest };
   // 思い出置場にこのカードがあ(る|り、…)なら: said before the trigger, with every condition of the ability.
-  const memoryHead = ability.zone === 'MEMORY' ? (after ? `思い出置場にこのカードがあり、${conditionJa(after)}` : '思い出置場にこのカードがあるなら、') : '';
+  const memoryHead =
+    ability.zone === 'MEMORY'
+      ? after
+        ? `思い出置場にこのカードがあり、${conditionJa(after)}`
+        : '思い出置場にこのカードがあるなら、'
+      : ability.zone === 'WAITING_ROOM'
+        ? after || turn
+          ? fail('waiting room', ability)
+          : '控え室にこのカードがあるなら、'
+        : '';
   const midCost = ability.effect.find((x): x is Extract<Effect, { do: 'MAY_PAY' }> => x.do === 'MAY_PAY' && x.said !== undefined);
   if (midCost && ability.cost) return fail('mid cost', ability);
   const head = `【自】${keywords.map((k) => KEYWORD[k] ?? fail('keyword', k)).join('')}${ability.limit !== undefined ? `【ターン${ability.limit}】` : ''}${midCost ? `［${costsJa(midCost.cost)}］` : ''}${ability.cost ? `［${costsJa(ability.cost)}］` : ''} ${memoryHead}${turn ? conditionJa(turn) : ''}${triggerJa(ability.trigger)}、${ability.zone === 'MEMORY' ? '' : conditionJa(after)}`;

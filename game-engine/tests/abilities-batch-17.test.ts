@@ -124,10 +124,22 @@ describe('控え室にこのカードがあるなら、あなたの第1ターン
   it('only from the waiting room: on the stage, in the hand or in the stock, the card has no such ability in force', () => {
     for (const zone of ['hand', 'stock', 'clock', 'memory'] as const) {
       const start = scenario({ step: 'STAND_START', turnNumber: 1, defs: cards({ '0:5': { abilities: [toStock] } }) }, (ctx) => put(ctx, card(0, 5), { player: 0, zone }));
+      // Nothing is asked: the turn goes on to the draw (the ability is optional, so it would be a question first).
+      expect(start.state.pending?.kind === 'CONFIRM' && start.state.pending.prompt === 'USE_ABILITY', zone).toBe(false);
       expect(start.events.some((e) => e.type === 'ABILITY_PLAYED'), zone).toBe(false);
     }
     const staged = scenario({ step: 'STAND_START', turnNumber: 1, defs: cards({ '0:5': { abilities: [toStock] } }) }, (ctx) => put(ctx, card(0, 5), stageSlot(0, 'FC')));
-    expect(staged.events.some((e) => e.type === 'ABILITY_PLAYED')).toBe(false);
+    expect(staged.state.pending?.kind === 'CONFIRM' && staged.state.pending.prompt === 'USE_ABILITY').toBe(false);
+    expect(zoneOf(staged.state, card(0, 5))).toBe('stage');
+  });
+
+  it('the second player’s first turn after the first player took an extra turn: their own count decides', () => {
+    const start = scenario({ step: 'STAND_START', turnPlayer: 1, turnNumber: 3, defs: cards({ '1:5': { abilities: [toStock] } }) }, (ctx) => {
+      put(ctx, card(1, 5), { player: 1, zone: 'waitingRoom' });
+      ctx.state.turnsTaken = [2, 0];
+    });
+    expect(start.state.turnsTaken).toEqual([2, 1]);
+    expect(pending(start.state, 'CONFIRM')).toMatchObject({ player: 1, card: oid(start.state, card(1, 5)) });
   });
 
   it('the opponent’s waiting room: their card waits for their own first turn', () => {
