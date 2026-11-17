@@ -121,7 +121,7 @@ describe('控え室にこのカードがあるなら、あなたの第1ターン
     expect(start.events.some((e) => e.type === 'ABILITY_PLAYED')).toBe(false);
   });
 
-  it('only from the waiting room: on the stage, in the hand or in the stock, the card has no such ability in force', () => {
+  it('T-CARD-005 / CR-2.12.2.3: only from the waiting room: on the stage, in the hand or in the stock, the card has no such ability in force', () => {
     for (const zone of ['hand', 'stock', 'clock', 'memory'] as const) {
       const start = scenario({ step: 'STAND_START', turnNumber: 1, defs: cards({ '0:5': { abilities: [toStock] } }) }, (ctx) => put(ctx, card(0, 5), { player: 0, zone }));
       // Nothing is asked: the turn goes on to the draw (the ability is optional, so it would be a question first).
@@ -219,7 +219,7 @@ describe('相手のレベル1以上のキャラを1枚選び、相手は自分�
   });
 });
 
-describe('絆／「A」「B」 (CR-10.4.2.1): a card with either name', () => {
+describe('絆／「A」「B」: a card with either name', () => {
   const twoNames: Ability = bond(['Alpha', 'Beta'], [{ pay: 'DISCARD', count: 1 }]);
   const field = () =>
     scenario({ step: 'MAIN_START', defs: cards({ '0:0': { abilities: [twoNames] }, '0:1': { name: 'Alpha' }, '0:2': { name: 'Beta' }, '0:3': { name: 'Gamma' } }) }, (ctx) => {
@@ -228,7 +228,7 @@ describe('絆／「A」「B」 (CR-10.4.2.1): a card with either name', () => {
       for (const i of [1, 2, 3]) put(ctx, card(0, i), { player: 0, zone: 'waitingRoom' });
     }).state;
 
-  it('played from the hand: the cost may be paid; then one card named Alpha or Beta comes back, not Gamma', () => {
+  it('T-KW-024 / CR-10.4.2.1: played from the hand: the cost may be paid; then one card named Alpha or Beta comes back, not Gamma', () => {
     expect(bond('Alpha', []).effect[0]).toMatchObject({ filter: { name: 'Alpha' } });
     expect(bond(['Alpha'], []).effect[0]).toMatchObject({ filter: { name: 'Alpha' } });
     const start = field();

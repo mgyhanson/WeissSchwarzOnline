@@ -33,6 +33,17 @@ export interface ActiveSource {
  * CR-2.12.2: character text works while the character is on the stage,
  * climax text while the climax is in the climax zone.
  */
+const waitingRoomDefs = new WeakMap<GameState['defs'], Set<CardDef>>();
+/** The card definitions of a game that have an automatic ability working in the waiting room; the definitions never change during a game. */
+function defsWithWaitingRoomAbilities(defs: GameState['defs']): Set<CardDef> {
+  let found = waitingRoomDefs.get(defs);
+  if (!found) {
+    found = new Set(Object.values(defs).filter((def): def is CardDef => def !== undefined && (def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'WAITING_ROOM')));
+    waitingRoomDefs.set(defs, found);
+  }
+  return found;
+}
+
 export function activeSources(state: GameState): ActiveSource[] {
   const sources: ActiveSource[] = [];
   for (const master of [0, 1] as const) {
@@ -62,9 +73,12 @@ export function activeSources(state: GameState): ActiveSource[] {
       if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'MEMORY')) sources.push({ instanceId, master, def, clockTop: false, memory: true });
     }
     // CR-2.12.2.3: abilities that work in the waiting room (控え室にこのカードがあるなら); waiting-room cards are face up.
-    for (const instanceId of zones.waitingRoom) {
-      const def = getDef(state, instanceId);
-      if ((def.abilities ?? []).some((ability) => ability.type !== 'ACT' && ability.zone === 'WAITING_ROOM')) sources.push({ instanceId, master, def, clockTop: false, waitingRoom: true });
+    // Looked for only when some card of the game has one (this runs very often, and waiting rooms grow large).
+    if (defsWithWaitingRoomAbilities(state.defs).size > 0) {
+      for (const instanceId of zones.waitingRoom) {
+        const def = getDef(state, instanceId);
+        if (defsWithWaitingRoomAbilities(state.defs).has(def)) sources.push({ instanceId, master, def, clockTop: false, waitingRoom: true });
+      }
     }
     // CR-10.1 / CR-2.12.2.3: アラーム abilities of the card on top of the clock.
     const top = zones.clock[zones.clock.length - 1];
