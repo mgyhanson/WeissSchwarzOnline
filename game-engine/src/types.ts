@@ -325,6 +325,8 @@ export interface GameState {
   replacements?: { kind: 'ATTACK_DAMAGE'; attackerObjectId: number; attackNumber: number; turn: number; master: PlayerId; sourceInstance: number; effects: Effect[] }[];
   /** CR-11.2: the players who have gained extra turns, the latest last. */
   extraTurns?: PlayerId[];
+  /** How many turns each player has begun as the turn player, this one included (for あなたの第Nターン). */
+  turnsTaken?: [number, number];
   /** CR-11.3.3.1: the 【ゲーム1】 replay actions each player has done this game. */
   replaysDone?: { player: PlayerId; name: string }[];
   /** Delayed abilities created by effects, waiting for their time (DELAYED). */

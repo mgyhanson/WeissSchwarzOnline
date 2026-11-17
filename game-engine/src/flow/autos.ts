@@ -70,8 +70,13 @@ function wait(
 }
 
 /** Whether an automatic ability of an active source is in force: アラーム ones only from the clock, others only elsewhere (CR-10.1). */
-function inForce(source: { clockTop: boolean; marker?: boolean; memory?: boolean }, ability: AutoAbility): boolean {
-  return Boolean(ability.alarm) === source.clockTop && (ability.zone === 'MARKER') === Boolean(source.marker) && (ability.zone === 'MEMORY') === Boolean(source.memory);
+function inForce(source: { clockTop: boolean; marker?: boolean; memory?: boolean; waitingRoom?: boolean }, ability: AutoAbility): boolean {
+  return (
+    Boolean(ability.alarm) === source.clockTop &&
+    (ability.zone === 'MARKER') === Boolean(source.marker) &&
+    (ability.zone === 'MEMORY') === Boolean(source.memory) &&
+    (ability.zone === 'WAITING_ROOM') === Boolean(source.waitingRoom)
+  );
 }
 
 /**
@@ -322,7 +327,14 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // (あなたの/相手の)…フェイズの始めに
       sourcesWith(state, 'ANY', (t, master, sourceId) => {
         const whose = master === event.player ? 'YOURS' : 'OPPONENT';
-        return t.on === 'PHASE_START' && t.phase === event.phase && (t.turn === 'ANY' || t.turn === whose) && (!t.placedThisTurn || placedFromHandThisTurn(state, sourceId));
+        return (
+          t.on === 'PHASE_START' &&
+          t.phase === event.phase &&
+          (t.turn === 'ANY' || t.turn === whose) &&
+          (!t.placedThisTurn || placedFromHandThisTurn(state, sourceId)) &&
+          // あなたの第Nターン: that player's Nth turn (the turn player's count; with turn YOURS that is the master).
+          (t.turnOfPlayer === undefined || (state.turnsTaken ?? [0, 0])[event.player] === t.turnOfPlayer)
+        );
       });
       return;
     case 'STEP_STARTED':

@@ -467,7 +467,7 @@ export type Trigger =
   /** このカードのバトル相手(でレベルN以上のキャラ)が【リバース】した時; `filter`: what the reversed character must be when it is reversed. */
   | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter; placedThisTurn?: boolean }
   /** (あなたの/相手の)…フェイズの始めに */
-  | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY'; /** このカードが手札から舞台に置かれたターン中、… */ placedThisTurn?: boolean }
+  | { on: 'PHASE_START'; phase: Phase; turn: 'YOURS' | 'OPPONENT' | 'ANY'; /** このカードが手札から舞台に置かれたターン中、… */ placedThisTurn?: boolean; /** あなたの第Nターンの始めに: only in that player's Nth turn of the game (with phase STAND, CR-6.2.1.1) */ turnOfPlayer?: number }
   /** あなたのクライマックスがクライマックス置場に置かれた時; with a filter: あなたのトリガーアイコンが…のCXがCX置場に置かれた時 */
   | { on: 'CLIMAX_PLACED'; filter?: CardFilter; /** 相手のCXがCX置場に置かれた時 */ opponent?: boolean; /** あなたのCXフェイズ中、… */ duringClimaxPhase?: boolean }
   /** このカードがフロントアタックされた時 */
@@ -603,8 +603,11 @@ export interface ContinuousAbility {
 export interface AutoAbility {
   type: 'AUTO';
   keywords?: Keyword[];
-  /** マーカー置場にこのカードがあるなら / 思い出置場にこのカードがあるなら: triggers only while this card is there, face up. */
-  zone?: 'MARKER' | 'MEMORY';
+  /**
+   * マーカー置場にこのカードがあるなら / 思い出置場にこのカードがあるなら: triggers only while this card is there, face up.
+   * 控え室にこのカードがあるなら: only while it is in its owner's waiting room (CR-2.12.2.3).
+   */
+  zone?: 'MARKER' | 'MEMORY' | 'WAITING_ROOM';
   /** アラーム (CR-10.1): triggers only while this card is the top card of its master's clock. */
   alarm?: boolean;
   trigger: Trigger;
@@ -659,14 +662,16 @@ export function backup(power: number, level: number, cost: Cost[]): ActivatedAbi
  * from hand, you may pay the cost; if you do, choose a card named so in your
  * waiting room and return it to your hand.
  */
-export function bond(name: string, cost: Cost[]): AutoAbility {
+export function bond(name: string | string[], cost: Cost[]): AutoAbility {
+  // CR-10.4.2.1: with several names, a card with any one of them.
+  const filter: CardFilter = typeof name === 'string' ? { name } : name.length === 1 ? { name: name[0]! } : { names: name };
   return {
     type: 'AUTO',
     keywords: ['BOND'],
     trigger: { on: 'PLACED_ON_STAGE', from: 'HAND' },
     cost,
     effect: [
-      { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { name }, min: 1, max: 1 },
+      { do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter, min: 1, max: 1 },
       { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND' },
     ],
   };

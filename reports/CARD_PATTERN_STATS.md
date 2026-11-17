@@ -2,13 +2,13 @@
 
 > 由 `npm run cards:worklist` 產生。請勿手改。
 
-資料庫 609 張卡：可對戰 528（人手 128、自動 400），未支援 81。
+資料庫 609 張卡：可對戰 534（人手 128、自動 406），未支援 75。
 
 ## 自動產生的卡用到的句式
 
 | 句式 | 卡數 |
 |---|---:|
-| 句子文法（GRAMMAR：由已知片段組成的句子） | 346 |
+| 句子文法（GRAMMAR：由已知片段組成的句子） | 352 |
 | CLIMAX_POWER_SOUL | 43 |
 | CLIMAX_SOUL | 2 |
 | ASSIST | 2 |
@@ -22,7 +22,7 @@
 | POWER_PER_OTHER_TRAIT | 4 |
 | YOUR_TURN_OTHERS_TRAIT_POWER | 3 |
 | CX_PHASE_TRAIT_BOOST | 4 |
-| PLACED_SELF_POWER | 4 |
+| PLACED_SELF_POWER | 5 |
 | ATTACK_SELF_POWER_WITH_OTHER_TRAIT | 2 |
 | PLACED_TRAIT_COUNT_TO_STOCK | 3 |
 | CX_DRAW_UP_TO_ONE_CHOOSE_SOUL | 3 |
@@ -31,7 +31,7 @@
 
 ## 片段出現次數（全部 609 張卡的角色及 Climax 文字；「已認識」指文法認識這個片段）
 
-### 效果句子：605 種，已認識 530 種
+### 效果句子：605 種，已認識 531 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|
@@ -76,7 +76,7 @@
 | 他のあなたの《…》のキャラN枚につき、このカードのパワーを＋N | 5 | ✓ |
 | Ｘはあなたの《…》のキャラの枚数×Nに等しい | 5 | ✓ |
 
-### 觸發：73 種，已認識 57 種
+### 觸發：73 種，已認識 58 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|
