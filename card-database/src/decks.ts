@@ -100,10 +100,12 @@ export const GUP_TEST_DECK: TestDeck = {
   note: 'Made by this project from the GUP/W141 cards in the database (yellow, green and blue); not an official or tournament list.',
   entries: [
     // Level 0 (16)
-    gup('001', 4), gup('038', 4), gup('084', 4), gup('010', 2), gup('044', 2),
+    // 102 and 032 (batch 12): ＋Ｘ by the soul of the character chosen; the deck or the waiting room declared
+    gup('001', 4), gup('038', 4), gup('084', 4), gup('102', 2), gup('032', 2),
     // Level 1 (12)
     // 089 (batch 9): its CX combo names 冬ごもりの準備 (112)
-    gup('039', 4), gup('048', 2), gup('089', 1), gup('099', 2), gup('096', 2), gup('022', 1),
+    // 107, 020 and 098 (batch 12): 107 needs the draw-icon climax 遅滞戦術 (113); 020 brings back a character of level Ｘ or lower
+    gup('039', 4), gup('107', 2), gup('089', 1), gup('099', 2), gup('096', 1), gup('098', 1), gup('020', 1),
     // Level 2 (8)
     gup('041', 3), gup('091', 3), gup('040', 2),
     // Level 3 (6), updated 2026-11-15 when these became playable
@@ -138,10 +140,12 @@ export const BDY_TEST_DECK: TestDeck = {
   entries: [
     // Level 0
     // 085 (batch 10): the opponent swaps a character for one of lower level from their waiting room
-    bdy('013', 4), bdy('035', 4), bdy('047', 2), bdy('001', 2), bdy('070', 2), bdy('085', 2),
+    // 043 (batch 12): its CX combo names ✞animaるパーティ✞開催中✞ (064)
+    bdy('013', 4), bdy('035', 2), bdy('043', 2), bdy('047', 2), bdy('001', 2), bdy('070', 2), bdy('085', 2),
     // Level 1 (12)
     // 025 is the event 夢限大みゅーたいぷ (batch 8)
-    bdy('087', 4), bdy('006', 3), bdy('019', 2), bdy('036', 2), bdy('025', 1),
+    // 014 (batch 12): pays with the choice-icon climax 愛は衝動 (026)
+    bdy('087', 4), bdy('006', 2), bdy('019', 1), bdy('014', 2), bdy('036', 2), bdy('025', 1),
     // Level 2 (8)
     // 061 (batch 10) is the event アメアメいざない大さくせん
     bdy('020', 3), bdy('051', 1), bdy('061', 1), bdy('089', 1), bdy('039', 1), bdy('021', 1),
@@ -188,7 +192,8 @@ export const ANM_TEST_DECK: TestDeck = {
     // Level 1 (13)
     // 029, 030 and the event 046 (batch 9): 030 looks for 029, whose CX combo names 嘘つきなさよなら (048)
     // 087 and 084 (batch 11): 087 changes places with 084 from memory during the attack phase
-    '020': 2, '041': 2, '057': 2, '029': 2, '030': 1, '046': 1, '087': 2, '084': 1,
+    // 069 and 083 (batch 12): ＋Ｘ by the opponent's characters; －Ｘ by the other 《風》 characters
+    '020': 1, '041': 1, '057': 2, '029': 2, '030': 1, '046': 1, '087': 2, '084': 1, '069': 1, '083': 1,
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
     // Level 3 (6): five characters and the event
@@ -211,7 +216,8 @@ export const NIK_TEST_DECK: TestDeck = {
     // 016 and 017 (batch 10): 絆 with two names, the waiting room at the start of the first turn
     '011': 3, '029': 3, '031': 2, '099': 1, '012': 2, '059': 1, '016': 1, '083': 2, '087': 1, '017': 1, '093': 1,
     // Level 1 (12)
-    '008': 4, '072': 2, '104': 2, '073': 2, '074': 2,
+    // 101 (batch 12): ＋Ｘ by your level
+    '008': 4, '072': 1, '101': 1, '104': 2, '073': 2, '074': 2,
     // Level 2 (8)
     '014': 2, '041': 2, '042': 2, '105': 2,
     // Level 3 (4)
