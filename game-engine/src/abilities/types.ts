@@ -40,6 +40,10 @@ export interface CardFilter {
   levelAboveMasterLevel?: boolean;
   /** 自分のレベル以下のレベルの: the card's level is at most the level of the player whose zone it is in. */
   levelAtMostOwnLevel?: boolean;
+  /** 自分のレベル＋N以下のレベルの (with levelAtMostOwnLevel): N more than that level */
+  ownLevelPlus?: number;
+  /** 【レスト】している: a character on the stage that is rested */
+  rested?: boolean;
   levelMax?: number;
   levelMin?: number;
   costMax?: number;
@@ -505,6 +509,8 @@ export type Trigger =
   | { on: 'OTHER_ATTACKS'; filter?: CardFilter }
   /** このカードが【リバース】した時; `inBattle`: バトル中のこのカードが【リバース】した時 (CR-7.2.1.5.1) */
   | { on: 'REVERSED'; inBattle?: boolean }
+  /** 他のあなたの…のキャラが【リバース】した時: about that character (そのキャラ) */
+  | { on: 'OTHER_REVERSED'; filter?: CardFilter }
   /** このカードのバトル相手が【リバース】した時 */
   /** このカードのバトル相手(でレベルN以上のキャラ)が【リバース】した時; `filter`: what the reversed character must be when it is reversed. */
   | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter; placedThisTurn?: boolean }
