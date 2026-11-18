@@ -699,6 +699,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       next();
       let x = countForX(state, context, effect.count) + (effect.plus ?? 0) - (effect.minus ?? 0);
       if (effect.tiers) x = effect.tiers.find((t) => x >= (t.min ?? -Infinity) && x <= (t.max ?? Infinity))?.x ?? 0;
+      if (effect.times !== undefined) x *= effect.times;
       context.x = Math.max(0, x);
       return;
     }
@@ -1381,6 +1382,15 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     }
 
     case 'REVEAL_TOP': {
+      // …手札に加えるかストック置場に置く: the shown card goes where the player chose (if it is still there).
+      if (effect.handOrStock && frame.step === 2) {
+        const where = takeAnswer(ctx, 'SELECT_OPTION').option;
+        const shownCard = frame.scratch[0];
+        next();
+        if (shownCard !== undefined && getInstance(state, shownCard).location.zone === 'deck') moveCard(ctx, shownCard, { player: master, zone: where === 'STOCK' ? 'stock' : 'hand' }, { reason: 'EFFECT' });
+        if (effect.then) pushEffects(ctx, effect.then, context);
+        return;
+      }
       const top = topOf(state.zones[master].deck);
       // 公開してよい: asked first (only when there is a card to show).
       if (effect.optional && top !== undefined && frame.step === 0) {
@@ -1392,10 +1402,19 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         next();
         return;
       }
-      next();
-      if (top === undefined) return;
+      if (top === undefined) {
+        next();
+        return;
+      }
       revealCard(ctx, top);
       const hit = matchesFilter(state, top, effect.filter);
+      if (hit && effect.handOrStock) {
+        frame.step = 2;
+        frame.scratch = [top];
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_DESTINATION', options: ['HAND', 'STOCK'] });
+        return;
+      }
+      next();
       // Taken into the hand (or the stock), or put back as it was: no longer shown.
       if (hit && effect.toStock) moveCard(ctx, top, { player: master, zone: 'stock' }, { reason: 'EFFECT' });
       else if (hit && effect.take) moveCard(ctx, top, { player: master, zone: 'hand' }, { reason: 'EFFECT' });
@@ -1407,6 +1426,26 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
 
     case 'LOOK_TOP': {
       stepLookTop(ctx, frame, effect, next);
+      return;
+    }
+
+    case 'SEARCH_DECLARED_ZONE': {
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_DECLARE_ZONE', options: ['DECLARE_DECK', 'DECLARE_WAITING_ROOM'] });
+        return;
+      }
+      const deck = takeAnswer(ctx, 'SELECT_OPTION').option === 'DECLARE_DECK';
+      next();
+      pushEffects(
+        ctx,
+        [
+          { do: 'CHOOSE', from: deck ? 'YOUR_DECK' : 'YOUR_WAITING_ROOM', filter: effect.filter, min: 0, max: effect.max },
+          { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'HAND', reveal: true },
+          ...(deck ? [{ do: 'SHUFFLE' } as const] : []),
+        ],
+        context,
+      );
       return;
     }
 
@@ -1531,7 +1570,7 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
   const { context } = frame;
   const { master } = context;
   const deck = state.zones[master].deck;
-  const limit = effect.per ? effect.upTo * perCount(state, master, context.source, effect.per) : effect.upTo;
+  const limit = effect.upToX ? Math.max(0, context.x ?? 0) : effect.per ? effect.upTo * perCount(state, master, context.source, effect.per) : effect.upTo;
 
   if (frame.step === 0) {
     // CR-3.2.3.3: no more cards than the deck has.
@@ -1592,6 +1631,14 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     frame.scratch = [...looked, -1, ...toStock];
   }
   const stocked = marker >= 0 || effect.toStock ? frame.scratch.slice(frame.scratch.indexOf(-1) + 1) : [];
+  // 手札に加えるかストック置場に置き: the card is shown first, then the player says where it goes.
+  if (effect.handOrStock && chosen.length > 0 && frame.step !== 6) {
+    frame.step = 6;
+    if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
+    ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_DESTINATION', options: ['HAND', 'STOCK'] });
+    return;
+  }
+  const chosenTo = effect.handOrStock && frame.step === 6 && takeAnswer(ctx, 'SELECT_OPTION').option === 'STOCK' ? ('stock' as const) : ('hand' as const);
   // 手札に加えたなら: whether a card was taken.
   context.did = chosen.length > 0;
   next();
@@ -1601,12 +1648,12 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     pushEffects(ctx, [{ do: 'CHOOSE_SLOT', which: 'ANY' }, { do: 'MOVE', target: { who: 'CHOSEN' }, to: 'CHOSEN_SLOT' }, { do: 'MOVE_REST', to: 'WAITING_ROOM' }], context);
     return;
   }
-  if (effect.reveal) for (const id of chosen) revealCard(ctx, id);
+  if (effect.reveal && !effect.handOrStock) for (const id of chosen) revealCard(ctx, id);
   moveBatch(
     ctx,
     looked.map((instanceId) => ({
       instanceId,
-      to: { player: master, zone: chosen.includes(instanceId) ? ('hand' as const) : stocked.includes(instanceId) ? ('stock' as const) : ('waitingRoom' as const) },
+      to: { player: master, zone: chosen.includes(instanceId) ? chosenTo : stocked.includes(instanceId) ? ('stock' as const) : ('waitingRoom' as const) },
       opts: { reason: 'EFFECT' as const },
     })),
   );

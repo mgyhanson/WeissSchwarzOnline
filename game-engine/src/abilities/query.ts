@@ -6,7 +6,7 @@
 
 import { getDef, getInstance } from '../state';
 import type { ActivatedAbility, XCount } from './types';
-import type { CardDef, CardInstance, GameState, PlayerId, TriggerIcon } from '../types';
+import type { CardDef, CardInstance, GameState, PlayerId, SlotId, TriggerIcon } from '../types';
 import { SLOTS, opponentOf, HAND_LIMIT } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS, facingSlot, isBackSlot, slotsInFrontOf } from '../zones';
 import type { AutoAbility, CardFilter, ChooseFrom, Condition, ContinuousAbility, CountWhere, EffectContext, PerCharacter, Target } from './types';
@@ -471,7 +471,13 @@ export function grantedAutos(state: GameState, instanceId: number): AutoAbility[
 /** …1枚につき: how many (other) characters of the player match; 1 when the amount is not scaled. */
 export function perCount(state: GameState, master: PlayerId, source: number, per: PerCharacter | undefined): number {
   if (!per) return 1;
-  return stageCharacters(state, master).filter((id) => !(per.other && id === source) && matchesFilter(state, id, per.filter, printedLevel)).length;
+  return stageCharacters(state, master).filter((id) => !(per.other && id === source) && (!per.slots || per.slots.includes(slotOf(state, id))) && matchesFilter(state, id, per.filter, printedLevel)).length;
+}
+
+/** The slot of a card on the stage. */
+function slotOf(state: GameState, instanceId: number): SlotId {
+  const loc = getInstance(state, instanceId).location;
+  return (loc.zone === 'stage' ? loc.slot : '') as SlotId;
 }
 
 /**
@@ -601,6 +607,14 @@ export function countForX(state: GameState, context: EffectContext, count: XCoun
     const chosen = context.chosen.map((objectId) => state.instances.find((inst) => inst.objectId === objectId)).find((inst) => inst);
     return chosen ? currentLevel(state, chosen.instanceId) : 0;
   }
+  if (count.of === 'CHOSEN_SOUL') {
+    // そのキャラのソウル: the character chosen just before, while it is still that card.
+    const chosen = context.chosen.map((objectId) => state.instances.find((inst) => inst.objectId === objectId)).find((inst) => inst);
+    return chosen ? currentStat(state, chosen.instanceId, 'SOUL') : 0;
+  }
+  // CR-8.6.2.1.2: a player's level is the number of cards in their level zone.
+  if (count.of === 'YOUR_LEVEL') return state.zones[master].level.length;
+  if (count.of === 'OPPONENT_STAGE') return stageCharacters(state, opponentOf(master)).filter((id) => matchesFilter(state, id, count.filter)).length;
   const pool =
     count.of === 'MOVED'
       ? (context.moved ?? []).filter((id) => getInstance(state, id))
