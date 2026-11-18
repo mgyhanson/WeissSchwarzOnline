@@ -2,13 +2,13 @@
 
 > 由 `npm run cards:worklist` 產生。請勿手改。
 
-資料庫 609 張卡：可對戰 547（人手 128、自動 419），未支援 62。
+資料庫 609 張卡：可對戰 564（人手 128、自動 436），未支援 45。
 
 ## 自動產生的卡用到的句式
 
 | 句式 | 卡數 |
 |---|---:|
-| 句子文法（GRAMMAR：由已知片段組成的句子） | 365 |
+| 句子文法（GRAMMAR：由已知片段組成的句子） | 382 |
 | CLIMAX_POWER_SOUL | 43 |
 | CLIMAX_SOUL | 2 |
 | ASSIST | 2 |
@@ -17,10 +17,10 @@
 | EXPERIENCE_POWER | 0 |
 | ENCORE_DISCARD_CHARACTER | 2 |
 | BACKUP | 22 |
-| POWER_WITH_OTHER_TRAIT | 13 |
+| POWER_WITH_OTHER_TRAIT | 14 |
 | POWER_ALL_TRAIT | 8 |
 | POWER_PER_OTHER_TRAIT | 4 |
-| YOUR_TURN_OTHERS_TRAIT_POWER | 3 |
+| YOUR_TURN_OTHERS_TRAIT_POWER | 4 |
 | CX_PHASE_TRAIT_BOOST | 5 |
 | PLACED_SELF_POWER | 6 |
 | ATTACK_SELF_POWER_WITH_OTHER_TRAIT | 2 |
@@ -31,7 +31,7 @@
 
 ## 片段出現次數（全部 609 張卡的角色及 Climax 文字；「已認識」指文法認識這個片段）
 
-### 效果句子：605 種，已認識 543 種
+### 效果句子：605 種，已認識 566 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|
@@ -121,7 +121,7 @@
 | あなたのキャラのトリガーチェックでクライマックスがでた時 | 1 |  |
 | このカードのバトル中、あなたの受けたダメージがキャンセルされた時 | 1 | ✓ |
 
-### Cost：62 種，已認識 56 種
+### Cost：62 種，已認識 58 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|
@@ -166,7 +166,7 @@
 | あなたの舞台の《…》のキャラをN枚控え室に置く | 1 | ✓ |
 | 手札のトリガーアイコンが[[gate.gif]]のCXをN枚控え室に置く | 1 | ✓ |
 
-### 條件：111 種，已認識 100 種
+### 條件：111 種，已認識 102 種
 
 | 片段 | 卡數 | 已認識 |
 |---|---:|:---:|

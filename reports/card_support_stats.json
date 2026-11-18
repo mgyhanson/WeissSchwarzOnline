@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 547,
+    "playable": 564,
     "handWritten": 128,
-    "fromPatterns": 419,
-    "unsupported": 62,
-    "abilitiesRun": 987
+    "fromPatterns": 436,
+    "unsupported": 45,
+    "abilitiesRun": 1021
   },
   "sets": [
     {
@@ -43,8 +43,8 @@
       "product": "ブースターパック ガールズ＆パンツァー（GUP/W141）",
       "cards": 114,
       "handWritten": 21,
-      "fromPatterns": 89,
-      "unsupported": 4,
+      "fromPatterns": 92,
+      "unsupported": 1,
       "pending": 0,
       "withoutText": 0
     },
@@ -63,8 +63,8 @@
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
       "handWritten": 16,
-      "fromPatterns": 74,
-      "unsupported": 10,
+      "fromPatterns": 76,
+      "unsupported": 8,
       "pending": 0,
       "withoutText": 0
     },
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 87,
-      "unsupported": 10,
+      "fromPatterns": 90,
+      "unsupported": 7,
       "pending": 0,
       "withoutText": 0
     },
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 85,
-      "unsupported": 12,
+      "fromPatterns": 88,
+      "unsupported": 9,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 84,
-      "unsupported": 26,
+      "fromPatterns": 90,
+      "unsupported": 20,
       "pending": 0,
       "withoutText": 0
     }
@@ -108,10 +108,10 @@
     "EXPERIENCE_POWER": 0,
     "ENCORE_DISCARD_CHARACTER": 2,
     "BACKUP": 22,
-    "POWER_WITH_OTHER_TRAIT": 13,
+    "POWER_WITH_OTHER_TRAIT": 14,
     "POWER_ALL_TRAIT": 8,
     "POWER_PER_OTHER_TRAIT": 4,
-    "YOUR_TURN_OTHERS_TRAIT_POWER": 3,
+    "YOUR_TURN_OTHERS_TRAIT_POWER": 4,
     "CX_PHASE_TRAIT_BOOST": 5,
     "PLACED_SELF_POWER": 6,
     "ATTACK_SELF_POWER_WITH_OTHER_TRAIT": 2,

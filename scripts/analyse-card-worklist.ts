@@ -77,6 +77,12 @@ const work: OpenCard[] = open.map((card) => {
 const DELIBERATE: Record<string, string> = {
   'BDY/W135-074': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
   'STS/W140-076': '「次の2つの効果を1回ずつ行う」：規則及官方 Q&A 沒有說明兩個效果的執行次序',
+  // Batch 13: every paragraph of these events reads by itself, but nothing says how an event's paragraphs relate.
+  'ANM/W138-023': 'Event 有兩段效果文字：綜合規則及官方 Q&A 沒有說明各段之間的關係（是否按次序全部執行）',
+  'STS/W140-096': 'Event 有兩段效果文字：綜合規則及官方 Q&A 沒有說明各段之間的關係（是否按次序全部執行）',
+  'NIK/S135-023': 'Event 有兩段效果文字（第二段有自己的 Cost）：綜合規則及官方 Q&A 沒有說明各段之間的關係',
+  // Batch 9: "そのカードが…なら、そのカードを手札に戻し、…置いてよい" does not say whether taking the card back is part of the choice.
+  'STS/W140-059': '「…手札に戻し、自分の山札の上から1枚を、控え室に置いてよい」：沒有說明「てよい」是否也包括放回手牌',
 };
 
 // Rank the unknown parts.
@@ -517,8 +523,8 @@ function fourStates(): string[] {
 }
 
 /** The batch whose progress file carries the four states as they are now. */
-const LATEST_BATCH = 12;
-for (const n of [4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+const LATEST_BATCH = 13;
+for (const n of [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]) {
   const rows = batches.filter((b) => b.title.startsWith(`B${n}`));
   writeFileSync(
     join(ROOT, `reports/BATCH_${n}_PROGRESS.md`),
