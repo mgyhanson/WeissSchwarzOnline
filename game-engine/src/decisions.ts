@@ -76,6 +76,8 @@ export type PromptId =
   | 'EFFECT_KEEP'
   /** Choose the cards looked at to put on the bottom of the deck; the rest go back on top in an order chosen next. */
   | 'EFFECT_DECK_BOTTOM'
+  /** 山札か控え室を宣言し: which zone is declared (options DECLARE_DECK, DECLARE_WAITING_ROOM). */
+  | 'EFFECT_DECLARE_ZONE'
   /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */

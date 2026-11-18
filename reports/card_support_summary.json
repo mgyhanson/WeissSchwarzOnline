@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 536,
- "unsupported": 73,
+ "playable": 547,
+ "unsupported": 62,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,11 +75,11 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 104,
+   "playable": 110,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 87
+     "playable": 93
     },
     "EVENT": {
      "total": 4,
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 88,
+   "playable": 90,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 74
+     "playable": 76
     },
     "EVENT": {
      "total": 3,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 86,
+   "playable": 88,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 69
+     "playable": 71
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 85,
+   "playable": 86,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 71
+     "playable": 72
     },
     "EVENT": {
      "total": 9,
@@ -216,9 +216,9 @@
   "playable": 58
  },
  "classes": {
-  "A": 24,
+  "A": 21,
   "B": 0,
-  "C": 26,
+  "C": 18,
   "D": 23,
   "E": 0
  },

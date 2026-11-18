@@ -207,7 +207,21 @@ export interface DelayedTime {
 
 /** What X counts (SET_X). */
 export interface XCount {
-  of: 'MOVED' | 'OPPONENT_WAITING_ROOM' | 'YOUR_MEMORY' | 'MARKERS' | 'SELF_SOUL' | 'CHOSEN_LEVEL';
+  of:
+    | 'MOVED'
+    | 'OPPONENT_WAITING_ROOM'
+    | 'YOUR_MEMORY'
+    | 'MARKERS'
+    | 'SELF_SOUL'
+    | 'CHOSEN_LEVEL'
+    /** そのキャラのソウル: the soul of the character chosen just before, as it is now */
+    | 'CHOSEN_SOUL'
+    /** あなたのレベル: the number of cards in the player's level zone (CR-8.6.2.1.2) */
+    | 'YOUR_LEVEL'
+    /** 相手のキャラの枚数: the characters on the opponent's stage */
+    | 'OPPONENT_STAGE';
+  /** text only, with MOVED: Ｘはこの効果で控え室に置かれた…の枚数 (rather than それらのカードの…) */
+  said?: 'THIS_EFFECT';
   filter?: CardFilter;
   /** 異なるカード名の: count names, not cards (face-up cards only) */
   distinctNames?: boolean;
@@ -271,6 +285,8 @@ export type Destination =
 export interface PerCharacter {
   filter?: CardFilter;
   other?: boolean;
+  /** 後列の…1枚につき: only characters in these slots */
+  slots?: SlotId[];
 }
 
 /** The steps of the attack phase a trigger can name (CR-7). */
@@ -355,20 +371,26 @@ export type Effect =
    * Ｘ＝…: X of this resolution, from a count (the cards just moved or shown, the opponent's waiting room, your memory,
    * this card's markers), plus or minus a number, or by tiers (…N枚以下ならA、M枚以上ならB).
    */
-  | { do: 'SET_X'; count: XCount; plus?: number; minus?: number; tiers?: { min?: number; max?: number; x: number }[] }
+  | { do: 'SET_X'; count: XCount; plus?: number; minus?: number; tiers?: { min?: number; max?: number; x: number }[]; /** Ｘは…×Nに等しい */ times?: number }
   /** 山札の上からN枚を公開し: shown to both players, staying where they are (それらのカード = those cards). */
   | { do: 'REVEAL_DECK_TOP'; count: number; whose?: 'OPPONENT'; /** N枚までを、公開してよい: one at a time, the player may stop */ upTo?: boolean }
   /**
    * 自分の山札を上からN枚まで見て、…を1枚まで選んで(相手に見せ、)手札に加え、残りのカードを控え室に置く.
    * The player may stop before each card (CR-3.2.3.1). `per` makes N the number of matching characters.
    */
-  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number; /** カードをN枚まで選び、ストック置場に置き: of the rest, up to N to the stock (the others to the waiting room) */ toStock?: number; /** 舞台の好きな枠に置き、残りのカードを控え室に置く: the card taken goes to a slot of the stage the player chooses, then the rest to the waiting room. */ toStage?: boolean }
+  | { do: 'LOOK_TOP'; upTo: number; per?: PerCharacter; pick?: CardFilter; reveal?: boolean; /** …をN枚まで選んで: how many may be taken (default 1) */ picks?: number; /** カードをN枚まで選び、ストック置場に置き: of the rest, up to N to the stock (the others to the waiting room) */ toStock?: number; /** 舞台の好きな枠に置き、残りのカードを控え室に置く: the card taken goes to a slot of the stage the player chooses, then the rest to the waiting room. */ toStage?: boolean; /** 上からＸ枚まで: X of this resolution (SET_X) */ upToX?: boolean; /** …選んで相手に見せ、手札に加えるかストック置場に置き: the card taken goes where the player chooses. */ handOrStock?: boolean }
   /**
    * 自分の山札の上から1枚を公開する。そのカードが…なら(手札に加え、)…。 The top card of your deck is shown to
    * both players. If it matches: with `take` it goes to your hand; then `then` is done. A card that is not
    * taken stays where it was (元に戻す) and is no longer shown.
    */
-  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean; /** 公開してよい: the player is asked first. */ optional?: boolean; /** そうでないなら、…: done when the card does not match. */ else?: Effect[] }
+  | { do: 'REVEAL_TOP'; filter: CardFilter; take?: boolean; then?: Effect[]; /** …ならストック置場に置く: a matching card goes to the stock instead of the hand. */ toStock?: boolean; /** 公開してよい: the player is asked first. */ optional?: boolean; /** そうでないなら、…: done when the card does not match. */ else?: Effect[]; /** …なら手札に加えるかストック置場に置く: a matching card goes where the player chooses. */ handOrStock?: boolean }
+  /**
+   * 山札か控え室を宣言し、宣言した自分の領域を見て…をN枚まで選んで相手に見せ、手札に加える。山札を宣言したなら、その山札をシャッフルする:
+   * the player declares their deck or their waiting room, then up to `max` matching cards of it are shown and taken
+   * into the hand; the deck, when declared, is shuffled whether or not a card was taken.
+   */
+  | { do: 'SEARCH_DECLARED_ZONE'; filter: CardFilter; max: number }
   /**
    * The cards just chosen are split: up to `take` of them (exactly, with `exact`, as many as there are) go to `to`
    * (in the order the player chooses, with `inOrder`), the rest to `rest`. 1枚手札に加え、残りのカードを…
