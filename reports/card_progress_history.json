@@ -78,5 +78,25 @@
    "ANM_W138": 86,
    "NIK_S135": 85
   }
+ },
+ {
+  "date": "2026-11-18",
+  "cards": 609,
+  "playable": 547,
+  "handWritten": 128,
+  "wholeSentencePatterns": 54,
+  "grammar": 365,
+  "unsupported": 62,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 110,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 90,
+   "STS_W140": 90,
+   "ANM_W138": 88,
+   "NIK_S135": 86
+  }
  }
 ]
