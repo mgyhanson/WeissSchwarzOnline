@@ -38,11 +38,12 @@
 | 卡牌效果 Batch 11（分支 `feat/card-effects-batch-11`，2026-11-18）：思い出與舞台的角色互換（及 Encore Step 開始時換回）、查看山札頂後放一張到底；2 張新卡（其中 1 張 Level 3） | 完成一部分，見 [reports/BATCH_11_PROGRESS.md](reports/BATCH_11_PROGRESS.md) |
 | 卡牌效果 Batch 12（分支 `feat/card-effects-batch-12`，2026-11-18）：新的「Ｘ」計算方式、加入手牌或放到 Stock、宣言山札或控え室、後列計數；11 張新卡 | 完成一部分，見 [reports/BATCH_12_PROGRESS.md](reports/BATCH_12_PROGRESS.md) |
 | 卡牌效果 Batch 13（分支 `feat/card-effects-batch-13`，2026-11-19）：給予 Trigger 圖示、控え室的卡放到 Clock 最下面（加速）、Ｘ按公開卡的圖示、查看對手山札、兩個效果自選先後；17 張新卡 | 完成一部分，見 [reports/BATCH_13_PROGRESS.md](reports/BATCH_13_PROGRESS.md) |
+| 卡牌效果 Batch 14（分支 `feat/card-effects-batch-14`，2026-11-19）：他角色 Reverse 時的觸發、Rest 中角色的條件、起動能力的使用條件、放到原本的枠並給予能力；7 張新卡 | 完成一部分，見 [reports/BATCH_14_PROGRESS.md](reports/BATCH_14_PROGRESS.md) |
 | STEP 11 起（教學）、其餘未支援卡的效果 | 未開始／進行中 |
 
 
 <!-- support-summary:start (由 npm run cards:worklist 產生，請勿手改；數字只以此為準) -->
-**目前卡牌支援（2026-11-18，程式計算）**：609 張中 **564 張可對戰**，未支援 45 張；Level 3 58/63。
+**目前卡牌支援（2026-11-18，程式計算）**：609 張中 **571 張可對戰**，未支援 38 張；Level 3 58/63。
 
 | 系列 | 卡數 | 可對戰 | 角色 | Event | Climax | Level 3 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -51,16 +52,16 @@
 | SAO/S20 | 30 | 30 | 21/21 | 1/1 | 8/8 | - |
 | GUP/W141 | 114 | 113 | 94/95 | 4/4 | 15/15 | 12/12 |
 | SAO/OTHERS | 18 | 18 | 17/17 | 0/0 | 1/1 | - |
-| BDY/W135 | 100 | 92 | 78/85 | 2/3 | 12/12 | 15/16 |
-| STS/W140 | 100 | 93 | 79/84 | 2/4 | 12/12 | 8/9 |
-| ANM/W138 | 100 | 91 | 74/81 | 5/7 | 12/12 | 12/13 |
-| NIK/S135 | 112 | 92 | 78/90 | 1/9 | 13/13 | 11/13 |
-| **合計** | 609 | 564 | | | | 五個補充包 58/63 |
+| BDY/W135 | 100 | 94 | 80/85 | 2/3 | 12/12 | 15/16 |
+| STS/W140 | 100 | 95 | 81/84 | 2/4 | 12/12 | 8/9 |
+| ANM/W138 | 100 | 92 | 75/81 | 5/7 | 12/12 | 12/13 |
+| NIK/S135 | 112 | 94 | 80/90 | 1/9 | 13/13 | 11/13 |
+| **合計** | 609 | 571 | | | | 五個補充包 58/63 |
 
-未支援分類（初步，只用作排序）：A 13、B 0、C 12、D 20、E 0。詳細見 `reports/CARD_WORKLIST.md`。
+未支援分類（初步，只用作排序）：A 12、B 0、C 9、D 17、E 0。詳細見 `reports/CARD_WORKLIST.md`。
 <!-- support-summary:end -->
 
-截至 Batch 13（2026-11-19）共 1575 個自動測試通過（每批的實際結果見 [reports/TEST_REPORT.md](reports/TEST_REPORT.md)），另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局輪流使用九副真實卡組的所有配對）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，「そのターン中」及「次の相手のターンの終わりまで」的期限，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、経験、記憶、加速、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
+截至 Batch 14（2026-11-19）共 1607 個自動測試通過（每批的實際結果見 [reports/TEST_REPORT.md](reports/TEST_REPORT.md)），另有 4000 局隨機完整對局的長時間測試（`npm run soak`，其中 1000 局輪流使用九副真實卡組的所有配對）全部通過。引擎已可按官方規則打完整局，並能執行以資料描述的卡牌能力：永續、自動、起動能力，Event 效果，各種 Cost，「そのターン中」及「次の相手のターンの終わりまで」的期限，以及応援、助太刀、集中、絆、チェンジ、大活躍、アラーム、経験、記憶、加速、Encore 等關鍵字。能力的資料格式見 `game-engine/src/abilities/types.ts`。
 
 卡牌資料庫收錄了 609 張真實卡牌：原有的 Trial Deck 及精選卡 83 張，以及最新五個日文補充包的全部基本卡 526 張（BanG Dream! [夢限大みゅーたいぷ]、ガールズ＆パンツァー、ステラソラ、anemoi、勝利の女神：NIKKE Vol.2）。**效果已實作並測試的卡可以用於對戰；其餘的卡已有完整官方資料及卡圖，可以搜尋及瀏覽，但效果尚未支援，不能用於對戰**（現時的張數見上面由程式產生的摘要；最初匯入時是 379 張可對戰、230 張未支援）（介面會清楚標示）。未支援的卡已按所需的工作分類，見 [reports/UNSUPPORTED_CARDS.md](reports/UNSUPPORTED_CARDS.md)。見 [reports/CARD_DATABASE_REPORT.md](reports/CARD_DATABASE_REPORT.md) 及 [card-database/README.md](card-database/README.md)。
 

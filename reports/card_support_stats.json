@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 564,
+    "playable": 571,
     "handWritten": 128,
-    "fromPatterns": 436,
-    "unsupported": 45,
-    "abilitiesRun": 1021
+    "fromPatterns": 443,
+    "unsupported": 38,
+    "abilitiesRun": 1035
   },
   "sets": [
     {
@@ -63,8 +63,8 @@
       "product": "ブースターパック BanG Dream! [夢限大みゅーたいぷ]",
       "cards": 100,
       "handWritten": 16,
-      "fromPatterns": 76,
-      "unsupported": 8,
+      "fromPatterns": 78,
+      "unsupported": 6,
       "pending": 0,
       "withoutText": 0
     },
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 90,
-      "unsupported": 7,
+      "fromPatterns": 92,
+      "unsupported": 5,
       "pending": 0,
       "withoutText": 0
     },
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 88,
-      "unsupported": 9,
+      "fromPatterns": 89,
+      "unsupported": 8,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 90,
-      "unsupported": 20,
+      "fromPatterns": 92,
+      "unsupported": 18,
       "pending": 0,
       "withoutText": 0
     }
@@ -103,12 +103,12 @@
     "CLIMAX_POWER_SOUL": 43,
     "CLIMAX_SOUL": 2,
     "ASSIST": 2,
-    "YOUR_TURN_POWER": 14,
+    "YOUR_TURN_POWER": 15,
     "OPPONENT_TURN_POWER": 0,
     "EXPERIENCE_POWER": 0,
     "ENCORE_DISCARD_CHARACTER": 2,
     "BACKUP": 22,
-    "POWER_WITH_OTHER_TRAIT": 14,
+    "POWER_WITH_OTHER_TRAIT": 15,
     "POWER_ALL_TRAIT": 8,
     "POWER_PER_OTHER_TRAIT": 4,
     "YOUR_TURN_OTHERS_TRAIT_POWER": 4,
