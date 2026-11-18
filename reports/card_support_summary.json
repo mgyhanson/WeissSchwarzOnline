@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 547,
- "unsupported": 62,
+ "playable": 564,
+ "unsupported": 45,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -75,15 +75,15 @@
   {
    "set": "GUP_W141",
    "total": 114,
-   "playable": 110,
+   "playable": 113,
    "byKind": {
     "CHARACTER": {
      "total": 95,
-     "playable": 93
+     "playable": 94
     },
     "EVENT": {
      "total": 4,
-     "playable": 2
+     "playable": 4
     },
     "CLIMAX": {
      "total": 15,
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 90,
+   "playable": 92,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 76
+     "playable": 78
     },
     "EVENT": {
      "total": 3,
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 90,
+   "playable": 93,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 76
+     "playable": 79
     },
     "EVENT": {
      "total": 4,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 88,
+   "playable": 91,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 71
+     "playable": 74
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 86,
+   "playable": 92,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 72
+     "playable": 78
     },
     "EVENT": {
      "total": 9,
@@ -216,13 +216,18 @@
   "playable": 58
  },
  "classes": {
-  "A": 21,
+  "A": 13,
   "B": 0,
-  "C": 18,
-  "D": 23,
+  "C": 12,
+  "D": 20,
   "E": 0
  },
  "topParts": [
+  {
+   "part": "EFFECT: この能力はあなたの、思い出とマーカー置場のカードの合計がN枚以下なら使える",
+   "unlocks": 1,
+   "cards": 1
+  },
   {
    "part": "SHAPE: （…）: （CXのレベルはNとして扱う。コストが必要なカードならコスト",
    "unlocks": 1,
@@ -249,22 +254,7 @@
    "cards": 1
   },
   {
-   "part": "EVENT: このカードは、あなたの《…》のキャラがいないなら、手札からプレイできない。",
-   "unlocks": 0,
-   "cards": 2
-  },
-  {
-   "part": "EVENT: あなたは自分の山札を見て《…》のキャラをN枚まで選んで相手に見せ、手札に加え、自分の手札をN枚選び、控え室に置き、その山札をシャッフルする。",
-   "unlocks": 0,
-   "cards": 2
-  },
-  {
    "part": "EFFECT: 次のNつの効果をN回ずつ行う",
-   "unlocks": 0,
-   "cards": 2
-  },
-  {
-   "part": "EFFECT: あなたは自分の山札の上からN枚を、控え室に置いてよい",
    "unlocks": 0,
    "cards": 2
   },
@@ -272,6 +262,16 @@
    "part": "EFFECT: あなたは次の行動を行ってよい",
    "unlocks": 0,
    "cards": 2
+  },
+  {
+   "part": "EFFECT: あなたは自分の山札の上からN枚を公開する。そのカードが《…》のキャラなら、そのターン中、このカードは次の能力を得る",
+   "unlocks": 0,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: 『【永】 このカードがアタックする時、あなたはかわりに相手の後列のキャラをN枚選び、このカードはそのキャラを防御キャラとしてフロントアタックしてよい。』",
+   "unlocks": 0,
+   "cards": 1
   }
  ]
 }

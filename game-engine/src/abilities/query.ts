@@ -320,6 +320,8 @@ export function zoneCount(state: GameState, master: PlayerId, source: number, wh
                 ? state.zones[master].climax
                 : where === 'YOUR_FRONT_ROW'
                   ? characters(FRONT_SLOTS.flatMap((slot) => state.zones[master].stage[slot]))
+                : where === 'YOUR_BACK_ROW'
+                  ? characters(BACK_SLOTS.flatMap((slot) => state.zones[master].stage[slot]))
                   : where === 'OPPONENT_FRONT_ROW'
                     ? characters(FRONT_SLOTS.flatMap((slot) => opponent.stage[slot]))
                     : characters(SLOTS.flatMap((slot) => opponent.stage[slot]));
@@ -541,6 +543,8 @@ export function handLimit(state: GameState, player: PlayerId): number {
   return limit;
 }
 
+let givingIcons = false;
+
 /** The trigger icons a card has: printed ones and those it gains in every zone (すべての領域にあるこのカードはトリガーアイコンに…を得る). */
 export function triggerIconsOf(state: GameState, instanceId: number): TriggerIcon[] {
   const def = getDef(state, instanceId);
@@ -550,7 +554,23 @@ export function triggerIconsOf(state: GameState, instanceId: number): TriggerIco
   for (const ability of def.abilities ?? []) {
     if (ability.type === 'CONT' && ability.gainsTriggerIcons && evalCondition(state, player, instanceId, ability.condition)) icons.push(...ability.gainsTriggerIcons);
   }
-  return icons;
+  // あなたのすべての領域の…のトリガーアイコンに…を与える: given by a character of that player. Which cards match is judged on
+  // the icons above (a card's own and printed ones), so one given icon never decides another; while those are worked out,
+  // a condition that asks about icons again sees only these (no loop).
+  if (givingIcons) return icons;
+  const given: TriggerIcon[] = [];
+  givingIcons = true;
+  try {
+    for (const { source, ability } of continuousInForce(state)) {
+      const gives = ability.givesTriggerIcons;
+      if (!gives || source.master !== player) continue;
+      const { hasTrigger, ...rest } = gives.filter;
+      if ((hasTrigger === undefined || icons.includes(hasTrigger)) && matchesFilter(state, instanceId, rest)) given.push(...gives.icons);
+    }
+  } finally {
+    givingIcons = false;
+  }
+  return [...icons, ...given];
 }
 
 /** そのターン中、そのキャラは【リバース】しない */
@@ -615,6 +635,7 @@ export function countForX(state: GameState, context: EffectContext, count: XCoun
   // CR-8.6.2.1.2: a player's level is the number of cards in their level zone.
   if (count.of === 'YOUR_LEVEL') return state.zones[master].level.length;
   if (count.of === 'OPPONENT_STAGE') return stageCharacters(state, opponentOf(master)).filter((id) => matchesFilter(state, id, count.filter)).length;
+  if (count.of === 'YOUR_WAITING_ROOM') return state.zones[master].waitingRoom.filter((id) => matchesFilter(state, id, count.filter)).length;
   const pool =
     count.of === 'MOVED'
       ? (context.moved ?? []).filter((id) => getInstance(state, id))
@@ -741,6 +762,9 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       return target.slots
         .flatMap((slot) => state.zones[context.master].stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source));
+    case 'MILLED':
+      // A card that has left the waiting room since is another card (CR-3.1.4).
+      return (context.moved ?? []).filter((id) => state.instances[id] && getInstance(state, id).location.zone === 'waitingRoom');
     case 'MOVED':
     case 'PLACED':
       return (target.who === 'MOVED' ? (context.lastMoved ?? []) : (context.placed ?? [])).flatMap((objectId) => {

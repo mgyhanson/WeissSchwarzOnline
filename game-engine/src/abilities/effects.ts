@@ -16,7 +16,7 @@ import { addModifier, nextOpponentTurn } from '../stats';
 import type { GameState, PlayerId, SlotId, ZoneRef } from '../types';
 import { SLOTS, opponentOf } from '../types';
 import { BACK_SLOTS, FRONT_SLOTS } from '../zones';
-import { cannotBeReversed, cannotMove, chooseCandidates, countForX, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, zoneCount } from './query';
+import { cannotBeReversed, cannotMove, chooseCandidates, countForX, evalCondition, matchesFilter, perCount, resolveTarget, sourceIfUnchanged, triggerIconsOf, zoneCount } from './query';
 import type { CardFilter, Cost, Destination, Effect, EffectContext } from './types';
 
 // ---------------------------------------------------------------------------
@@ -113,6 +113,9 @@ export function canPayCost(state: GameState, context: EffectContext, costs: read
         break;
       case 'CLIMAX_TO_WAITING_ROOM':
         if (zones.climax.filter((id) => matchesFilter(state, id, cost.filter)).length < cost.count) return false;
+        break;
+      case 'WAITING_ROOM_TO_CLOCK_BOTTOM':
+        if (zones.waitingRoom.filter((id) => matchesFilter(state, id, cost.filter)).length < cost.count) return false;
         break;
       case 'MARKERS_TO_WAITING_ROOM': {
         const self = sourceIfUnchanged(state, context);
@@ -264,6 +267,19 @@ export function stepPayCost(ctx: Ctx, frame: Extract<Frame, { kind: 'PAY_COST' }
       const fromTop = zones.stock.slice(zones.stock.length - cost.count).reverse();
       frame.index++;
       moveCards(ctx, fromTop, { player: master, zone: 'clock' }, { reason: 'COST' });
+      return;
+    }
+    case 'WAITING_ROOM_TO_CLOCK_BOTTOM': {
+      if (!frame.asked) {
+        frame.asked = true;
+        const cards = zones.waitingRoom.filter((id) => matchesFilter(state, id, cost.filter)).map((id) => getInstance(state, id).objectId);
+        ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'COST_WAITING_ROOM_TO_CLOCK', cards, min: cost.count, max: cost.count });
+        return;
+      }
+      frame.asked = false;
+      frame.index++;
+      // Under the clock cards; a level up waits until the whole cost is paid (CR-9.3.3) and then looks at the bottom seven (CR-9.3.2).
+      for (const objectId of takeAnswer(ctx, 'SELECT_CARDS').cards) moveCard(ctx, findObject(state, objectId).instanceId, { player: master, zone: 'clock' }, { reason: 'COST', position: 'BOTTOM' });
       return;
     }
     case 'CLIMAX_TO_WAITING_ROOM': {
@@ -896,6 +912,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const flipped = frame.scratch.filter((id) => getInstance(state, id).location.zone === 'resolution');
       const hits = flipped.filter((id) => matchesFilter(state, id, effect.per)).length;
       if (effect.setX) context.x = hits;
+      // この効果で控え室に置かれたカード／それらのカード: the cards turned over, which all go to the waiting room now.
+      context.moved = [...flipped];
       next();
       for (let i = 0; i < hits; i++) pushEffects(ctx, effect.each, context);
       moveBatch(
@@ -927,7 +945,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
         usesX
           ? xHolds(condition)
           : condition.if === 'LAST_MOVED'
-          ? (context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length >= condition.min
+          ? ((count) => count >= condition.min && count <= (condition.max ?? Infinity))((context.moved ?? []).filter((id) => matchesFilter(state, id, condition.filter)).length)
           : condition.if === 'DID'
             ? context.did === true
           : condition.if === 'MOVED_CARD'
@@ -1146,9 +1164,10 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
     case 'CHOOSE_SLOT': {
       if (frame.step === 0) {
         const zones = state.zones[master];
-        const slots = effect.which === 'ANY' ? [...SLOTS] : BACK_SLOTS.filter((slot) => zones.stage[slot].length === 0);
+        const slots = effect.which === 'ANY' ? [...SLOTS] : effect.which === 'BACK' ? [...BACK_SLOTS] : BACK_SLOTS.filter((slot) => zones.stage[slot].length === 0);
         // Nothing was chosen to put anywhere, or there is no such slot.
-        if (context.chosen.length === 0 || slots.length === 0) {
+        const placing = effect.of ? resolveTarget(state, context, effect.of) : context.chosen;
+        if (placing.length === 0 || slots.length === 0) {
           context.slot = null;
           next();
           return;
@@ -1251,6 +1270,19 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'IN_ANY_ORDER': {
+      // 好きな順番で: the player says which is done first; the other follows (CR-8.6.5: the master does both).
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_ORDER_FIRST', options: effect.options.map((_, i) => `EFFECT_${i + 1}`) });
+        return;
+      }
+      const first = Number(takeAnswer(ctx, 'SELECT_OPTION').option.slice('EFFECT_'.length)) - 1;
+      next();
+      pushEffects(ctx, [...(effect.options[first] ?? []), ...effect.options.filter((_, i) => i !== first).flat()], context);
+      return;
+    }
+
     case 'MAY_PAY': {
       // The cost cannot be paid: nothing is asked and nothing happens (CR-8.4.1.2).
       if (frame.step === 0 && !canPayCost(state, context, effect.cost)) {
@@ -1337,7 +1369,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       if (frame.step === 0) {
         frame.step = 1;
-        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: effect.anyOfThree ? ['DECK_TOP', 'DECK_BOTTOM', 'WAITING_ROOM'] : ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], look: lookMap(state, [top]) });
+        ask(ctx, { kind: 'SELECT_OPTION', player: master, prompt: 'EFFECT_TOP_OR_BOTTOM', options: effect.anyOfThree ? ['DECK_TOP', 'DECK_BOTTOM', 'WAITING_ROOM'] : ['DECK_TOP', effect.orWaitingRoom ? 'WAITING_ROOM' : 'DECK_BOTTOM'], ...(deckOwner !== master ? { lookDeck: deckOwner } : {}), look: lookMap(state, [top]) });
         return;
       }
       const option = takeAnswer(ctx, 'SELECT_OPTION').option;
@@ -1362,7 +1394,8 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       context.x = 0;
       if (top === undefined) return;
       revealCard(ctx, top);
-      context.x = getDef(state, top).level ?? 0;
+      // Ｘは公開されたカードのトリガーアイコンに…があるならN、ないならM: the icons it has now (given ones too).
+      context.x = effect.iconX ? (triggerIconsOf(state, top).includes(effect.iconX.icon) ? effect.iconX.yes : effect.iconX.no) : (getDef(state, top).level ?? 0);
       // 公開したカードは元に戻す: it stays on top, no longer shown.
       getInstance(state, top).revealed = false;
       return;
@@ -1488,6 +1521,8 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
   const looked = split < 0 ? frame.scratch : frame.scratch.slice(0, split);
   const ordered = split < 0 ? [] : frame.scratch.slice(split + 1);
   const objects = (ids: readonly number[]) => ids.map((id) => getInstance(state, id).objectId);
+  // The cards looked at are in this deck: the opponent's when the effect looks there (CR-8.6.6).
+  const seen = whose !== master ? { lookDeck: whose } : {};
 
   if (frame.step === 0) {
     if (looked.length >= effect.upTo || looked.length >= deck.length) {
@@ -1495,7 +1530,7 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
       return;
     }
     frame.step = 1;
-    ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'LOOK_NEXT', look: lookMap(state, looked) });
+    ask(ctx, { kind: 'CONFIRM', player: master, prompt: 'LOOK_NEXT', ...seen, look: lookMap(state, looked) });
     return;
   }
   if (frame.step === 1) {
@@ -1506,18 +1541,41 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
     return;
   }
   if (frame.step === 2) {
+    // 山札の上に元の順番で置く: only looked at.
+    if (effect.sameOrder) {
+      next();
+      return;
+    }
+    // カードをN枚まで選び、控え室に置き、残りのカードを山札に戻し: the chosen ones leave; the others never left the deck.
+    if (effect.toWaitingRoom !== undefined) {
+      if (looked.length === 0) {
+        next();
+        return;
+      }
+      frame.step = 6;
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_DECK_TO_WAITING_ROOM', cards: objects(looked), min: 0, max: Math.min(effect.toWaitingRoom, looked.length), ...seen, look: lookMap(state, looked) });
+      return;
+    }
     if (effect.toBottom !== undefined && looked.length > 0) {
       frame.step = 3;
-      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_DECK_BOTTOM', cards: objects(looked), min: 0, max: Math.min(effect.toBottom, looked.length), look: lookMap(state, looked) });
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_DECK_BOTTOM', cards: objects(looked), min: 0, max: Math.min(effect.toBottom, looked.length), ...seen, look: lookMap(state, looked) });
       return;
     }
     if (effect.keep !== undefined && looked.length > 0) {
       frame.step = 3;
-      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_KEEP', cards: objects(looked), min: effect.keepExact ? Math.min(effect.keep, looked.length) : 0, max: Math.min(effect.keep, looked.length), look: lookMap(state, looked) });
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_KEEP', cards: objects(looked), min: effect.keepExact ? Math.min(effect.keep, looked.length) : 0, max: Math.min(effect.keep, looked.length), ...seen, look: lookMap(state, looked) });
       return;
     }
+    // Nothing looked at: nothing kept (not the cards an earlier choice of this resolution chose).
+    if (effect.keep !== undefined || effect.toBottom !== undefined) frame.context.chosen = [];
     frame.scratch = [...looked, -1];
     frame.step = 4;
+    return;
+  }
+  if (frame.step === 6) {
+    const out = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+    next();
+    if (out.length > 0) moveCards(ctx, out, { player: whose, zone: 'waitingRoom' }, { reason: 'EFFECT' });
     return;
   }
   if (frame.step === 3) {
@@ -1534,7 +1592,7 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
   const pool = (effect.keep !== undefined || effect.toBottom !== undefined ? frame.context.chosen.map((objectId) => findObject(state, objectId).instanceId) : looked).filter((id) => !ordered.includes(id));
   if (frame.step === 4 && pool.length > 1) {
     frame.step = 5;
-    ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_ORDER', cards: objects(pool), min: 1, max: 1, look: lookMap(state, [...looked]) });
+    ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_ORDER', cards: objects(pool), min: 1, max: 1, ...seen, look: lookMap(state, [...looked]) });
     return;
   }
   if (frame.step === 5) {
@@ -1605,7 +1663,7 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
       prompt: 'EFFECT_CHOOSE',
       cards: candidates.map((id) => getInstance(state, id).objectId),
       min: 0,
-      max: Math.min(effect.picks ?? 1, candidates.length),
+      max: Math.min(effect.picksX ? Math.max(0, context.x ?? 0) : (effect.picks ?? 1), candidates.length),
       look: lookMap(state, frame.scratch),
     });
     return;
@@ -1649,6 +1707,8 @@ function stepLookTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, effec
     return;
   }
   if (effect.reveal && !effect.handOrStock) for (const id of chosen) revealCard(ctx, id);
+  // この効果で控え室に置かれたカード: the cards looked at that go to the waiting room.
+  context.moved = looked.filter((id) => !chosen.includes(id) && !stocked.includes(id));
   moveBatch(
     ctx,
     looked.map((instanceId) => ({

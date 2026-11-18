@@ -54,6 +54,8 @@ export type PromptId =
   /** Choose the face-up level cards to turn face down as a cost. */
   | 'COST_LEVEL_FACE_DOWN'
   | 'COST_HAND_TO_CLOCK'
+  /** Choose the waiting-room cards to put under the clock as a cost. */
+  | 'COST_WAITING_ROOM_TO_CLOCK'
   /** Choose the characters on your stage to put into the waiting room as a cost. */
   | 'COST_CHARACTERS'
   /** 搭乗: choose the character this card goes under as a marker. */
@@ -62,6 +64,8 @@ export type PromptId =
   | 'EFFECT_PLAYER'
   /** 次のNつの効果のうち…: choose which of the effects to perform (options EFFECT_1, EFFECT_2, ...). */
   | 'EFFECT_OPTION'
+  /** 好きな順番で: which of the effects is done first (options EFFECT_1, EFFECT_2, …). */
+  | 'EFFECT_ORDER_FIRST'
   /** Put back on top of the deck: choose the card to go on top next (the first one chosen ends up on top). */
   | 'EFFECT_ORDER'
   /** …に好きな順番で置く: choose the card to put there next. */
@@ -78,6 +82,8 @@ export type PromptId =
   | 'EFFECT_DECK_BOTTOM'
   /** 山札か控え室を宣言し: which zone is declared (options DECLARE_DECK, DECLARE_WAITING_ROOM). */
   | 'EFFECT_DECLARE_ZONE'
+  /** Choose which of the cards looked at go to the waiting room (the others stay in the deck). */
+  | 'EFFECT_DECK_TO_WAITING_ROOM'
   /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */
@@ -153,17 +159,17 @@ export type Decision =
    * A "you may" question. `ability` is the ability number when it concerns a
    * card ability; `card` / `cardId` name the card as in AbilityOption. `look` as for SELECT_CARDS: hidden cards this player is looking at.
    */
-  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; cardId?: string; ability?: number; look?: Record<number, string> })
+  | (DecisionBase & { kind: 'CONFIRM'; prompt: PromptId; card?: number; cardId?: string; ability?: number; look?: Record<number, string>; /** whose deck the cards in `look` are in, when not the deciding player's (an effect that looks at the opponent's deck) */ lookDeck?: PlayerId })
   /**
    * Choose between `min` and `max` of the listed cards. `look` gives the
    * card ids of hidden cards the effect lets this player look at (e.g. the
    * whole deck when searching it, CR-4.8.1), by object id.
    */
-  | (DecisionBase & { kind: 'SELECT_CARDS'; prompt: PromptId; cards: number[]; min: number; max: number; look?: Record<number, string> })
+  | (DecisionBase & { kind: 'SELECT_CARDS'; prompt: PromptId; cards: number[]; min: number; max: number; look?: Record<number, string>; /** whose deck the cards in `look` are in, when not the deciding player's (an effect that looks at the opponent's deck) */ lookDeck?: PlayerId })
   /** Choose one of the player's own slots. */
   | (DecisionBase & { kind: 'SELECT_SLOT'; prompt: PromptId; slots: SlotId[] })
   /** Choose one of the listed options. */
-  | (DecisionBase & { kind: 'SELECT_OPTION'; prompt: PromptId; options: string[]; look?: Record<number, string> });
+  | (DecisionBase & { kind: 'SELECT_OPTION'; prompt: PromptId; options: string[]; look?: Record<number, string>; /** whose deck the cards in `look` are in, when not the deciding player's (an effect that looks at the opponent's deck) */ lookDeck?: PlayerId });
 
 export type DecisionKind = Decision['kind'];
 

@@ -296,16 +296,25 @@ export function compileText(card: OfficialCard): Compiled | null {
   const lines = ruleLines(card);
   if (lines.length === 0) return { zh: [card.kind === '2' ? '沒有能力的角色。' : '沒有文字。'], patterns: [] };
   if (card.kind === '3') {
-    // An event: one paragraph, compiled only when every sentence of it is a known effect (grammar.ts).
-    // "このカードは、…なら、手札からプレイできない。" first (on its own line or not), then the effect paragraph.
-    const whole = lines.length <= 2 ? lines.join('') : '';
-    const restricted = /^(このカードは、[^。]+?なら、手札からプレイできない)。(.+)$/.exec(whole);
+    // An event: compiled only when every sentence of it is a known effect (grammar.ts).
+    // "このカードは、…なら、手札からプレイできない。" first (on its own line or not), then the effect paragraphs.
+    const body = [...lines];
+    const restricted = /^(このカードは、[^。]+?なら、手札からプレイできない)。(.*)$/.exec(body[0] ?? '');
     const restriction = restricted ? readPlayRestriction(restricted[1]!) : null;
     if (restricted && !restriction) return null;
-    // The quoted effects of "次のNつの効果のうちあなたが選んだ1つを行う" stand on lines of their own.
-    const quotedAfter = lines.length > 1 && lines.slice(1).every((l) => /^『[^『』]*』$/.test(l));
-    const event = restricted ? readEvent(restricted[2]!) : lines.length === 1 || quotedAfter ? readEvent(lines.join('')) : null;
-    if (!event) return null;
+    if (restricted) body.splice(0, 1, ...(restricted[2] ? [restricted[2]] : []));
+    // The quoted effects of "次のNつの効果のうちあなたが選んだ1つを行う" stand on lines of their own and belong to the
+    // line before. Only one effect paragraph is read: the Comprehensive Rules do not say how the paragraphs of an
+    // event (ANM/W138-023, STS/W140-096, NIK/S135-023) relate to each other, so those events stay unsupported.
+    const paragraphs: string[] = [];
+    for (const line of body) {
+      if (/^『[^『』]*』$/.test(line) && paragraphs.length > 0) paragraphs[paragraphs.length - 1] += line;
+      else paragraphs.push(line);
+    }
+    if (paragraphs.length !== 1) return null;
+    const read = paragraphs.map((p) => readEvent(p));
+    if (read.some((r) => r === null)) return null;
+    const event = { effect: read.flatMap((r) => r!.effect), zh: read.map((r) => r!.zh).join('') };
     return {
       ...(restriction ? { abilities: [{ type: 'CONT', inHand: true, playOnlyIf: restriction.condition, apply: [] }] } : {}),
       effect: event.effect,
