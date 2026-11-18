@@ -313,6 +313,16 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       for (const found of autosOf(state, card, (t) => t.on === 'REVERSED' && (!t.inBattle || opponent !== null))) {
         wait(state, event.player, card, found, opponent ? opponent.objectId : null, null, card.objectId);
       }
+      // 他のあなたの…のキャラが【リバース】した時: the other cards in force of that character's player; about it.
+      if (card.location.zone === 'stage') {
+        for (const source of activeSources(state)) {
+          if (source.master !== card.location.player || source.instanceId === card.instanceId) continue;
+          const sourceCard = state.instances[source.instanceId] as CardInstance;
+          for (const found of autosOf(state, sourceCard, (t) => t.on === 'OTHER_REVERSED' && matchesFilter(state, card.instanceId, t.filter))) {
+            if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, card.objectId);
+          }
+        }
+      }
       // このカードのバトル相手が【リバース】した時
       if (opponent) {
         const placedNow = opponent.placedFromHandTurn !== undefined && opponent.placedFromHandTurn === state.turn?.number;

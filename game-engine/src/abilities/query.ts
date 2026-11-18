@@ -130,7 +130,11 @@ export function matchesFilter(
   if (filter.names !== undefined && !filter.names.includes(def.name)) return false;
   if (filter.levelAtMostOwnLevel) {
     const location = getInstance(state, instanceId).location;
-    if (levelOf(state, instanceId) > state.zones[location.player].level.length) return false;
+    if (levelOf(state, instanceId) > state.zones[location.player].level.length + (filter.ownLevelPlus ?? 0)) return false;
+  }
+  if (filter.rested) {
+    const inst = getInstance(state, instanceId);
+    if (inst.location.zone !== 'stage' || inst.orientation !== 'REST') return false;
   }
   if (filter.levelAboveMasterLevel) {
     // The player whose card it is: where it is now (CR-4.3.2), i.e. the side of the stage it is on.

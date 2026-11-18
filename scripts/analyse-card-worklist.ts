@@ -523,8 +523,8 @@ function fourStates(): string[] {
 }
 
 /** The batch whose progress file carries the four states as they are now. */
-const LATEST_BATCH = 13;
-for (const n of [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]) {
+const LATEST_BATCH = 14;
+for (const n of [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]) {
   const rows = batches.filter((b) => b.title.startsWith(`B${n}`));
   writeFileSync(
     join(ROOT, `reports/BATCH_${n}_PROGRESS.md`),

@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 564,
- "unsupported": 45,
+ "playable": 571,
+ "unsupported": 38,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -121,11 +121,11 @@
   {
    "set": "BDY_W135",
    "total": 100,
-   "playable": 92,
+   "playable": 94,
    "byKind": {
     "CHARACTER": {
      "total": 85,
-     "playable": 78
+     "playable": 80
     },
     "EVENT": {
      "total": 3,
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 93,
+   "playable": 95,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 79
+     "playable": 81
     },
     "EVENT": {
      "total": 4,
@@ -167,11 +167,11 @@
   {
    "set": "ANM_W138",
    "total": 100,
-   "playable": 91,
+   "playable": 92,
    "byKind": {
     "CHARACTER": {
      "total": 81,
-     "playable": 74
+     "playable": 75
     },
     "EVENT": {
      "total": 7,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 92,
+   "playable": 94,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 78
+     "playable": 80
     },
     "EVENT": {
      "total": 9,
@@ -216,25 +216,15 @@
   "playable": 58
  },
  "classes": {
-  "A": 13,
+  "A": 12,
   "B": 0,
-  "C": 12,
-  "D": 20,
+  "C": 9,
+  "D": 17,
   "E": 0
  },
  "topParts": [
   {
-   "part": "EFFECT: この能力はあなたの、思い出とマーカー置場のカードの合計がN枚以下なら使える",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
    "part": "SHAPE: （…）: （CXのレベルはNとして扱う。コストが必要なカードならコスト",
-   "unlocks": 1,
-   "cards": 1
-  },
-  {
-   "part": "EFFECT: あなたはN枚まで引き、自分の控え室の《…》のキャラをN枚まで選び、ストック置場に置き、自分の手札の「…」をN枚まで選び、このカードがいた枠に置き、そのターン中、そのキャラに次の能力を与える。『【自】【ターンN】 このカードのアタックの終わりに、あなたはこのカードを【スタンド】し、舞台のキャラのいない他の枠に動かす。』",
    "unlocks": 1,
    "cards": 1
   },
@@ -259,17 +249,27 @@
    "cards": 2
   },
   {
-   "part": "EFFECT: あなたは次の行動を行ってよい",
-   "unlocks": 0,
-   "cards": 2
-  },
-  {
    "part": "EFFECT: あなたは自分の山札の上からN枚を公開する。そのカードが《…》のキャラなら、そのターン中、このカードは次の能力を得る",
    "unlocks": 0,
    "cards": 1
   },
   {
    "part": "EFFECT: 『【永】 このカードがアタックする時、あなたはかわりに相手の後列のキャラをN枚選び、このカードはそのキャラを防御キャラとしてフロントアタックしてよい。』",
+   "unlocks": 0,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: 次の相手のターンの終わりまで、このカードは次の能力を得る",
+   "unlocks": 0,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: 『【永】 あなたは相手のキャラの【自】の効果によるN以下のダメージを受けない。』",
+   "unlocks": 0,
+   "cards": 1
+  },
+  {
+   "part": "COST: あなたの舞台の「…」をN枚このカードの下にマーカーとして表向きに置く",
    "unlocks": 0,
    "cards": 1
   }
