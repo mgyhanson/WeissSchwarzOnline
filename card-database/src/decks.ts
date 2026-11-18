@@ -149,7 +149,8 @@ export const BDY_TEST_DECK: TestDeck = {
     // 025 is the event 夢限大みゅーたいぷ (batch 8)
     // 014 (batch 12): pays with the choice-icon climax 愛は衝動 (026)
     // 031 (batch 13): its CX combo names TearJerker (062)
-    bdy('087', 3), bdy('031', 1), bdy('006', 2), bdy('019', 1), bdy('014', 2), bdy('036', 2), bdy('025', 1),
+    // 005 and 058 (batch 14): two trigger checks with コハク (not in this deck: only its 【永】 works here); rested at the encore step
+    bdy('087', 2), bdy('005', 1), bdy('031', 1), bdy('006', 1), bdy('058', 1), bdy('019', 1), bdy('014', 2), bdy('036', 2), bdy('025', 1),
     // Level 2 (8)
     // 061 (batch 10) is the event アメアメいざない大さくせん
     bdy('020', 3), bdy('051', 1), bdy('061', 1), bdy('089', 1), bdy('039', 1), bdy('021', 1),
@@ -171,11 +172,13 @@ export const STS_TEST_DECK: TestDeck = {
     // Level 0 (18)
     // 008 and 014 (batch 8): the attacking character's soul, moving the opponent's characters
     // 016, 040 and 077 (batch 9): the cards put into the waiting room from the deck, front-attacked, memory
-    '025': 4, '045': 2, '008': 2, '054': 2, '014': 2, '073': 1, '016': 1, '040': 1, '077': 1,
+    // 001 (batch 14): 加速's cost (a waiting-room card under the clock); its 【起】 uses the 回想 of 077
+    '025': 3, '001': 1, '045': 2, '008': 2, '054': 2, '014': 2, '073': 1, '016': 1, '040': 1, '077': 1,
     // Level 1 (14)
     // 063 (batch 10) is the counter event 星ノ塔スタッフ ベアトリス
     // 019 (batch 13): gives 黎明告げる凱旋歌 (031) the bounce icon
-    '011': 2, '027': 2, '041': 3, '043': 2, '063': 1, '048': 3, '019': 1,
+    // 060 (batch 14): needs a standby climax (none in this deck) and a marker
+    '011': 1, '060': 1, '027': 2, '041': 3, '043': 2, '063': 1, '048': 3, '019': 1,
     // Level 2 (8)
     // 013 (batch 13): looks at the opponent's deck
     '022': 2, '023': 2, '052': 2, '093': 1, '013': 1,
@@ -201,7 +204,8 @@ export const ANM_TEST_DECK: TestDeck = {
     // 087 and 084 (batch 11): 087 changes places with 084 from memory during the attack phase
     // 069 and 083 (batch 12): ＋Ｘ by the opponent's characters; －Ｘ by the other 《風》 characters
     // 019 (batch 13): 加速 (a waiting-room card under the clock)
-    '020': 1, '041': 1, '057': 1, '029': 2, '030': 1, '046': 1, '087': 2, '084': 1, '069': 1, '083': 1, '019': 1,
+    // 007 (batch 14): its CX combo names わけ与える命 (not in this deck); its 【永】 works
+    '020': 1, '041': 1, '057': 1, '029': 2, '030': 1, '046': 1, '087': 1, '084': 1, '069': 1, '083': 1, '019': 1, '007': 1,
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
     // Level 3 (6): five characters and the event
@@ -223,7 +227,8 @@ export const NIK_TEST_DECK: TestDeck = {
     // 099 (batch 9): one card from each deck, the levels compared
     // 016 and 017 (batch 10): 絆 with two names, the waiting room at the start of the first turn
     // 037 and 044 (batch 13): Ｘ from the waiting room; two effects in the order the player chooses
-    '011': 2, '029': 2, '037': 1, '044': 1, '031': 2, '099': 1, '012': 2, '059': 1, '016': 1, '083': 2, '087': 1, '017': 1, '093': 1,
+    // 018 (batch 14): exchanges OLD TALES (053) between the deck and the hand
+    '011': 2, '029': 2, '037': 1, '044': 1, '031': 1, '018': 1, '099': 1, '012': 2, '059': 1, '016': 1, '083': 2, '087': 1, '017': 1, '093': 1,
     // Level 1 (12)
     // 101 (batch 12): ＋Ｘ by your level
     '008': 4, '072': 1, '101': 1, '104': 2, '073': 2, '074': 2,
