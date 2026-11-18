@@ -35,6 +35,7 @@ export function filterJa(filter: CardFilter | undefined, where: 'STAGE' | 'ZONE'
   if (keys === 'nameIncludes' || keys === 'kind,nameIncludes') return `カード名に「${filter.nameIncludes}」を含むキャラ`;
   if (keys === 'levelAboveMasterLevel') return 'レベルが相手のレベルより高いキャラ';
   if (keys === 'kind,levelAtMostOwnLevel' && filter.kind === 'CHARACTER') return '自分のレベル以下のレベルのキャラ';
+  if (keys === 'kind,levelAtMostOwnLevel,ownLevelPlus' && filter.kind === 'CHARACTER') return `自分のレベル＋${filter.ownLevelPlus}以下のレベルのキャラ`;
   if (keys === 'hasRecollection,kind' && filter.kind === 'CHARACTER') return '『回想』を持つキャラ';
   if (keys === 'hasLink,kind' && filter.kind === 'CHARACTER') return `『【リンク】 ${filter.hasLink}』を持つキャラ`;
   const rest = { ...filter };
@@ -76,6 +77,9 @@ export function triggerJa(trigger: Trigger): string {
       // joins as "…終わりか", and the next part keeps its subject.
       if (JSON.stringify(trigger.of) === JSON.stringify([{ on: 'REVERSED' }, { on: 'BATTLE_OPPONENT_REVERSED' }])) return 'このカードかこのカードのバトル相手が【リバース】した時';
       const texts = trigger.of.map(triggerJa);
+      // あなたの…のCXがCX置場に置かれた時かトリガーした時: the same climax said once.
+      const [placed, checked] = trigger.of;
+      if (trigger.of.length === 2 && placed?.on === 'CLIMAX_PLACED' && checked?.on === 'TRIGGER_CHECK_REVEALS' && JSON.stringify(placed.filter) === JSON.stringify(checked.filter)) return `${texts[0]}か${texts[1]!.replace(/^.*のCXが/, '')}`;
       const shared = texts.every((t) => t.startsWith('このカードが'));
       return texts.map((t, i) => (i > 0 && shared ? t.replace(/^このカードが/, '') : t)).join('か').replace(/終わりにか/, '終わりか');
     }
@@ -101,7 +105,9 @@ export function triggerJa(trigger: Trigger): string {
       if (trigger.turn !== 'YOURS') return fail('trigger', trigger);
       return trigger.phase === 'CLIMAX' ? 'あなたのCXフェイズの始めに' : trigger.phase === 'ATTACK' ? 'あなたのアタックフェイズの始めに' : fail('trigger', trigger);
     case 'STEP_START':
-      return trigger.step === 'ENCORE' && trigger.turn === 'YOURS' ? 'あなたのアンコールステップの始めに' : fail('trigger', trigger);
+      return trigger.step === 'ENCORE' && trigger.turn === 'YOURS' ? 'あなたのアンコールステップの始めに' : trigger.step === 'ENCORE' && trigger.turn === 'ANY' ? 'アンコールステップの始めに' : fail('trigger', trigger);
+    case 'OTHER_REVERSED':
+      return `他のあなたの${filterJa(trigger.filter, 'STAGE')}が【リバース】した時`;
     case 'THIS_FRONT_ATTACKED':
       return 'このカードがフロントアタックされた時';
     case 'OTHER_FRONT_ATTACKED':
@@ -202,6 +208,7 @@ function oneConditionJa(c: Condition): string {
     case 'COUNT': {
       if (c.where === 'YOUR_FRONT_ROW' && c.other && c.max === 0 && !c.filter && c.min === undefined) return '他のあなたの前列のキャラがいない';
       if (c.where === 'YOUR_BACK_ROW' && c.other && c.max === 0 && !c.filter && c.min === undefined) return '他のあなたの後列のキャラがいない';
+      if (c.where === 'YOUR_FRONT_ROW' && c.other && c.max === 0 && JSON.stringify(c.filter) === JSON.stringify({ kind: 'CHARACTER', rested: true }) && c.min === undefined) return '他のあなたの前列の【レスト】しているキャラがいない';
       const bound = c.min !== undefined && c.max === undefined ? (c.min === 1 && c.where !== 'YOUR_WAITING_ROOM' && c.where !== 'YOUR_HAND' && c.where !== 'YOUR_MEMORY' ? (c.where === 'YOUR_CLIMAX' ? 'がある' : 'がいる') : `が${c.min}枚以上`) : c.max !== undefined && c.min === undefined ? `が${c.max}枚以下` : fail('condition', c);
       if (c.where === 'YOUR_MEMORY_AND_MARKERS') return c.filter ? fail('condition', c) : c.max === 0 && c.min === undefined ? 'あなたの、思い出とマーカー置場にカードがない' : `あなたの、思い出とマーカー置場のカードの合計${bound}`;
       if (c.where === 'YOUR_WAITING_ROOM') return `あなたの控え室の${filterJa(c.filter, 'ZONE')}${bound}`;
@@ -334,7 +341,7 @@ function actionJa(effects: readonly Effect[], i: number, target: Target): { text
   if (e.do === 'MOVE' && sameTarget(e.target, target) && e.to === 'DECK' && effects[i + 1]?.do === 'SHUFFLE') return { text: '山札に戻し、その山札をシャッフルする', used: 2 };
   if (e.do === 'MOVE' && sameTarget(e.target, target) && e.to === 'UNDER_SELF') return { text: `このカードの下にマーカーとして${e.face === 'UP' ? '表' : '裏'}向きに置く`, used: 1 };
   if (e.do === 'MOVE' && sameTarget(e.target, target) && !e.reveal && !e.rested && DESTINATION[e.to]) return { text: e.orTo ? `${DESTINATION[e.to]}か${DESTINATION[e.orTo] ?? fail('destination', e)}` : DESTINATION[e.to]!, used: 1 };
-  const row = (x: Effect | undefined) => (x?.do === 'MOVE_TO_SLOT' && sameTarget(x.target, target) ? `${x.row === 'FRONT' ? '前列' : '後列'}のキャラのいない枠に動かす` : null);
+  const row = (x: Effect | undefined) => (x?.do === 'MOVE_TO_SLOT' && sameTarget(x.target, target) ? (x.row === 'ANY' ? '舞台のキャラのいない他の枠に動かす' : `${x.row === 'FRONT' ? '前列' : '後列'}のキャラのいない枠に動かす`) : null);
   if (e.do === 'ORIENT' && sameTarget(e.target, target) && row(effects[i + 1])) return { text: `${ORIENT[e.to]!.replace(/する$/, '')}し、${row(effects[i + 1])}`, used: 2 };
   if (row(e)) return { text: row(e)!, used: 1 };
   if (e.do === 'ORIENT' && sameTarget(e.target, target)) return { text: ORIENT[e.to]!, used: 1 };
@@ -716,6 +723,11 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       i += 2;
       continue;
     }
+    if (e.do === 'GRANT' && e.target.who === 'MOVED' && !e.target.where && !e.until && effects[i - 1]?.do === 'MOVE') {
+      sentences.push('そのターン中、そのキャラに次の能力を与える', `『${abilityJa(e.ability)}』`);
+      i++;
+      continue;
+    }
     if (e.do === 'MODIFY' && e.target.who === 'MOVED' && e.said === 'THAT_CHARACTER' && !e.until && !e.per && !e.perCount && !e.timesX) {
       sentences.push(`そのターン中、そのキャラの${STAT[e.stat]}を${signed(e.amount)}`);
       i++;
@@ -750,7 +762,11 @@ export function effectsJa(effects: readonly Effect[]): string[] {
       sentences.push(`${time}、${inner[0]}`, ...inner.slice(1));
     } else if (e.do === 'OWNER_PLACES' && e.target.who === 'MOVED' && e.target.where === 'MEMORY') sentences.push('相手は自分の思い出置場のそのキャラを、舞台の好きな枠に置く');
     else if (e.do === 'EXCHANGE_LEVEL_WAITING_ROOM' && e.count === 1) sentences.push('自分のレベル置場のカードと控え室のカードを1枚ずつ選び、入れ替える');
-    else if (e.do === 'SWAP_DECK_HAND' && effects[i]?.do === 'SHUFFLE' && Object.keys(e.filter).join() === 'kind' && e.filter.kind === 'CLIMAX' && !e.handFilter) {
+    else if (e.do === 'SWAP_DECK_HAND' && effects[i]?.do === 'SHUFFLE' && Object.keys(e.filter).join() === 'names' && !e.handFilter) {
+      const names = e.filter.names!.map((x) => `「${x}」`).join('か');
+      sentences.push(`自分の山札を見て${names}を1枚まで選んで公開し、自分の手札の、${names}を1枚まで選んで公開し、それらのCXを入れ替え、その山札をシャッフルする`);
+      i++;
+    } else if (e.do === 'SWAP_DECK_HAND' && effects[i]?.do === 'SHUFFLE' && Object.keys(e.filter).join() === 'kind' && e.filter.kind === 'CLIMAX' && !e.handFilter) {
       sentences.push('自分の山札を見てCXを1枚まで選んで公開し、自分の手札のCXを1枚まで選んで公開し、それらのCXを入れ替え、その山札をシャッフルする');
       i++;
     } else if (e.do === 'MOVE' && e.target.who === 'MOVED' && e.target.where === 'MEMORY') sentences.push(`自分の思い出置場のそのキャラを、${actionJa(effects, i - 1, e.target).text}`);
@@ -1112,7 +1128,8 @@ export function abilityJa(ability: Ability): string {
     if (ability.timing !== 'MAIN' || ability.level !== undefined) return fail('ability', ability);
     const keywords = (ability.keywords ?? []).map((k) => KEYWORD[k] ?? fail('keyword', k)).join('');
     const limit = ability.limit !== undefined ? `【ターン${ability.limit}】${keywords ? ` ${keywords}` : ''}` : ` ${keywords}`;
-    return `【起】${limit}［${costsJa(ability.cost)}］ ${effectsJa(ability.effect).join('。')}。`;
+    const usable = ability.condition ? `この能力は${conditionJa(ability.condition).replace(/なら、$/, '')}なら使える。` : '';
+    return `【起】${limit}［${costsJa(ability.cost)}］ ${usable}${effectsJa(ability.effect).join('。')}。`;
   }
   return autoJa(ability);
 }
@@ -1206,6 +1223,8 @@ export function sameWords(text: string): string {
     .replace(/枚を、/g, '枚を')
     .replace(/ダメージを与え、(?!あなたはコストを払ってよい|コストを払ってよい)/g, 'ダメージを与える。')
     .replace(/枚まで引き、/g, '枚まで引く。')
+    // "トリガーチェックをN回行い、…" says the same as "…N回行う。…".
+    .replace(/回行い、/g, '回行う。')
     // "次の行動を行う。『X』" (once) says the same as X itself.
     .replace(/次の行動を行う。『([^『』]+?)。?』/g, '$1')
     .replace(/あなたは/g, '')
