@@ -159,8 +159,9 @@ function leakProblems(state: GameState, label: string): string[] {
     if (decision?.mine && (decision.decision.kind === 'SELECT_CARDS' || decision.decision.kind === 'CONFIRM')) {
       for (const objectId of Object.keys(decision.decision.look ?? {}).map(Number)) {
         const inst = state.instances.find((i) => i.objectId === objectId);
-        if (!inst || inst.location.zone !== 'deck' || inst.location.player !== viewer) {
-          problems.push(`${label}: P${viewer} is shown a card outside their own deck`);
+        // The viewer's own deck, or the deck the decision says the effect looks at (the opponent's, CR-8.6.6).
+        if (!inst || inst.location.zone !== 'deck' || inst.location.player !== (decision.decision.lookDeck ?? viewer)) {
+          problems.push(`${label}: P${viewer} is shown a card outside their own deck (or the deck the effect looks at)`);
         } else if (decision.decision.look![objectId] !== inst.cardId) {
           problems.push(`${label}: P${viewer} is shown the wrong card for a card they look at`);
         }
