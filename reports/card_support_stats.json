@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 575,
+    "playable": 579,
     "handWritten": 128,
-    "fromPatterns": 447,
-    "unsupported": 34,
-    "abilitiesRun": 1044
+    "fromPatterns": 451,
+    "unsupported": 30,
+    "abilitiesRun": 1054
   },
   "sets": [
     {
@@ -83,8 +83,8 @@
       "product": "ブースターパック anemoi",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 89,
-      "unsupported": 8,
+      "fromPatterns": 91,
+      "unsupported": 6,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 95,
-      "unsupported": 15,
+      "fromPatterns": 97,
+      "unsupported": 13,
       "pending": 0,
       "withoutText": 0
     }

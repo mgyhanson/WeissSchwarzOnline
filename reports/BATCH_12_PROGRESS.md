@@ -7,5 +7,5 @@
 | 2026-11-18 | B12-1 新的Ｘ計算方式、加入手牌或放到 Stock、宣言山札或控え室、後列計數 | 「Ｘはそのキャラのソウル×N／あなたのレベル(×N)／相手のキャラの枚数＋N／それらのカードの…の枚数」、選擇的角色＋Ｘ／－Ｘ及 Level －Ｘ、上からＸ枚まで見て、後列的每張角色、公開或查看後加入手牌或放到 Stock、宣言山札或控え室後搜尋、該回合得到特徵、兩種新 Cost（GUP 102／098／020／059／032／107、ANM 083／069、NIK 101、BDY 043／014）；引擎情境測試 18 個、真實卡牌測試 26 個、變異測試 17／17 | 547 | 58 | 62 | 110 | 90 | 90 | 88 | 86 | 完整 QA、報告、PR |
 | 2026-11-18 | B12-2 測試卡組、規則登記表、報告及 QA | GUP 102／032／107／098／020、BDY 043／014、ANM 069／083、NIK 101 加入測試卡組；規則登記表第 14 節加入 Batch 12 說明（狀態不變）；完整 QA 一次通過（check 1495／8／0；soak 4000；validate 609/609；qa:ui 25/25；qa:online 40 項全部通過；build 成功） | 547 | 58 | 62 | 110 | 90 | 90 | 88 | 86 | 下一批：見 RULES_IMPLEMENTATION_REPORT.md 的 Batch 12 章節及 CARD_WORKLIST.md |
 
-四種狀態的現時卡號清單見 `reports/BATCH_15_PROGRESS.md`（由程式按現況計算）；本批完成時的數字記錄在 `reports/RULES_IMPLEMENTATION_REPORT.md` 的相應章節。
+四種狀態的現時卡號清單見 `reports/BATCH_16_PROGRESS.md`（由程式按現況計算）；本批完成時的數字記錄在 `reports/RULES_IMPLEMENTATION_REPORT.md` 的相應章節。
 

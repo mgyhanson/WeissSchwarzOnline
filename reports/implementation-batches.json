@@ -943,5 +943,47 @@
    "ANM_W138": 92,
    "NIK_S135": 97
   }
+ },
+ {
+  "date": "2026-11-19",
+  "title": "B16-1 卡名改變、手牌或 Marker 選卡、放到思い出後分別放回舞台、控え室中的【起】、由【起】放到舞台時的觸發",
+  "done": "4 張卡可對戰（NIK 010（Level 3）／033、ANM 071／018）；引擎情境測試 9 個、真實卡牌測試 10 個；每一行可寫回官方日文；變異測試 11 個全部令測試失敗",
+  "next": "測試卡組、規則登記表、報告及 QA",
+  "playable": 579,
+  "unsupported": 30,
+  "level3Playable": 60,
+  "level3Open": 3,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 113,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 94,
+   "STS_W140": 96,
+   "ANM_W138": 94,
+   "NIK_S135": 99
+  }
+ },
+ {
+  "date": "2026-11-19",
+  "title": "B16-2 測試卡組、規則登記表、報告及 QA",
+  "done": "NIK-010、NIK-033 加入 test-nik，ANM-018、ANM-071 加入 test-anm；規則登記表 Batch 16 說明；報告；完整 QA（check 1657/8/0、soak、validate 609/609、qa:ui 25/25、qa:online 40/40、build）",
+  "next": "NIK-086、BDY-052；官方 Q&A 待查的卡",
+  "playable": 579,
+  "unsupported": 30,
+  "level3Playable": 60,
+  "level3Open": 3,
+  "bySet": {
+   "SY_W08_TD": 17,
+   "5HY_W83_TD_ICHIKA": 18,
+   "SAO_S20": 30,
+   "GUP_W141": 113,
+   "SAO_OTHERS": 18,
+   "BDY_W135": 94,
+   "STS_W140": 96,
+   "ANM_W138": 94,
+   "NIK_S135": 99
+  }
  }
 ]
