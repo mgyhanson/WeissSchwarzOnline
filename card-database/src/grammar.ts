@@ -211,6 +211,7 @@ const TRIGGERS: [RegExp, (m: RegExpExecArray) => Out<Trigger>][] = [
   ],
   // アンコールステップの始めに (no player said): the encore step of every turn.
   [/^このカードの正面のキャラがアタックした時$/, () => out({ on: 'FACING_ATTACKS' }, '這張卡正面的角色攻擊時')],
+  [/^このカードが手札から舞台に置かれた時か「([^」]+)」の【起】の効果で舞台に置かれた時$/, (m) => out({ on: 'PLACED_ON_STAGE', from: 'HAND_OR_ACT', actOf: m[1]! }, `這張卡由手牌放到舞台時，或由「${m[1]}」的【起】效果放到舞台時`)],
   [/^アンコールステップの始めに$/, () => out({ on: 'STEP_START', step: 'ENCORE', turn: 'ANY' }, '每個回合的 Encore 步驟開始時')],
   [/^あなたのCXがトリガーした時$/, () => out({ on: 'TRIGGER_CHECK_REVEALS', filter: { kind: 'CLIMAX' } }, '我方 Trigger Check 翻出 Climax 時')],
   [/^相手のCXがCX置場に置かれた時$/, () => out({ on: 'CLIMAX_PLACED', opponent: true }, '對手的 Climax 放到 Climax 置場時')],
@@ -448,6 +449,7 @@ function parseOneCondition(text: string): Out<Condition> {
   if ((m = /^すべてのプレイヤーのレベルが(\d+)以上$/.exec(text))) return out({ if: 'ALL', of: [{ if: 'LEVEL', min: n(m[1]) }, { if: 'LEVEL', whose: 'OPPONENT', min: n(m[1]) }] }, `所有玩家 Level ${m[1]} 或以上`);
   if (text === '他のあなたの前列のキャラがいない') return out({ if: 'COUNT', where: 'YOUR_FRONT_ROW', other: true, max: 0 }, '我方前列沒有其他角色');
   if (text === '他のあなたの前列の【レスト】しているキャラがいない') return out({ if: 'COUNT', where: 'YOUR_FRONT_ROW', other: true, filter: { kind: 'CHARACTER', rested: true }, max: 0 }, '我方前列沒有其他 Rest 中的角色');
+  if (text === 'このカードが【スタンド】している') return out({ if: 'SELF_STANDING' }, '這張卡是 Stand 狀態');
   if (text === '他のあなたの後列のキャラがいない') return out({ if: 'COUNT', where: 'YOUR_BACK_ROW', other: true, max: 0 }, '我方後列沒有其他角色');
   if ((m = /^このカードの(ソウル|パワー)が(\d+)(以下|以上)$/.exec(text))) return out({ if: 'SELF_STAT', stat: m[1] === 'ソウル' ? 'SOUL' : 'POWER', ...(m[3] === '以下' ? { max: n(m[2]) } : { min: n(m[2]) }) }, `這張卡的 ${m[1] === 'ソウル' ? 'Soul' : 'Power'} ${m[2]} ${m[3] === '以下' ? '或以下' : '或以上'}`);
   if (text === '相手のCX置場にCXがある') return out({ if: 'CLIMAX_IN_PLAY', opponent: true }, '對手 Climax 置場有 Climax');
@@ -749,13 +751,23 @@ function parseSentence(sentence: string, battle: boolean): Out<Effect[]> {
   if ((m = new RegExp(`^(他の)?自分の(.+?)を${COUNT}選び、(.+)$`).exec(text)) && !/^(控え室|手札|クロック|山札|思い出|ストック)/.test(m[2]!)) {
     const filter = parseFilter(m[2]!, 'STAGE');
     const action = filter && parseAction(m[5]!, { who: 'CHOSEN' }, '');
-    if (filter && action && (!filter.data || filter.data.kind === 'CHARACTER' || (filter.data.names && Object.keys(filter.data).length === 1))) {
+    if (filter && action && (!filter.data || filter.data.kind === 'CHARACTER' || ((filter.data.names || filter.data.name) && Object.keys(filter.data).length === 1))) {
       return out(
         [{ do: 'CHOOSE', from: 'YOUR_STAGE', ...(filter.data ? { filter: filter.data } : {}), ...(m[1] ? { other: true } : {}), ...range(m[3], m[4]) }, ...action.data],
         `選我方${m[1] ? '其他 ' : ''}${countZh(m[3], m[4])}${filter.zh}，${action.zh}`,
       );
     }
   }
+  // 自分の、手札かこのカードの下のマーカーの…を1枚選び、…
+  if ((m = new RegExp(`^自分の、手札かこのカードの下のマーカーの(.+?)を${COUNT}選び、(.+)$`).exec(text))) {
+    const filter = parseFilter(m[1]!, 'ZONE');
+    const action = filter && parseAction(m[4]!, { who: 'CHOSEN' }, '');
+    if (filter?.data && action) return out([{ do: 'CHOOSE', from: 'YOUR_HAND_OR_SELF_MARKERS', filter: filter.data, ...range(m[2], m[3]) }, ...action.data], `從自己手牌或這張卡下面的 Marker 選${countZh(m[2], m[3])}${filter.zh}，${action.zh}`);
+  }
+  // 他の自分のキャラを1枚と、このカードを選び、思い出にする: the two together.
+  if (text === '他の自分のキャラを1枚と、このカードを選び、思い出にする') return out([{ do: 'CHOOSE', from: 'YOUR_STAGE', other: true, filter: { kind: 'CHARACTER' }, min: 1, max: 1 }, { do: 'MOVE', target: { who: 'CHOSEN_AND_SELF' }, to: 'MEMORY' }], '選我方另外 1 張角色和這張卡，放到思い出');
+  if (text === '自分の思い出置場のそれらのキャラを、舞台の別々の枠に置く') return out([{ do: 'PLACE_EACH_IN_SLOT', target: { who: 'MOVED', where: 'MEMORY' } }], '把思い出中的那些角色各自放到舞台上不同的枠');
+  if (text === '控え室のこのカードを舞台のキャラのいない枠に置く') return out([{ do: 'PLACE_IN_EMPTY_SLOT', target: { who: 'SELF' }, fromWaitingRoom: true }], '把控え室的這張卡放到舞台上沒有角色的枠');
   if ((m = new RegExp(`^自分の控え室のその手札に戻したキャラと同じカード名のキャラを${COUNT}選び、(.+)$`).exec(text))) {
     const action = parseAction(m[3]!, { who: 'CHOSEN' }, '');
     if (action) return out([{ do: 'CHOOSE', from: 'YOUR_WAITING_ROOM', filter: { kind: 'CHARACTER' }, sameNameAsMoved: true, ...range(m[1], m[2]) }, ...action.data], `從自己的控え室選${countZh(m[1], m[2])}與剛才放回手牌的角色同名的角色，${action.zh}`);
@@ -2035,6 +2047,16 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
     return { ability: { type: 'CONT', link: parts.effects[0]!, apply: [] }, zh: `【永】【Link】${parts.effects[0]}（本身沒有效果，供其他能力參照）。` };
   }
   // マーカー置場にこのカードがあるなら: the ability works from the marker zone, on the character that has the marker.
+  // 控え室にこのカードがあ(る|り、…)なら、このカードは次の能力を得る。『【起】…』: a 【起】 the card has in the waiting room (CR-2.12.2.3).
+  const inWaiting = /^控え室にこのカードがあ(?:る|り、(.+))$/.exec(parts.conditions[0] ?? '');
+  if (inWaiting && parts.marks.length === 0 && !parts.cost) {
+    const inner = continuousBody({ ...parts, conditions: [...(inWaiting[1] ? [inWaiting[1]] : []), ...parts.conditions.slice(1)] }, unknown);
+    if (!inner || inner.ability.type !== 'CONT' || inner.ability.apply.length > 0 || inner.ability.grant || !inner.ability.gains?.length || inner.ability.gains.some((g) => g.type !== 'ACT')) {
+      unknown.push({ part: 'SHAPE', text: '控え室にこのカードがあり' });
+      return null;
+    }
+    return { ability: { ...inner.ability, zone: 'WAITING_ROOM' }, zh: inner.zh.replace(/^【永】/, '【永】這張卡在控え室時，') };
+  }
   const fromMarker = parts.conditions[0] === 'マーカー置場にこのカードがある';
   if (fromMarker && parts.marks.length === 0 && !parts.cost && parts.effects.length === 1) {
     const rest = parts.conditions.slice(1);
@@ -2326,6 +2348,12 @@ function continuousBody(input: LineParts, unknown: Unknown[]): GrammarLine | nul
       ability: { type: 'CONT', ...(condition.data ? { condition: condition.data } : {}), noOpponentCounters: powerNoBackup[2] ? 'EVENT_AND_BACKUP' : 'BACKUP', apply: powerChanges.map((c) => ({ target: { who: 'SELF' as const }, stat: c.stat, amount: c.amount })) },
       zh: `【永】${condition.zh ? `${condition.zh}，` : ''}這張卡 ${powerChanges.map((c) => c.zh).join('、')}，而且這張卡戰鬥中，對手不能從手牌使用${powerNoBackup[2] ? ' Event 及' : ''}助太刀。`,
     };
+  }
+  // "このカードはカード名の「A」をすべて失い、このカードのカード名は「B」として扱う" (while the condition holds).
+  const renamed = /^このカードはカード名の「([^」]+)」をすべて失い、このカードのカード名は「([^」]+)」として扱う$/.exec(sentence);
+  if (renamed && given.length === 0) {
+    if (unknown.length > 0 || !condition) return null;
+    return { ability: { type: 'CONT', ...(condition.data ? { condition: condition.data } : {}), nameAs: renamed[2]!, saidLost: renamed[1]!, apply: [] }, zh: `【永】${condition.zh ? `${condition.zh}，` : ''}這張卡失去卡名「${renamed[1]}」，卡名當作「${renamed[2]}」。` };
   }
   const blockCounter = /^このカードのバトル中、相手は(イベントと)?『助太刀』を手札からプレイできない$/.exec(sentence);
   if (blockCounter && given.length === 0) {
