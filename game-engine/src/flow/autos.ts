@@ -164,7 +164,14 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
           card,
           (t) =>
             t.on === 'PLACED_ON_STAGE' &&
-            (t.from === undefined || (t.from === 'HAND' ? fromHand : t.from === 'HAND_OR_MEMORY' ? fromHand || event.from.zone === 'memory' : fromHand || byChange)),
+            (t.from === undefined ||
+              (t.from === 'HAND'
+                ? fromHand
+                : t.from === 'HAND_OR_MEMORY'
+                  ? fromHand || event.from.zone === 'memory'
+                  : t.from === 'HAND_OR_ACT'
+                    ? fromHand || (event.byAct !== undefined && event.byAct === t.actOf)
+                    : fromHand || byChange)),
         );
         for (const found of placed) wait(state, event.to.player, card, found, null);
         // 絆: "手札から舞台またはプレイされて舞台に置かれた時" (CR-10.4.1): also when it is played from elsewhere.

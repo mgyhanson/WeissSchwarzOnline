@@ -46,6 +46,8 @@ export interface MoveOptions {
   /** Non-default facing; only allowed for level, memory and marker zones. */
   face?: Face;
   reason?: MoveReason;
+  /** The name of the card whose 【起】 moves this card (…の【起】の効果で舞台に置かれた時). */
+  byAct?: string;
 }
 
 function relocate(
@@ -122,6 +124,7 @@ function relocate(
     face: inst.face,
     visibleBefore,
     visibleAfter: visibilityPair(inst),
+    ...(opts.byAct !== undefined ? { byAct: opts.byAct } : {}),
     reason,
     ...(stageGrants.length > 0 ? { stageGrants } : {}),
   };

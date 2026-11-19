@@ -87,6 +87,14 @@ export function listMainActions(state: GameState, player: PlayerId): MainAction[
     }
   }
 
+  // 【起】 abilities a waiting-room card has there (控え室にこのカードがあり、…なら、このカードは次の能力を得る).
+  for (const id of zones.waitingRoom) {
+    const inst = getInstance(state, id);
+    for (const { index, ability } of activatedAbilitiesOf(state, id)) {
+      if (ability.timing === 'MAIN' && canActivate(state, player, inst, index, ability)) actions.push({ type: 'ACTIVATE', card: inst.objectId, ability: index });
+    }
+  }
+
   for (const id of zones.waitingRoom) {
     if (!canPlayFromWaitingRoom(state, player, id)) continue;
     const card = getInstance(state, id).objectId;
@@ -230,7 +238,8 @@ function activate(ctx: Ctx, player: PlayerId, objectId: number, index: number): 
     throw new Error('Engine bug: tried to play an activated ability that cannot be played');
   }
   countUse(state, source.objectId, index);
-  playAbility(ctx, withKeywords(abilityContext(player, source), ability), index, ability.cost, ability.effect);
+  // …の【起】の効果で: the moves of this resolution know whose 【起】 makes them.
+  playAbility(ctx, { ...withKeywords(abilityContext(player, source), ability), actOf: getDef(state, source.instanceId).name }, index, ability.cost, ability.effect);
 }
 
 /**

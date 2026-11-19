@@ -86,6 +86,8 @@ export interface CardMovedEvent {
   face: Face;
   /** Whether each player could see the card before / after the move. */
   visibleBefore: [boolean, boolean];
+  /** The name of the card whose 【起】 made the move. */
+  byAct?: string;
   visibleAfter: [boolean, boolean];
   reason: MoveReason;
   /**

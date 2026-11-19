@@ -982,13 +982,13 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
       next();
-      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT' });
+      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT', ...(context.actOf !== undefined ? { byAct: context.actOf } : {}) });
       context.placed = [...(context.placed ?? []), getInstance(state, id).objectId];
       return;
     }
 
     case 'PLACE_IN_EMPTY_SLOT': {
-      const [id] = resolveTarget(state, context, effect.target);
+      const [id] = resolveTarget(state, context, effect.target).filter((candidate) => !effect.fromWaitingRoom || getInstance(state, candidate).location.zone === 'waitingRoom');
       const owner = id === undefined ? master : getInstance(state, id).owner;
       const empty = SLOTS.filter((slot) => state.zones[owner].stage[slot].length === 0);
       if (id === undefined || empty.length === 0) {
@@ -1002,7 +1002,7 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       }
       const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
       next();
-      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT' });
+      moveCard(ctx, id, { player: owner, zone: 'stage', slot }, { reason: 'EFFECT', ...(context.actOf !== undefined ? { byAct: context.actOf } : {}) });
       context.placed = [...(context.placed ?? []), getInstance(state, id).objectId];
       return;
     }
@@ -1267,6 +1267,28 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       const chosen = Number(takeAnswer(ctx, 'SELECT_OPTION').option.slice('EFFECT_'.length)) - 1;
       next();
       pushEffects(ctx, effect.options[chosen] ?? [], context);
+      return;
+    }
+
+    case 'PLACE_EACH_IN_SLOT': {
+      // One card at a time; the slots already used by this effect are not offered again (別々の枠).
+      const used = frame.scratch.map((k) => SLOTS[k]!);
+      const left = resolveTarget(state, context, effect.target).filter((id) => getInstance(state, id).location.zone !== 'stage');
+      const free = SLOTS.filter((slot) => !used.includes(slot));
+      if (left.length === 0 || free.length === 0) {
+        next();
+        return;
+      }
+      if (frame.step === 0) {
+        frame.step = 1;
+        ask(ctx, { kind: 'SELECT_SLOT', player: master, prompt: 'EFFECT_SLOT', slots: free });
+        return;
+      }
+      frame.step = 0;
+      const slot = takeAnswer(ctx, 'SELECT_SLOT').slot;
+      frame.scratch.push(SLOTS.indexOf(slot));
+      const id = left[0]!;
+      moveCard(ctx, id, { player: getInstance(state, id).owner, zone: 'stage', slot }, { reason: 'EFFECT' });
       return;
     }
 

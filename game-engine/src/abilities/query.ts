@@ -119,15 +119,16 @@ export function matchesFilter(
     const traits = traitsOf(state, instanceId);
     if (!filter.traits.some((trait) => traits.includes(trait))) return false;
   }
-  if (filter.nameExcludes !== undefined && def.name.includes(filter.nameExcludes)) return false;
+  const name = nameOf(state, instanceId);
+  if (filter.nameExcludes !== undefined && name.includes(filter.nameExcludes)) return false;
   if (filter.triggersExactly && [...def.triggers].sort().join() !== [...filter.triggersExactly].sort().join()) return false;
   if (filter.anyOf && !filter.anyOf.some((part) => matchesFilter(state, instanceId, part, levelOf))) return false;
   if (filter.hasLink !== undefined && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.link === filter.hasLink)) return false;
   if (filter.hasRecollection && !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.recollection)) return false;
-  if (filter.name !== undefined && def.name !== filter.name) return false;
-  if (filter.nameIncludes !== undefined && !def.name.includes(filter.nameIncludes)) return false;
-  if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => def.name.includes(part))) return false;
-  if (filter.names !== undefined && !filter.names.includes(def.name)) return false;
+  if (filter.name !== undefined && name !== filter.name) return false;
+  if (filter.nameIncludes !== undefined && !name.includes(filter.nameIncludes)) return false;
+  if (filter.nameIncludesAny !== undefined && !filter.nameIncludesAny.some((part) => name.includes(part))) return false;
+  if (filter.names !== undefined && !filter.names.includes(name)) return false;
   if (filter.levelAtMostOwnLevel) {
     const location = getInstance(state, instanceId).location;
     if (levelOf(state, instanceId) > state.zones[location.player].level.length + (filter.ownLevelPlus ?? 0)) return false;
@@ -255,6 +256,10 @@ export function evalCondition(
     case 'SELF_RESTED': {
       const inst = getInstance(state, source);
       return inst.location.zone === 'stage' && inst.orientation === 'REST';
+    }
+    case 'SELF_STANDING': {
+      const inst = getInstance(state, source);
+      return inst.location.zone === 'stage' && inst.orientation === 'STAND';
     }
     case 'ALL_CHARACTERS':
       return stageCharacters(state, master).every((id) => matchesFilter(state, id, condition.filter));
@@ -550,6 +555,24 @@ export function handLimit(state: GameState, player: PlayerId): number {
 }
 
 let givingIcons = false;
+let namingCards = false;
+
+/**
+ * The card's name now: its printed name, or the one a continuous ability of its own gives it
+ * (このカードはカード名の「…」をすべて失い、このカードのカード名は「…」として扱う). While that is worked out, a condition
+ * that asks about names sees printed names (no loop).
+ */
+export function nameOf(state: GameState, instanceId: number): string {
+  const def = getDef(state, instanceId);
+  if (namingCards || !(def.abilities ?? []).some((ability) => ability.type === 'CONT' && ability.nameAs !== undefined)) return def.name;
+  namingCards = true;
+  try {
+    for (const { source, ability } of continuousInForce(state)) if (source.instanceId === instanceId && ability.nameAs !== undefined) return ability.nameAs;
+  } finally {
+    namingCards = false;
+  }
+  return def.name;
+}
 
 /** The trigger icons a card has: printed ones and those it gains in every zone (すべての領域にあるこのカードはトリガーアイコンに…を得る). */
 export function triggerIconsOf(state: GameState, instanceId: number): TriggerIcon[] {
@@ -605,7 +628,17 @@ export function activatedAbilitiesOf(state: GameState, instanceId: number): { in
   (getDef(state, instanceId).abilities ?? []).forEach((ability, index) => {
     if (ability.type === 'ACT') list.push({ index, ability });
   });
-  if (getInstance(state, instanceId).location.zone !== 'stage') return list;
+  // 控え室にこのカードがあり、…なら、このカードは次の能力を得る。『【起】…』: played from the waiting room (CR-2.12.2.3).
+  const inst = getInstance(state, instanceId);
+  if (inst.location.zone === 'waitingRoom') {
+    let w = 100;
+    for (const ability of getDef(state, instanceId).abilities ?? []) {
+      if (ability.type !== 'CONT' || ability.zone !== 'WAITING_ROOM' || !evalCondition(state, inst.owner, instanceId, ability.condition)) continue;
+      for (const gained of ability.gains ?? []) if (gained.type === 'ACT') list.push({ index: w++, ability: gained });
+    }
+    return list.filter((a) => a.index >= 100);
+  }
+  if (inst.location.zone !== 'stage') return list;
   // Only a card with a 【永】 that gives it a 【起】 can have more (gains are this card's own).
   if (!(getDef(state, instanceId).abilities ?? []).some((ability) => ability.type === 'CONT' && ability.gains?.some((g) => g.type === 'ACT'))) return list;
   let k = 100;
@@ -768,6 +801,14 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
       return target.slots
         .flatMap((slot) => state.zones[context.master].stage[slot])
         .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source) && matchesFilter(state, id, target.filter));
+    case 'CHOSEN_AND_SELF': {
+      const self = sourceIfUnchanged(state, context);
+      const chosen = context.chosen.flatMap((objectId) => {
+        const inst = byObjectId(state, objectId);
+        return inst ? [inst.instanceId] : [];
+      });
+      return [...chosen, ...(self && !chosen.includes(self.instanceId) ? [self.instanceId] : [])];
+    }
     case 'MILLED':
       // A card that has left the waiting room since is another card (CR-3.1.4).
       return (context.moved ?? []).filter((id) => state.instances[id] && getInstance(state, id).location.zone === 'waitingRoom');
@@ -820,6 +861,12 @@ export function chooseCandidates(
     case 'YOUR_WAITING_ROOM':
       pool = [...zones.waitingRoom];
       break;
+    case 'YOUR_HAND_OR_SELF_MARKERS': {
+      // 自分の、手札かこのカードの下のマーカーの…: the hand, and the face-up markers of this card's slot while it is that card.
+      const self = sourceIfUnchanged(state, context);
+      const markers = self && self.location.zone === 'stage' ? state.zones[self.location.player].marker[self.location.slot].filter((id) => getInstance(state, id).face === 'UP') : [];
+      return [...state.zones[context.master].hand, ...markers].filter((id) => matchesFilter(state, id, filter));
+    }
     case 'YOUR_HAND':
       pool = [...zones.hand];
       break;

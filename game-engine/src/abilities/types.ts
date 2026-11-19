@@ -83,6 +83,8 @@ export type Condition =
   | { if: 'SELF_IN_SLOT'; slots: SlotId[] }
   /** このカードが【レスト】しているなら */
   | { if: 'SELF_RESTED' }
+  /** このカードが【スタンド】している */
+  | { if: 'SELF_STANDING' }
   /** あなたのキャラすべてが…なら */
   | { if: 'ALL_CHARACTERS'; filter: CardFilter }
   /** あなたのストックがN枚以下なら */
@@ -206,7 +208,9 @@ export type Target =
   /** そのカード／そのキャラ after 山札の上から1枚を、控え室に置いてよい: the cards the most recent DECK_TOP put into the waiting room, while they are still there. */
   | { who: 'MILLED'; /** text only: そのキャラ rather than そのカード */ said?: 'CHARACTER' }
   /** この効果で舞台に置かれたキャラ: the cards this resolution put on the stage. */
-  | { who: 'PLACED' };
+  | { who: 'PLACED' }
+  /** 他の自分のキャラを1枚と、このカードを選び: the card chosen and this card (while it is still that card) */
+  | { who: 'CHOSEN_AND_SELF' };
 
 /** Where a CHOOSE picks from. The player resolving the effect chooses (CR-8.6.5). */
 /** When a delayed ability triggers: the start of the next such phase or step of whose turn (the turn start is the stand phase start, CR-6.2.1.1). */
@@ -241,6 +245,8 @@ export interface XCount {
 }
 
 export type ChooseFrom =
+  /** 自分の、手札かこのカードの下のマーカーの…: the hand and the face-up markers of this card's slot */
+  | 'YOUR_HAND_OR_SELF_MARKERS'
   | 'YOUR_STAGE'
   | 'OPPONENT_STAGE'
   | 'YOUR_WAITING_ROOM'
@@ -418,7 +424,7 @@ export type Effect =
   /** 相手は自分の思い出置場のそのキャラを、舞台の好きな枠に置く: the owner of each target puts it in a slot of their stage they choose. */
   | { do: 'OWNER_PLACES'; target: Target }
   /** …を選び、舞台のキャラのいない枠に置く: the master chooses an empty slot of the target's owner's stage for it. */
-  | { do: 'PLACE_IN_EMPTY_SLOT'; target: Target }
+  | { do: 'PLACE_IN_EMPTY_SLOT'; target: Target; /** 控え室のこのカードを…: only while this card is in the waiting room */ fromWaitingRoom?: boolean }
   /** それぞれを【スタンド】して入れ替える: the two chosen characters (or the chosen one and this card) stand and change slots. */
   | { do: 'SWAP_CHOSEN'; withSelf?: boolean }
   /**
@@ -469,6 +475,8 @@ export type Effect =
        */
       then?: Effect[];
     }
+  /** …を、舞台の別々の枠に置く: each card onto a slot of its own, chosen by the player (a character already there goes, CR-8.6.2.5.1's rule process). */
+  | { do: 'PLACE_EACH_IN_SLOT'; target: Target }
   /** そのメインフェイズ中、そのカードを、色条件を満たさずに控え室からプレイしてよい: the cards chosen may be played from the waiting room this main phase. */
   | { do: 'PERMIT_PLAY_FROM_WAITING_ROOM'; target: Target; ignoresColor: boolean }
   /** 次のNつの効果を好きな順番で1回ずつ行う。『…』『…』: every effect once, the player choosing which comes first (two effects). */
@@ -483,7 +491,12 @@ export type Effect =
 /** The trigger condition of an automatic ability (CR-8.1.1.2.1). */
 export type Trigger =
   /** このカードが(手札から)舞台に置かれた時; HAND_OR_CHANGE: 手札から舞台に置かれた時か『チェンジ』で舞台に置かれた時 */
-  | { on: 'PLACED_ON_STAGE'; from?: 'HAND' | 'HAND_OR_CHANGE' | 'HAND_OR_MEMORY' }
+  | {
+      on: 'PLACED_ON_STAGE';
+      from?: 'HAND' | 'HAND_OR_CHANGE' | 'HAND_OR_MEMORY' | /** 手札から…か「名称」の【起】の効果で舞台に置かれた時 */ 'HAND_OR_ACT';
+      /** with HAND_OR_ACT: the name of the card whose 【起】 put it there */
+      actOf?: string;
+    }
   /** このカードが手札からクライマックス置場に置かれた時 */
   | { on: 'THIS_CLIMAX_PLACED' }
   /** あなたのキャラのトリガーチェックで…がでた時 */
@@ -571,7 +584,7 @@ export interface ContinuousAbility {
   /** このカードは相手の効果に選ばれない: the opponent's effects cannot choose this card (CR-8.6.3.1). */
   untargetable?: boolean;
   /** マーカー置場にこのカードがあるなら / 思い出置場にこのカードがあるなら: the ability works while this card is a face-up marker or in memory face up, and only there (CR-2.12.2.3). */
-  zone?: 'MARKER' | 'MEMORY';
+  zone?: 'MARKER' | 'MEMORY' | /** 控え室にこのカードがあり、…なら、このカードは次の能力を得る。『【起】…』: only gains a 【起】 used there */ 'WAITING_ROOM';
   /**
    * 回想 (CR-10.20.2): the card has the two automatic abilities of the keyword. While it is face up in its master's
    * memory: when a character of theirs is put on the stage from outside the stage, with no marker under it, they may
@@ -615,6 +628,10 @@ export interface ContinuousAbility {
   noEncore?: boolean;
   /** このカードと同じカード名のカードは、デッキに好きな枚数入れることができる (a deck-building rule, CR-?; checked by the format) */
   anyNumberInDeck?: boolean;
+  /** このカードはカード名の「…」をすべて失い、このカードのカード名は「…」として扱う: the card's name while this is in force */
+  nameAs?: string;
+  /** text only, with nameAs: the name said to be lost (the card's own) */
+  saidLost?: string;
   /** すべての領域にあるこのカードはトリガーアイコンに…を得る */
   gainsTriggerIcons?: TriggerIcon[];
   /** あなたのすべての領域の…のトリガーアイコンに…を与える: cards of the master in every zone that match gain the icons while this is in force. */
@@ -636,7 +653,7 @@ export interface ContinuousAbility {
   greatPerformance?: boolean;
   condition?: Condition;
   apply: {
-    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' } | { who: 'MOVED' } | { who: 'MILLED' } | { who: 'PLACED' }>;
+    target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' } | { who: 'MOVED' } | { who: 'MILLED' } | { who: 'PLACED' } | { who: 'CHOSEN_AND_SELF' }>;
     stat: 'POWER' | 'SOUL' | 'LEVEL';
     amount: number;
     per?: PerCharacter;
@@ -652,7 +669,7 @@ export interface ContinuousAbility {
     onlyIf?: Condition;
   }[];
   /** …に『…』を与える: automatic abilities given to the targets while this ability is active. */
-  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' } | { who: 'MOVED' } | { who: 'MILLED' } | { who: 'PLACED' }>; ability: AutoAbility }[];
+  grant?: { target: Exclude<Target, { who: 'CHOSEN' } | { who: 'BATTLE_OPPONENT' } | { who: 'THAT' } | { who: 'MOVED' } | { who: 'MILLED' } | { who: 'PLACED' } | { who: 'CHOSEN_AND_SELF' }>; ability: AutoAbility }[];
 }
 
 /** 【自】 (CR-8.1.1.2) */
@@ -777,6 +794,8 @@ export interface EffectContext {
   placed?: number[];
   /** そのキャラがいた枠 (ABOUT_SLOT) */
   aboutSlot?: { player: 0 | 1; slot: SlotId } | null;
+  /** The name of the card whose 【起】 this resolution is (…の【起】の効果で舞台に置かれた時). */
+  actOf?: string;
   /** Whether the most recent MOVE or CLOCK_TOP moved a card (for そうしたら). */
   did?: boolean;
   /** Object id of the card the ability is about (その舞台に置かれたキャラ), when its trigger named one. */
