@@ -173,7 +173,8 @@ export const STS_TEST_DECK: TestDeck = {
     // 008 and 014 (batch 8): the attacking character's soul, moving the opponent's characters
     // 016, 040 and 077 (batch 9): the cards put into the waiting room from the deck, front-attacked, memory
     // 001 (batch 14): 加速's cost (a waiting-room card under the clock); its 【起】 uses the 回想 of 077
-    '025': 3, '001': 1, '045': 2, '008': 2, '054': 2, '014': 2, '073': 1, '016': 1, '040': 1, '077': 1,
+    // 039 (batch 15): a 《巡遊者》 character played from the waiting room
+    '025': 2, '039': 1, '001': 1, '045': 2, '008': 2, '054': 2, '014': 2, '073': 1, '016': 1, '040': 1, '077': 1,
     // Level 1 (14)
     // 063 (batch 10) is the counter event 星ノ塔スタッフ ベアトリス
     // 019 (batch 13): gives 黎明告げる凱旋歌 (031) the bounce icon
@@ -235,7 +236,8 @@ export const NIK_TEST_DECK: TestDeck = {
     // Level 2 (8)
     '014': 2, '041': 2, '042': 2, '105': 2,
     // Level 3 (4)
-    '035': 1, '034': 1, '107': 1, '091': 1,
+    // 030 (batch 15): its CX combo names OLD TALES (053)
+    '035': 1, '034': 1, '107': 1, '030': 1,
     // Climaxes: yellow and green
     '024': 4, '053': 4,
   }),
