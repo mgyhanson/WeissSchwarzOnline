@@ -1,11 +1,11 @@
 {
   "totals": {
     "cards": 609,
-    "playable": 571,
+    "playable": 575,
     "handWritten": 128,
-    "fromPatterns": 443,
-    "unsupported": 38,
-    "abilitiesRun": 1035
+    "fromPatterns": 447,
+    "unsupported": 34,
+    "abilitiesRun": 1044
   },
   "sets": [
     {
@@ -73,8 +73,8 @@
       "product": "ブースターパック ステラソラ",
       "cards": 100,
       "handWritten": 3,
-      "fromPatterns": 92,
-      "unsupported": 5,
+      "fromPatterns": 93,
+      "unsupported": 4,
       "pending": 0,
       "withoutText": 0
     },
@@ -93,8 +93,8 @@
       "product": "ブースターパック 勝利の女神：NIKKE Vol.2",
       "cards": 112,
       "handWritten": 2,
-      "fromPatterns": 92,
-      "unsupported": 18,
+      "fromPatterns": 95,
+      "unsupported": 15,
       "pending": 0,
       "withoutText": 0
     }
@@ -103,7 +103,7 @@
     "CLIMAX_POWER_SOUL": 43,
     "CLIMAX_SOUL": 2,
     "ASSIST": 2,
-    "YOUR_TURN_POWER": 15,
+    "YOUR_TURN_POWER": 16,
     "OPPONENT_TURN_POWER": 0,
     "EXPERIENCE_POWER": 0,
     "ENCORE_DISCARD_CHARACTER": 2,

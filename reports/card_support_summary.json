@@ -1,7 +1,7 @@
 {
  "total": 609,
- "playable": 571,
- "unsupported": 38,
+ "playable": 575,
+ "unsupported": 34,
  "bySet": [
   {
    "set": "SY_W08_TD",
@@ -144,11 +144,11 @@
   {
    "set": "STS_W140",
    "total": 100,
-   "playable": 95,
+   "playable": 96,
    "byKind": {
     "CHARACTER": {
      "total": 84,
-     "playable": 81
+     "playable": 82
     },
     "EVENT": {
      "total": 4,
@@ -190,11 +190,11 @@
   {
    "set": "NIK_S135",
    "total": 112,
-   "playable": 94,
+   "playable": 97,
    "byKind": {
     "CHARACTER": {
      "total": 90,
-     "playable": 80
+     "playable": 83
     },
     "EVENT": {
      "total": 9,
@@ -207,27 +207,22 @@
    },
    "level3": {
     "total": 13,
-    "playable": 11
+    "playable": 12
    }
   }
  ],
  "level3": {
   "total": 63,
-  "playable": 58
+  "playable": 59
  },
  "classes": {
-  "A": 12,
+  "A": 10,
   "B": 0,
   "C": 9,
-  "D": 17,
+  "D": 15,
   "E": 0
  },
  "topParts": [
-  {
-   "part": "SHAPE: （…）: （CXのレベルはNとして扱う。コストが必要なカードならコスト",
-   "unlocks": 1,
-   "cards": 1
-  },
   {
    "part": "EVENT: ［あなたの舞台のキャラをN枚控え室に置く］ あなたはコストを払ってよい。そうしたら、あなたは自分の山札を上からN枚まで見て、レベルN以上のカードをN枚まで選んで相手に見せ、N枚手札",
    "unlocks": 1,
@@ -270,6 +265,11 @@
   },
   {
    "part": "COST: あなたの舞台の「…」をN枚このカードの下にマーカーとして表向きに置く",
+   "unlocks": 0,
+   "cards": 1
+  },
+  {
+   "part": "EFFECT: あなたは自分の控え室の「…」をN枚選び、このカードがいる枠に置き、このカードの下のマーカーすべてとこのカードをその「…」の下にマーカーとして好きな順番で表向きに置く",
    "unlocks": 0,
    "cards": 1
   }
