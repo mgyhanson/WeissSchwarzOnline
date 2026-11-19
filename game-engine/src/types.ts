@@ -340,4 +340,9 @@ export interface GameState {
   abilityUses: Record<string, number>;
   /** Abilities given to cards by effects until the end of the turn. */
   grants: { objectId: number; ability: AutoAbility | ContinuousAbility; untilTurn?: number }[];
+  /**
+   * そのメインフェイズ中、そのカードを、(色条件を満たさずに)控え室からプレイしてよい: a card of the waiting room the player may
+   * play during the main phase of that turn, while it is still that card (CR-3.1.4).
+   */
+  playPermits?: { objectId: number; player: PlayerId; turn: number; ignoresColor: boolean }[];
 }

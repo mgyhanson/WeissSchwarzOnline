@@ -18,7 +18,7 @@ import { getInstance } from '../state';
 import type { CardInstance, GameState, PlayerId, SlotId, WaitingAuto } from '../types';
 import { ENCORE_COST, opponentOf } from '../types';
 import { canSee } from '../visibility';
-import { stageSlot } from '../zones';
+import { facingSlot, stageSlot } from '../zones';
 import { attackerInstance, defenderInstance } from './attack-state';
 import { ask, popFrame, pushFrame, takeAnswer, topOf } from './core';
 import { pushDamage } from './damage';
@@ -167,6 +167,10 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
             (t.from === undefined || (t.from === 'HAND' ? fromHand : t.from === 'HAND_OR_MEMORY' ? fromHand || event.from.zone === 'memory' : fromHand || byChange)),
         );
         for (const found of placed) wait(state, event.to.player, card, found, null);
+        // 絆: "手札から舞台またはプレイされて舞台に置かれた時" (CR-10.4.1): also when it is played from elsewhere.
+        if (!fromHand && event.reason === 'PLAY') {
+          for (const found of autosOf(state, card, (t) => t.on === 'PLACED_ON_STAGE' && t.from === 'HAND')) if ((found.ability.keywords ?? []).includes('BOND')) wait(state, event.to.player, card, found, null);
+        }
       }
       // 回想 (CR-10.20.2), first ability: a character of a player put on the stage from outside the stage; each face-up
       // 回想 card in that player's memory may go under it, if it has no marker then.
@@ -272,6 +276,16 @@ function registerCardTriggers(state: GameState, event: GameEvent): void {
       // このカードがフロントアタックされた時: the defending character's own abilities; its battle opponent is the attacker.
       if (defender && event.attackType === 'FRONT') {
         for (const found of autosOf(state, defender, (t) => t.on === 'THIS_FRONT_ATTACKED')) wait(state, opponentOf(event.player), defender, found, attacker.objectId);
+      }
+      // このカードの正面のキャラがアタックした時: a character of the other player facing the attacker (CR-3.6.4); about the attacker.
+      for (const source of activeSources(state)) {
+        if (source.master === event.player) continue;
+        const sourceCard = state.instances[source.instanceId] as CardInstance;
+        const at = sourceCard.location;
+        if (at.zone !== 'stage' || facingSlot(at.slot) !== event.attackerSlot) continue;
+        for (const found of autosOf(state, sourceCard, (t) => t.on === 'FACING_ATTACKS')) {
+          if (inForce(source, found.ability)) wait(state, source.master, sourceCard, found, null, null, attacker.objectId);
+        }
       }
       // 他のあなたの…のキャラがフロントアタックされた時: the defending player's other cards in force; the ability is about the defender.
       if (defender && event.attackType === 'FRONT') {

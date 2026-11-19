@@ -342,7 +342,8 @@ export function Game({ host, onLeave, leaveLabel = '回主頁', onNewGame, newGa
         <ZoneSheet
           title={`${sheet.side === seat ? '我方' : '對方'}${ZONE_ZH[sheet.zone]}`}
           cards={view.sides[sheet.side][sheet.zone]}
-          onCard={(cardId) => setSheet({ type: 'card', objectId: null, cardId })}
+          onCard={(cardId, objectId) => setSheet({ type: 'card', objectId, cardId })}
+          active={(objectId) => !!ui && ui.cardActions.has(objectId)}
           onClose={() => setSheet(null)}
         />
       )}

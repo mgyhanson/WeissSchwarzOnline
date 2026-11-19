@@ -84,6 +84,8 @@ export type PromptId =
   | 'EFFECT_DECLARE_ZONE'
   /** Choose which of the cards looked at go to the waiting room (the others stay in the deck). */
   | 'EFFECT_DECK_TO_WAITING_ROOM'
+  /** Choose which of the cards looked at go under this card as markers, face down. */
+  | 'EFFECT_UNDER_SELF'
   /** …に戻すか…に置く: choose where the cards go (options are destinations, e.g. HAND, STOCK). */
   | 'EFFECT_DESTINATION'
   /** Look at the next card from the top of your deck? (CR-3.2.3.1) */

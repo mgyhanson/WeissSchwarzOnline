@@ -67,6 +67,8 @@ export type Condition =
   | { if: 'FIRST_PLAYER_TURN'; turn: number }
   /** 相手のターン中 */
   | { if: 'OPPONENT_TURN' }
+  /** あなたのメインフェイズ中 */
+  | { if: 'YOUR_MAIN_PHASE' }
   /** クライマックス置場に「…」があるなら (the usual CX combo condition); without a name: CX置場にCXがあるなら */
   | { if: 'CLIMAX_IN_PLAY'; name?: string; /** 相手のCX置場に… */ opponent?: boolean }
   /** (他の)あなたの…のキャラがN枚以上なら */
@@ -190,7 +192,7 @@ export type Target =
   /** このカードの前のあなたのキャラすべて (CR-3.6.5) */
   | { who: 'IN_FRONT'; filter?: CardFilter }
   /** (他の)あなたの前列の中央の枠のキャラ: your characters in the named slots. */
-  | { who: 'YOUR_SLOT'; slots: SlotId[]; other?: boolean }
+  | { who: 'YOUR_SLOT'; slots: SlotId[]; other?: boolean; /** …の、「A」か「B」に / …の《X》のキャラに: only matching characters there */ filter?: CardFilter }
   /** The cards chosen by the most recent CHOOSE of this resolution. */
   | { who: 'CHOSEN' }
   /** その(舞台に置かれた)キャラ: the card the ability is about (its trigger named it). `as`: text only (そのアタックしているキャラ). */
@@ -437,7 +439,7 @@ export type Effect =
    * The player looks at cards one at a time and may stop (CR-3.2.3.1); with `keep`, chooses up to that many to
    * put back (the rest go to the waiting room); then puts them back on top in the order they choose.
    */
-  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number; /** 上からＸ枚まで見て、カードをＸ枚まで選び */ x?: boolean; /** カードを1枚選び、山札の上に置き: exactly `keep` (as many as were looked at, if fewer) go back. */ keepExact?: boolean; /** カードをN枚まで選び、山札の下に置き、残りのカードを山札の上に好きな順番で置く */ toBottom?: number; /** 山札の上に元の順番で置く: the cards are only looked at; their order stays. */ sameOrder?: boolean; /** カードをN枚まで選び、控え室に置き、残りのカードを山札に戻し: up to N of the cards looked at go to the waiting room, the others stay in the deck. */ toWaitingRoom?: number }
+  | { do: 'REORDER_TOP'; upTo: number; whose?: 'OPPONENT'; keep?: number; /** 上からＸ枚まで見て、カードをＸ枚まで選び */ x?: boolean; /** カードを1枚選び、山札の上に置き: exactly `keep` (as many as were looked at, if fewer) go back. */ keepExact?: boolean; /** カードをN枚まで選び、山札の下に置き、残りのカードを山札の上に好きな順番で置く */ toBottom?: number; /** 山札の上に元の順番で置く: the cards are only looked at; their order stays. */ sameOrder?: boolean; /** カードをN枚まで選び、このカードの下にマーカーとして裏向きに置き、残りのカードをそれぞれ山札の上に好きな順番で置くか控え室に置く: up to N under this card face down first, then `keep` as usual */ underSelf?: number; /** カードをN枚まで選び、控え室に置き、残りのカードを山札に戻し: up to N of the cards looked at go to the waiting room, the others stay in the deck. */ toWaitingRoom?: number }
   /** 相手のストックの下からN枚を、控え室に置く */
   | { do: 'STOCK_BOTTOM_TO_WAITING_ROOM'; count: number; whose: 'OPPONENT' }
   /** 自分のストックの上からN枚を、控え室に置く */
@@ -467,6 +469,8 @@ export type Effect =
        */
       then?: Effect[];
     }
+  /** そのメインフェイズ中、そのカードを、色条件を満たさずに控え室からプレイしてよい: the cards chosen may be played from the waiting room this main phase. */
+  | { do: 'PERMIT_PLAY_FROM_WAITING_ROOM'; target: Target; ignoresColor: boolean }
   /** 次のNつの効果を好きな順番で1回ずつ行う。『…』『…』: every effect once, the player choosing which comes first (two effects). */
   | { do: 'IN_ANY_ORDER'; options: Effect[][] }
   /** 次のNつの効果のうちあなたが選んだ1つを行う。『…』『…』: the player chooses one of the effects. */
@@ -511,6 +515,8 @@ export type Trigger =
   | { on: 'REVERSED'; inBattle?: boolean }
   /** 他のあなたの…のキャラが【リバース】した時: about that character (そのキャラ) */
   | { on: 'OTHER_REVERSED'; filter?: CardFilter }
+  /** このカードの正面のキャラがアタックした時 (CR-3.6.4): about that attacking character */
+  | { on: 'FACING_ATTACKS' }
   /** このカードのバトル相手が【リバース】した時 */
   /** このカードのバトル相手(でレベルN以上のキャラ)が【リバース】した時; `filter`: what the reversed character must be when it is reversed. */
   | { on: 'BATTLE_OPPONENT_REVERSED'; filter?: CardFilter; placedThisTurn?: boolean }

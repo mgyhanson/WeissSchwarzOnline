@@ -1270,6 +1270,18 @@ export function stepEffects(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>
       return;
     }
 
+    case 'PERMIT_PLAY_FROM_WAITING_ROOM': {
+      next();
+      // Only during a main phase of the master's turn: そのメインフェイズ中.
+      if (state.turn?.player !== master || state.turn.phase !== 'MAIN') return;
+      for (const id of resolveTarget(state, context, effect.target)) {
+        const inst = getInstance(state, id);
+        if (inst.location.zone !== 'waitingRoom') continue;
+        (state.playPermits ??= []).push({ objectId: inst.objectId, player: master, turn: state.turn.number, ignoresColor: effect.ignoresColor });
+      }
+      return;
+    }
+
     case 'IN_ANY_ORDER': {
       // 好きな順番で: the player says which is done first; the other follows (CR-8.6.5: the master does both).
       if (frame.step === 0) {
@@ -1518,7 +1530,8 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
   const whose = effect.whose === 'OPPONENT' ? opponentOf(master) : master;
   const deck = state.zones[whose].deck;
   const split = frame.scratch.indexOf(-1);
-  const looked = split < 0 ? frame.scratch : frame.scratch.slice(0, split);
+  // -2 marks that the cards for under this card were asked about (underSelf); it is not a card.
+  const looked = (split < 0 ? frame.scratch : frame.scratch.slice(0, split)).filter((id) => id !== -2);
   const ordered = split < 0 ? [] : frame.scratch.slice(split + 1);
   const objects = (ids: readonly number[]) => ids.map((id) => getInstance(state, id).objectId);
   // The cards looked at are in this deck: the opponent's when the effect looks there (CR-8.6.6).
@@ -1541,6 +1554,12 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
     return;
   }
   if (frame.step === 2) {
+    // カードをN枚まで選び、このカードの下にマーカーとして裏向きに置き: asked first; those cards leave the cards looked at.
+    if (effect.underSelf !== undefined && looked.length > 0 && !frame.scratch.includes(-2)) {
+      frame.step = 7;
+      ask(ctx, { kind: 'SELECT_CARDS', player: master, prompt: 'EFFECT_UNDER_SELF', cards: objects(looked), min: 0, max: Math.min(effect.underSelf, looked.length), ...seen, look: lookMap(state, looked) });
+      return;
+    }
     // 山札の上に元の順番で置く: only looked at.
     if (effect.sameOrder) {
       next();
@@ -1570,6 +1589,16 @@ function stepReorderTop(ctx: Ctx, frame: Extract<Frame, { kind: 'EFFECTS' }>, ef
     if (effect.keep !== undefined || effect.toBottom !== undefined) frame.context.chosen = [];
     frame.scratch = [...looked, -1];
     frame.step = 4;
+    return;
+  }
+  if (frame.step === 7) {
+    const under = takeAnswer(ctx, 'SELECT_CARDS').cards.map((objectId) => findObject(state, objectId).instanceId);
+    const self = getInstance(state, frame.context.source);
+    // Face down under this card (CR-3.7.2) while it is still that card on the stage; otherwise they stay with the rest.
+    const placed = self.objectId === frame.context.sourceObjectId && self.location.zone === 'stage' ? under : [];
+    frame.scratch = [...looked.filter((id) => !placed.includes(id)), -2];
+    frame.step = 2;
+    if (self.location.zone === 'stage') for (const id of placed) moveCard(ctx, id, { player: self.location.player, zone: 'marker', slot: self.location.slot }, { reason: 'EFFECT', face: 'DOWN' });
     return;
   }
   if (frame.step === 6) {

@@ -183,6 +183,8 @@ export function evalCondition(
       return !!state.turn && state.turn.player === state.firstPlayer && state.turn.number === condition.turn * 2 - 1;
     case 'OPPONENT_TURN':
       return state.turn !== null && state.turn.player !== master;
+    case 'YOUR_MAIN_PHASE':
+      return state.turn?.player === master && state.turn.phase === 'MAIN';
     case 'CLIMAX_IN_PLAY':
       return (condition.opponent ? state.zones[opponentOf(master)] : zones).climax.some((id) => getDef(state, id).kind === 'CLIMAX' && (condition.name === undefined || getDef(state, id).name === condition.name));
     case 'CHARACTERS': {
@@ -298,7 +300,7 @@ function continuousTargets(
     case 'YOUR_SLOT':
       return target.slots
         .flatMap((slot) => state.zones[source.master].stage[slot])
-        .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === source.instanceId));
+        .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === source.instanceId) && matchesFilter(state, id, target.filter, levelOf));
     case 'MARKER_HOLDER':
       return markerHolder(state, source.instanceId).filter((id) => matchesFilter(state, id, target.filter, levelOf));
   }
@@ -765,7 +767,7 @@ export function resolveTarget(state: GameState, context: EffectContext, target: 
     case 'YOUR_SLOT':
       return target.slots
         .flatMap((slot) => state.zones[context.master].stage[slot])
-        .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source));
+        .filter((id) => getDef(state, id).kind === 'CHARACTER' && !(target.other && id === context.source) && matchesFilter(state, id, target.filter));
     case 'MILLED':
       // A card that has left the waiting room since is another card (CR-3.1.4).
       return (context.moved ?? []).filter((id) => state.instances[id] && getInstance(state, id).location.zone === 'waitingRoom');

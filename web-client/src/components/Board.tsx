@@ -33,12 +33,13 @@ export function zoneAnchor(player: PlayerId, zone: string, slot?: SlotId): strin
   return slot ? `p${player}-${zone}-${slot}` : `p${player}-${zone}`;
 }
 
-function Pile({ title, cards, onOpen, area, faceUp = true, anchor }: { title: string; cards: readonly CardView[]; onOpen?: () => void; area: string; faceUp?: boolean; anchor: string }) {
+/** `active`: a card in the pile has something to do now (the pile glows; open it to see which). */
+function Pile({ title, cards, onOpen, area, faceUp = true, anchor, active = false }: { title: string; cards: readonly CardView[]; onOpen?: () => void; area: string; faceUp?: boolean; anchor: string; active?: boolean }) {
   const card = top(cards);
   return (
     <div className={`zone zone-${area}`} style={{ gridArea: area }} data-zone={anchor}>
       <button type="button" className="pile" onClick={onOpen} disabled={!onOpen} aria-label={`${title}：${cards.length} 張`}>
-        {card ? <CardFace cardId={faceUp && !card.hidden ? card.cardId : null} size="small" /> : <span className="empty-frame" />}
+        {card ? <CardFace cardId={faceUp && !card.hidden ? card.cardId : null} size="small" active={active} /> : <span className="empty-frame" />}
         <span className="count">{cards.length}</span>
       </button>
       <span className="zone-label">{title}</span>
@@ -96,7 +97,7 @@ export function Side({ view, side, ui, picked, onCard, onZone, onSlot }: SidePro
         <span className="zone-label">Climax</span>
       </div>
       <Pile title={ZONE_ZH.deck} cards={zones.deck} area="dk" faceUp={false} anchor={zoneAnchor(side, 'deck')} />
-      <Pile title={ZONE_ZH.waitingRoom} cards={zones.waitingRoom} area="wr" onOpen={() => onZone(side, 'waitingRoom')} anchor={zoneAnchor(side, 'waitingRoom')} />
+      <Pile title={ZONE_ZH.waitingRoom} cards={zones.waitingRoom} area="wr" onOpen={() => onZone(side, 'waitingRoom')} anchor={zoneAnchor(side, 'waitingRoom')} active={!!ui && zones.waitingRoom.some((c) => !c.hidden && ui.cardActions.has(c.objectId))} />
       <div className="zone zone-lv" style={{ gridArea: 'lv' }} data-zone={zoneAnchor(side, 'level')}>
         <button type="button" className="level-stack" onClick={() => onZone(side, 'level')} aria-label={`Level ${zones.level.length}`}>
           {zones.level.map((card, i) => (

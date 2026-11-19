@@ -137,6 +137,7 @@ export const PROMPT_ZH: Record<PromptId, string> = {
   EFFECT_DECK_BOTTOM: '請選擇要放到山札底的卡，其餘按你選的次序放回山札頂。',
   EFFECT_DECLARE_ZONE: '請宣言要查看自己的山札還是控え室（宣言山札的話，之後會洗牌）。',
   EFFECT_DECK_TO_WAITING_ROOM: '請選擇要放到控え室的卡（其餘留在山札）。',
+  EFFECT_UNDER_SELF: '請選擇要以裏向放到這張卡下面作為 Marker 的卡。',
   LOOK_NEXT: '要再查看山札頂的下一張卡嗎？',
   DRAW_NEXT: '要再抽 1 張嗎？',
   DECK_TOP_NEXT: '要再把山札頂 1 張放過去嗎？',

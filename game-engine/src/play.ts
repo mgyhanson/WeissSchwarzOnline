@@ -51,6 +51,25 @@ export function canPlayFromHand(state: GameState, player: PlayerId, instanceId: 
   );
 }
 
+/** そのメインフェイズ中、…控え室からプレイしてよい: the permit for this waiting-room card now, if any. */
+function permitFor(state: GameState, player: PlayerId, instanceId: number): { ignoresColor: boolean } | undefined {
+  const inst = getInstance(state, instanceId);
+  if (inst.location.zone !== 'waitingRoom' || inst.location.player !== player || state.turn?.phase !== 'MAIN' || state.turn.player !== player) return undefined;
+  return (state.playPermits ?? []).find((p) => p.objectId === inst.objectId && p.player === player && p.turn === state.turn!.number);
+}
+
+/**
+ * A character the player may play from the waiting room (a permit): the play goes as from the hand (CR-8.6.2), with the
+ * level condition and the cost; the colour condition only when the permit keeps it.
+ */
+function canPlayFromWaitingRoom(state: GameState, player: PlayerId, instanceId: number): boolean {
+  const permit = permitFor(state, player, instanceId);
+  if (!permit) return false;
+  const def = getDef(state, instanceId);
+  const level = Math.max(0, getCardLevel(state, instanceId));
+  return def.kind === 'CHARACTER' && (permit.ignoresColor || meetsColorCondition(state, player, def, level)) && meetsLevelCondition(state, player, def, level) && state.zones[player].stock.length >= stockCost(def);
+}
+
 /** CR-6.5.1.2: every action the turn player may take at a main phase play timing. */
 export function listMainActions(state: GameState, player: PlayerId): MainAction[] {
   const actions: MainAction[] = [];
@@ -66,6 +85,12 @@ export function listMainActions(state: GameState, player: PlayerId): MainAction[
     } else if (def.kind === 'EVENT') {
       actions.push({ type: 'PLAY_EVENT', card });
     }
+  }
+
+  for (const id of zones.waitingRoom) {
+    if (!canPlayFromWaitingRoom(state, player, id)) continue;
+    const card = getInstance(state, id).objectId;
+    for (const slot of SLOTS) actions.push({ type: 'PLAY_CHARACTER', card, slot });
   }
 
   // CR-6.5.1.2.3: activated abilities of the player's characters on the stage.
@@ -117,7 +142,7 @@ export function payStock(ctx: Ctx, player: PlayerId, count: number): void {
  */
 function playFromHand(ctx: Ctx, player: PlayerId, instanceId: number, slot?: SlotId): void {
   const state = ctx.state;
-  if (!canPlayFromHand(state, player, instanceId)) {
+  if (!canPlayFromHand(state, player, instanceId) && !canPlayFromWaitingRoom(state, player, instanceId)) {
     throw new Error('Engine bug: tried to play a card that cannot be played');
   }
   const def = getDef(state, instanceId);

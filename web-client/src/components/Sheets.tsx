@@ -151,7 +151,21 @@ export function CardSheet({
   );
 }
 
-export function ZoneSheet({ title, cards, onCard, onClose }: { title: string; cards: readonly CardView[]; onCard: (cardId: string) => void; onClose: () => void }) {
+export function ZoneSheet({
+  title,
+  cards,
+  onCard,
+  active,
+  onClose,
+}: {
+  title: string;
+  cards: readonly CardView[];
+  /** The card opened, with its object id (its actions, if any, are offered on it). */
+  onCard: (cardId: string, objectId: number) => void;
+  /** Cards with something to do now (e.g. a character that may be played from the waiting room). */
+  active?: (objectId: number) => boolean;
+  onClose: () => void;
+}) {
   // Newest first: the top card of a zone is the last one.
   const ordered = [...cards].reverse();
   return (
@@ -161,7 +175,7 @@ export function ZoneSheet({ title, cards, onCard, onClose }: { title: string; ca
       ) : (
         <div className="card-grid">
           {ordered.map((card, i) => (
-            <CardFace key={i} cardId={card.hidden ? null : card.cardId} onClick={card.hidden ? undefined : () => onCard(card.cardId)} />
+            <CardFace key={i} cardId={card.hidden ? null : card.cardId} active={!card.hidden && !!active?.(card.objectId)} onClick={card.hidden ? undefined : () => onCard(card.cardId, card.objectId)} />
           ))}
         </div>
       )}
