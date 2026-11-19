@@ -206,7 +206,8 @@ export const ANM_TEST_DECK: TestDeck = {
     // 069 and 083 (batch 12): ＋Ｘ by the opponent's characters; －Ｘ by the other 《風》 characters
     // 019 (batch 13): 加速 (a waiting-room card under the clock)
     // 007 (batch 14): its CX combo names わけ与える命 (not in this deck); its 【永】 works
-    '020': 1, '041': 1, '057': 1, '029': 2, '030': 1, '046': 1, '087': 1, '084': 1, '069': 1, '083': 1, '019': 1, '007': 1,
+    // 018 and 071 (batch 16): named 亮 without a marker; to memory and back at the next draw phase
+    '018': 1, '071': 1, '057': 1, '029': 2, '030': 1, '046': 1, '087': 1, '084': 1, '069': 1, '083': 1, '019': 1, '007': 1,
     // Level 2 (7)
     '042': 2, '064': 2, '094': 1, '095': 2,
     // Level 3 (6): five characters and the event
@@ -234,10 +235,12 @@ export const NIK_TEST_DECK: TestDeck = {
     // 101 (batch 12): ＋Ｘ by your level
     '008': 4, '072': 1, '101': 1, '104': 2, '073': 2, '074': 2,
     // Level 2 (8)
-    '014': 2, '041': 2, '042': 2, '105': 2,
+    // 033 (batch 16): its CX combo swaps in シンデレラ (030)
+    '014': 1, '033': 1, '041': 2, '042': 2, '105': 2,
     // Level 3 (4)
     // 030 (batch 15): its CX combo names OLD TALES (053)
-    '035': 1, '034': 1, '107': 1, '030': 1,
+    // 010 (batch 16): its 【起】 in the waiting room puts it back on the stage
+    '035': 1, '034': 1, '010': 1, '030': 1,
     // Climaxes: yellow and green
     '024': 4, '053': 4,
   }),
